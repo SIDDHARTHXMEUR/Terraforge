@@ -162,27 +162,8 @@ npm run build
 ```
 Generates optimized static assets in the `dist/` directory.
 
----
-
-## 🎓 Viva Voice Q&A / Technical Defense Cheat Sheet
-
-### Q1: Why did you use custom GLSL shaders instead of standard `MeshStandardMaterial` for the planet?
-> **Answer**: `MeshStandardMaterial` does not support multi-texture blending (Albedo + Landmask + Cloud Alpha + Emissive Night Lights) driven by dynamic uniform parameters like temperature in a single pass. Our custom GLSL `PlanetShader` calculates day/night lighting, specular glint, land/ocean color transitions, atmospheric Fresnel scattering, and emissive night city lights directly on the GPU in a single vertex/fragment pass.
-
-### Q2: How is the Composite Transformation Matrix calculated?
-> **Answer**: Transformations follow $M = T \times R \times S$. Because matrix multiplication is non-commutative ($A \cdot B \neq B \cdot A$), scaling ($S$) must be applied first to the local geometry, followed by rotation ($R$), and finally translation ($T$) to world position. If translation were applied first, rotation would orbit the object around the origin rather than rotating around its own center.
-
-### Q3: How do you prevent Z-fighting when rendering objects at massive astronomical distances?
-> **Answer**: We enable `logarithmicDepthBuffer: true` on the WebGL canvas renderer. Standard linear depth buffers distribute precision evenly across the frustum, causing z-fighting at large distances. Logarithmic depth buffering allocates higher depth buffer precision near the camera while exponentially distributing precision across far distances (up to 30,000 units), guaranteeing clean rendering without Z-buffer flickering.
-
-### Q4: How is tidal locking implemented for the Moon?
-> **Answer**: Tidal locking means the Moon's rotation period equals its orbital period around Earth ($1:1$ resonance). In code, we update the Moon's local Y-axis rotation relative to its orbital angle $\phi_{orbit}$:
-> $$\theta_{moon} = -\phi_{orbit} + \frac{\pi}{2}$$
-> This keeps the exact same hemisphere of the Moon facing Earth at all points in its orbit.
-
----
-
 ## 📜 License & Credits
 
 Developed by **Siddharth** for the **RTU Computer Graphics & Multimedia (CGM)** Laboratory Evaluation.  
 Engineered with React, Three.js, WebGL2, and GLSL.
+
