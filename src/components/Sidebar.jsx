@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Globe2,
   Play,
@@ -17,7 +17,8 @@ import {
   Sun,
   Snowflake,
   Flame,
-  Check
+  Check,
+  Calendar
 } from 'lucide-react';
 import { PRESETS } from '../data/presets';
 import { TransformPanel } from './TransformPanel';
@@ -39,7 +40,8 @@ export function Sidebar({
   toggleCameraMode,
   triggerCameraReset,
   activeDrawer,
-  toggleDrawer
+  toggleDrawer,
+  elapsedDays
 }) {
   const [isPinned, setIsPinned] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
@@ -89,6 +91,22 @@ export function Sidebar({
       console.error('Screenshot failed:', err);
     }
   }, []);
+
+  // Calculate simulated calendar date from elapsedDays
+  const formattedSimDate = useMemo(() => {
+    const days = elapsedDays || 0;
+    const startDate = new Date(2026, 0, 1);
+    const currDate = new Date(startDate.getTime() + days * 86400000);
+    const dayNum = Math.floor(days) + 1;
+    const monthStr = currDate.toLocaleDateString('en-US', { month: 'short' });
+    const dayStr = String(currDate.getDate()).padStart(2, '0');
+    const yearStr = currDate.getFullYear();
+    return {
+      dayNum,
+      dateStr: `${dayStr} ${monthStr} ${yearStr}`,
+      display: `Day ${dayNum} • ${dayStr} ${monthStr} ${yearStr}`
+    };
+  }, [elapsedDays]);
 
   const expanded = isPinned || isHovered;
 
@@ -342,6 +360,26 @@ export function Sidebar({
             <h4 className="font-outfit font-semibold text-xs text-[#00f2fe] uppercase tracking-wider flex items-center gap-2">
               <Eye className="w-4 h-4" /> View & Camera Controls
             </h4>
+          </div>
+
+          {/* Simulated Date / Time Readout */}
+          <div className="bg-black/50 p-2.5 rounded-xl border border-white/10 flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className="p-1.5 rounded-lg bg-[#00f2fe]/20 text-[#00f2fe]">
+                <Calendar className="w-4 h-4" />
+              </div>
+              <div>
+                <div className="text-[9px] font-mono text-gray-400 uppercase tracking-wider">Simulated Date</div>
+                <div className="text-xs font-mono font-bold text-[#00f2fe]">
+                  {formattedSimDate.display}
+                </div>
+              </div>
+            </div>
+            <span className={`px-1.5 py-0.5 rounded text-[9px] font-mono font-bold uppercase ${
+              sim.isPlaying ? 'bg-[#00f2fe]/20 text-[#00f2fe] border border-[#00f2fe]/40' : 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+            }`}>
+              {sim.isPlaying ? 'LIVE' : 'PAUSED'}
+            </span>
           </div>
 
           {/* Perspective / Orthographic Toggle */}

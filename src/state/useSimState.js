@@ -43,6 +43,9 @@ export function useSimState() {
   const [cameraResetCount, setCameraResetCount] = useState(0);
   const [cameraPunchCount, setCameraPunchCount] = useState(0);
 
+  // Simulated Elapsed Days State
+  const [elapsedDays, setElapsedDays] = useState(0);
+
   // Lerp Animation Ref
   const lerpAnimationRef = useRef(null);
 
@@ -135,6 +138,7 @@ export function useSimState() {
 
   const triggerCameraReset = () => {
     setCameraResetCount((prev) => prev + 1);
+    setElapsedDays(0);
   };
 
   return {
@@ -155,6 +159,8 @@ export function useSimState() {
     toggleCameraMode,
     cameraResetCount,
     triggerCameraReset,
-    cameraPunchCount
+    cameraPunchCount,
+    elapsedDays,
+    setElapsedDays
   };
 }

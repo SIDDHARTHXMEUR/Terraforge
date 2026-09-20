@@ -60,6 +60,8 @@ This project directly implements all **10 Core Topics** of the RTU Computer Grap
 
 ### 1. Astronomical Kinematics & Scale Modes
 - **Real Astronomical Ratios**: Earth axial tilt of $23.44^\circ$, Moon orbital inclination of $5.14^\circ$, Moon-to-Earth size ratio of $0.273$, and tidal lock ratio where rotation matches orbital period ($27.3\times$).
+- **Fading Moon Orbit Trail**: Dynamic rolling buffer of recent Moon positions rendered as a vertex-colored arc fading from full electric cyan at the Moon's location to transparent space.
+- **Simulated Date/Time Readout**: Live calendar date & day counter readout (`Day X • DD MMM YYYY`) in the View flyout drawer driven by 1 Earth rotation = 1 Earth-day, pausing when motion is paused and resetting on view reset.
 - **True Scale Mode**: Toggle between cinematic view ($12\times$ Moon orbit radius) and astronomical True Scale mode ($60.3$ Earth radii distance).
 
 ### 2. Procedural & Shader-Driven Dynamic Planets

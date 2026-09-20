@@ -1,5 +1,5 @@
-import React, { Suspense } from 'react';
-import { Canvas } from '@react-three/fiber';
+import React, { Suspense, useRef, useEffect } from 'react';
+import { Canvas, useFrame } from '@react-three/fiber';
 import { useSimState } from './state/useSimState';
 import { Planet } from './components/Planet';
 import { Sun } from './components/Sun';
@@ -9,6 +9,32 @@ import { CameraRig } from './components/CameraRig';
 import { Sidebar } from './components/Sidebar';
 import { FirstLoadHint } from './components/FirstLoadHint';
 import { LoadingScreen } from './components/LoadingScreen';
+
+// Helper component to track elapsed simulation days per frame
+function SimTimeTracker({ sim, setElapsedDays, cameraResetCount }) {
+  const accumRef = useRef(0);
+  const lastFlushRef = useRef(0);
+
+  useEffect(() => {
+    accumRef.current = 0;
+  }, [cameraResetCount]);
+
+  useFrame((_, delta) => {
+    if (!sim.isPlaying) return;
+    // 1 full Earth rotation = 2 * PI radians
+    // baseSpeed = sim.rotationSpeed * delta * 0.4
+    const deltaDays = (sim.rotationSpeed * delta * 0.4) / (2 * Math.PI);
+    accumRef.current += deltaDays;
+
+    const now = performance.now();
+    if (now - lastFlushRef.current > 100) {
+      lastFlushRef.current = now;
+      setElapsedDays(accumRef.current);
+    }
+  });
+
+  return null;
+}
 
 export default function App() {
   const {
@@ -29,7 +55,9 @@ export default function App() {
     toggleCameraMode,
     cameraResetCount,
     triggerCameraReset,
-    cameraPunchCount
+    cameraPunchCount,
+    elapsedDays,
+    setElapsedDays
   } = useSimState();
 
   return (
@@ -51,10 +79,11 @@ export default function App() {
             cameraPunchCount={cameraPunchCount}
             isTrueScale={isTrueScale}
           />
+          <SimTimeTracker sim={sim} setElapsedDays={setElapsedDays} cameraResetCount={cameraResetCount} />
           <Starfield />
           <Sun isTrueScale={isTrueScale} />
           <Planet transform={transform} sim={sim} showOrbits={showOrbits} />
-          <Moon planetTransform={transform} sim={sim} isTrueScale={isTrueScale} showOrbits={showOrbits} />
+          <Moon planetTransform={transform} sim={sim} isTrueScale={isTrueScale} showOrbits={showOrbits} cameraResetCount={cameraResetCount} />
         </Canvas>
       </Suspense>
 
@@ -76,6 +105,7 @@ export default function App() {
         triggerCameraReset={triggerCameraReset}
         activeDrawer={activeDrawer}
         toggleDrawer={toggleDrawer}
+        elapsedDays={elapsedDays}
       />
     </div>
   );
