@@ -75,7 +75,7 @@ This project directly implements all **10 Core Topics** of the RTU Computer Grap
 - **Docked Flyout Panels**:
   - **World**: Quick preset switcher (Keys `1`, `2`, `3`).
   - **Climate**: Temperature (-60°C to +60°C), cloud coverage, atmospheric intensity, and rotation speed sliders.
-  - **Transform**: Matrix inspector with translation, rotation, scaling sliders, Local Object Axes toggle, Composite Mode toggle, and live $4 \times 4$ float matrix output.
+  - **Transform**: Interactive 3D Viewport Gizmo handles (Move arrows, Rotation rings, Scale handles) synchronized in real time with matrix controls, quick zero resets, mode switcher tabs (`Move`, `Rotate`, `Scale`), Composite Mode toggle, and live $4 \times 4$ float matrix HUD output.
   - **View**: Perspective/Orthographic camera mode toggle, True Scale mode, Orbit path overlays, Reset camera (`R`), and Canvas PNG Screenshot Exporter.
 
 ---

@@ -22,32 +22,19 @@ html, body, #root {
 
 /* Solar Smash Minimal Glass Floating UI */
 .solar-floating-bar {
-  background: rgba(10, 10, 10, 0.85);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  background: rgba(15, 17, 21, 0.85);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
   border: 1px solid rgba(255, 255, 255, 0.12);
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.9), 0 0 15px rgba(0, 242, 254, 0.15);
 }
 
 .solar-drawer {
-  background: rgba(12, 12, 12, 0.92);
+  background: rgba(15, 17, 21, 0.92);
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  box-shadow: 0 -20px 40px rgba(0, 0, 0, 0.95);
-}
-
-/* Cyan Electric Accent */
-.accent-cyan {
-  color: #00f2fe;
-}
-
-.border-accent-cyan {
-  border-color: rgba(0, 242, 254, 0.5);
-}
-
-.bg-accent-cyan {
-  background-color: #00f2fe;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.95), 0 0 20px rgba(0, 242, 254, 0.08);
 }
 
 /* Custom Scrollbar */
@@ -62,12 +49,69 @@ html, body, #root {
   border-radius: 4px;
 }
 
-/* Solar Sliders */
+/* Solar Range Sliders (Cyan, Amber, Rose accents) */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 9999px;
+  height: 4px;
+  outline: none;
+}
+
 input[type="range"]::-webkit-slider-thumb {
-  width: 12px;
-  height: 12px;
+  -webkit-appearance: none;
+  appearance: none;
+  width: 13px;
+  height: 13px;
   border-radius: 50%;
   background: #00f2fe;
-  box-shadow: 0 0 10px #00f2fe;
+  box-shadow: 0 0 10px rgba(0, 242, 254, 0.8), 0 0 4px #00f2fe;
   cursor: pointer;
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+
+input[type="range"]::-webkit-slider-thumb:hover {
+  transform: scale(1.25);
+}
+
+input[type="range"].accent-amber-400::-webkit-slider-thumb {
+  background: #f59e0b;
+  box-shadow: 0 0 10px rgba(245, 158, 11, 0.8), 0 0 4px #f59e0b;
+}
+
+input[type="range"].accent-rose-400::-webkit-slider-thumb {
+  background: #f43f5e;
+  box-shadow: 0 0 10px rgba(244, 63, 94, 0.8), 0 0 4px #f43f5e;
+}
+
+input[type="range"].accent-emerald-500::-webkit-slider-thumb {
+  background: #10b981;
+  box-shadow: 0 0 10px rgba(16, 185, 129, 0.8), 0 0 4px #10b981;
+}
+
+/* Firefox Range Sliders */
+input[type="range"]::-moz-range-thumb {
+  width: 13px;
+  height: 13px;
+  border: none;
+  border-radius: 50%;
+  background: #00f2fe;
+  box-shadow: 0 0 10px rgba(0, 242, 254, 0.8);
+  cursor: pointer;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }

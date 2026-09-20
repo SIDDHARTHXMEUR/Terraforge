@@ -1,6 +1,6 @@
 import React, { useRef, useMemo } from 'react';
 import { useFrame } from '@react-three/fiber';
-import { useTexture } from '@react-three/drei';
+import { useTexture, TransformControls } from '@react-three/drei';
 import * as THREE from 'three';
 
 // Earth's Real Astronomical Axial Tilt: 23.44 degrees (0.4091 rad)
@@ -149,10 +149,12 @@ const PlanetShader = {
   `
 };
 
-function PlanetMesh({ transform, sim, showOrbits }) {
+function PlanetMesh({ transform, updateTransform, sim, showOrbits, activeDrawer }) {
+  const groupRef = useRef();
   const planetRef = useRef();
   const cloudsRef = useRef();
   const shaderRef = useRef();
+  const isDraggingRef = useRef(false);
 
   // Load Earth Texture Pack
   const [albedoMap, bumpMap, cloudsMap, landmaskMap, nightlightsMap] = useTexture([
@@ -230,7 +232,7 @@ function PlanetMesh({ transform, sim, showOrbits }) {
       shaderRef.current.uniforms.uSunDirection.value.copy(dirToSun);
     }
 
-    if (!sim.isPlaying) return;
+    if (!sim.isPlaying || isDraggingRef.current) return;
     const baseSpeed = sim.rotationSpeed * delta * 0.4;
 
     if (cloudsRef.current) {
@@ -262,10 +264,41 @@ function PlanetMesh({ transform, sim, showOrbits }) {
     transform.scaleX, transform.scaleY, transform.scaleZ
   ]);
 
+  const showInSceneGizmo = transform.showGizmo !== false && (activeDrawer === 'transform' || transform.showGizmo);
+
   return (
     <group>
+      {/* 3D Interactive In-Scene Transform Gizmo Handles */}
+      {showInSceneGizmo && groupRef.current && (
+        <TransformControls
+          object={groupRef.current}
+          mode={transform.gizmoMode || 'translate'}
+          size={0.65}
+          space="world"
+          onMouseDown={() => { isDraggingRef.current = true; }}
+          onMouseUp={() => { isDraggingRef.current = false; }}
+          onChange={() => {
+            if (groupRef.current && updateTransform) {
+              const p = groupRef.current.position;
+              const r = groupRef.current.rotation;
+              const s = groupRef.current.scale;
+              updateTransform('posX', Number(p.x.toFixed(2)));
+              updateTransform('posY', Number(p.y.toFixed(2)));
+              updateTransform('posZ', Number(p.z.toFixed(2)));
+              updateTransform('rotX', Number(r.x.toFixed(2)));
+              updateTransform('rotY', Number(r.y.toFixed(2)));
+              updateTransform('rotZ', Number((r.z - EARTH_AXIAL_TILT).toFixed(2)));
+              updateTransform('scaleX', Number(s.x.toFixed(2)));
+              updateTransform('scaleY', Number(s.y.toFixed(2)));
+              updateTransform('scaleZ', Number(s.z.toFixed(2)));
+            }
+          }}
+        />
+      )}
+
       {/* Earth Planet Sphere Group with 23.44° Axial Tilt */}
       <group
+        ref={groupRef}
         matrixAutoUpdate={transform.composite}
         matrix={transform.composite ? matrix : undefined}
         position={!transform.composite ? [transform.posX, transform.posY, transform.posZ] : [0, 0, 0]}
@@ -340,10 +373,16 @@ function PlanetMesh({ transform, sim, showOrbits }) {
   );
 }
 
-export function Planet({ transform, sim, showOrbits }) {
+export function Planet({ transform, updateTransform, sim, showOrbits, activeDrawer }) {
   return (
     <React.Suspense fallback={null}>
-      <PlanetMesh transform={transform} sim={sim} showOrbits={showOrbits} />
+      <PlanetMesh
+        transform={transform}
+        updateTransform={updateTransform}
+        sim={sim}
+        showOrbits={showOrbits}
+        activeDrawer={activeDrawer}
+      />
     </React.Suspense>
   );
 }

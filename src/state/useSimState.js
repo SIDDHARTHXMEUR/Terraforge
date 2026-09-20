@@ -14,7 +14,9 @@ export function useSimState() {
     scaleY: 1,
     scaleZ: 1,
     composite: false,
-    showAxes: false
+    showAxes: false,
+    gizmoMode: 'translate',
+    showGizmo: true
   });
 
   // Simulation Controls State
