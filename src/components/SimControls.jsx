@@ -3,10 +3,10 @@ import { Thermometer, Cloud, Sun, RotateCw, Sliders, X } from 'lucide-react';
 
 export function SimControls({ sim, updateSim, onClose }) {
   return (
-    <div className="solar-drawer bg-[#0f1115]/95 backdrop-blur-2xl border border-white/10 p-4 rounded-2xl text-white space-y-4 w-80 shadow-2xl animate-fade-in">
+    <div className="solar-drawer bg-[#0b0d11]/95 backdrop-blur-2xl border border-white/10 p-4 rounded-2xl text-white space-y-4 w-80 max-h-[calc(100vh-140px)] overflow-y-auto shadow-2xl animate-fade-in custom-scrollbar">
       <div className="flex items-center justify-between border-b border-white/10 pb-2.5">
-        <h3 className="font-outfit font-bold text-xs flex items-center gap-2 text-[#00f2fe] uppercase tracking-wider">
-          <Sliders className="w-4 h-4 text-[#00f2fe]" /> Simulation Parameters
+        <h3 className="font-outfit font-bold text-xs flex items-center gap-2 text-cyan-400 uppercase tracking-wider">
+          <Sliders className="w-4 h-4 text-cyan-400" /> Simulation Parameters
         </h3>
         <button
           onClick={onClose}

@@ -336,14 +336,14 @@ export function Sidebar({
 
       {/* FLYOUT 2: CLIMATE (SIMULATION PARAMETERS) */}
       {activeFlyout === 'sim' && (
-        <div className="absolute top-24 left-full ml-3 z-40">
+        <div className="absolute top-12 left-full ml-3 z-40">
           <SimControls sim={sim} updateSim={updateSim} onClose={() => toggleDrawer('sim')} />
         </div>
       )}
 
       {/* FLYOUT 3: TRANSFORM MATRIX */}
       {activeFlyout === 'transform' && (
-        <div className="absolute top-32 left-full ml-3 z-40">
+        <div className="absolute top-12 left-full ml-3 z-40">
           <TransformPanel
             transform={transform}
             updateTransform={updateTransform}
@@ -355,7 +355,7 @@ export function Sidebar({
 
       {/* FLYOUT 4: VIEW OPTIONS (CONSOLIDATED) */}
       {activeFlyout === 'view' && (
-        <div className="absolute top-40 left-full ml-3 z-40 solar-drawer p-4 rounded-2xl w-72 border border-white/15 text-white shadow-2xl animate-fade-in space-y-3">
+        <div className="absolute top-12 left-full ml-3 z-40 solar-drawer p-4 rounded-2xl w-72 max-h-[calc(100vh-100px)] overflow-y-auto border border-white/15 text-white shadow-2xl animate-fade-in space-y-3 custom-scrollbar">
           <div className="flex items-center justify-between border-b border-white/10 pb-2">
             <h4 className="font-outfit font-semibold text-xs text-[#00f2fe] uppercase tracking-wider flex items-center gap-2">
               <Eye className="w-4 h-4" /> View & Camera Controls
