@@ -78,6 +78,14 @@ This project directly implements all **10 Core Topics** of the RTU Computer Grap
   - **Transform**: Interactive 3D Viewport Gizmo handles (Move arrows, Rotation rings, Scale handles) synchronized in real time with matrix controls, quick zero resets, mode switcher tabs (`Move`, `Rotate`, `Scale`), Composite Mode toggle, and live $4 \times 4$ float matrix HUD output.
   - **View**: Perspective/Orthographic camera mode toggle, True Scale mode, Orbit path overlays, Reset camera (`R`), and Canvas PNG Screenshot Exporter.
 
+### 4. Bottom-Right Planetary Telemetry HUD
+- **Real-Time Ecological Telemetry**: Sleek glassmorphic card in the bottom-right viewport tracking 5 key environmental metrics dynamically reacting to climate temperature:
+  - 👥 **Population**: Global human habitability & shelter distribution
+  - 🌿 **Ecosystem**: Vegetation, forest coverage & extremophile survival
+  - 🌊 **Oceans**: Ocean liquid coverage, ice sheets & desiccation
+  - 💨 **Atmosphere**: Gas composition, blizzard frost & CO₂ greenhouse trap
+  - ⚡ **Biosphere**: Photosynthetic activity & temperature stress levels
+
 ---
 
 ## 🕹️ Keyboard Shortcuts

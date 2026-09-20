@@ -9,6 +9,7 @@ import { CameraRig } from './components/CameraRig';
 import { Sidebar } from './components/Sidebar';
 import { FirstLoadHint } from './components/FirstLoadHint';
 import { LoadingScreen } from './components/LoadingScreen';
+import { PlanetTelemetryHUD } from './components/PlanetTelemetryHUD';
 
 // Helper component to track elapsed simulation days per frame
 function SimTimeTracker({ sim, setElapsedDays, cameraResetCount }) {
@@ -107,6 +108,9 @@ export default function App() {
         toggleDrawer={toggleDrawer}
         elapsedDays={elapsedDays}
       />
+
+      {/* Bottom-Right Glassmorphic Environmental & Telemetry HUD */}
+      <PlanetTelemetryHUD sim={sim} />
     </div>
   );
 }
