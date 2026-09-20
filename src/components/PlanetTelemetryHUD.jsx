@@ -1,7 +1,8 @@
-import React, { useMemo } from 'react';
-import { Users, Trees, Waves, Wind, Activity, Thermometer } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { Users, Trees, Waves, Wind, Activity, Thermometer, ChevronUp } from 'lucide-react';
 
 export function PlanetTelemetryHUD({ sim }) {
+  const [isHovered, setIsHovered] = useState(false);
   const temp = sim.temp;
 
   // Determine Ecosystem State & 5 Key Points based on Temperature
@@ -49,49 +50,76 @@ export function PlanetTelemetryHUD({ sim }) {
   }, [temp]);
 
   return (
-    <div className="fixed bottom-4 right-4 z-20 pointer-events-auto solar-drawer bg-[#0f1115]/85 backdrop-blur-2xl border border-white/10 p-3.5 rounded-2xl w-72 text-white shadow-2xl animate-fade-in space-y-2.5">
-      {/* HUD Header */}
-      <div className="flex items-center justify-between border-b border-white/10 pb-2">
-        <div className="flex items-center gap-2">
-          <div className="p-1 rounded-lg bg-[#00f2fe]/20 text-[#00f2fe]">
-            <Thermometer className="w-3.5 h-3.5" />
+    <aside
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      className="fixed bottom-4 right-4 z-20 pointer-events-auto transition-all duration-300 ease-in-out"
+    >
+      {!isHovered ? (
+        /* Collapsed Slim Hover Rail Badge */
+        <div className="flex items-center gap-2.5 bg-[#0f1115]/80 hover:bg-[#0f1115]/95 backdrop-blur-2xl border border-white/10 hover:border-[#00f2fe]/40 px-3.5 py-2 rounded-2xl text-white shadow-2xl transition-all cursor-pointer group">
+          <div className="p-1.5 rounded-xl bg-[#00f2fe]/20 text-[#00f2fe] group-hover:scale-110 transition-transform">
+            <Activity className="w-4 h-4" />
           </div>
-          <span className="font-outfit font-bold text-xs tracking-wider uppercase text-[#00f2fe]">
-            Planetary Telemetry
+          <div className="text-left">
+            <div className="font-outfit font-bold text-xs text-white tracking-wider flex items-center gap-1">
+              Telemetry <ChevronUp className="w-3 h-3 text-[#00f2fe] group-hover:-translate-y-0.5 transition-transform" />
+            </div>
+            <div className="text-[10px] font-mono text-gray-400">
+              Hover to Inspect
+            </div>
+          </div>
+          <span className={`ml-1 text-[9px] font-mono font-bold px-1.5 py-0.5 rounded border ${telemetry.badgeColor}`}>
+            {temp > 0 ? `+${temp.toFixed(0)}°C` : `${temp.toFixed(0)}°C`}
           </span>
         </div>
-        <span className={`text-[9px] font-mono font-bold px-1.5 py-0.5 rounded border ${telemetry.badgeColor}`}>
-          {temp > 0 ? `+${temp.toFixed(0)}°C` : `${temp.toFixed(0)}°C`}
-        </span>
-      </div>
-
-      {/* 5 Key Environmental Impact Points */}
-      <div className="space-y-1.5">
-        {telemetry.points.map((item, idx) => {
-          const IconComponent = item.icon;
-          return (
-            <div
-              key={idx}
-              className="bg-white/[0.03] hover:bg-white/[0.06] p-1.5 px-2 rounded-xl border border-white/[0.06] transition flex items-center justify-between text-xs"
-            >
-              <div className="flex items-center gap-2 min-w-0">
-                <IconComponent className="w-3.5 h-3.5 text-[#00f2fe] shrink-0" />
-                <div className="truncate">
-                  <div className="text-[10px] font-semibold text-gray-200 leading-tight">
-                    {item.label}
-                  </div>
-                  <div className="text-[9px] text-gray-400 truncate">
-                    {item.detail}
-                  </div>
-                </div>
+      ) : (
+        /* Expanded Telemetry Breakdown Card */
+        <div className="solar-drawer bg-[#0f1115]/90 backdrop-blur-2xl border border-white/15 p-3.5 rounded-2xl w-72 text-white shadow-2xl animate-fade-in space-y-2.5">
+          {/* HUD Header */}
+          <div className="flex items-center justify-between border-b border-white/10 pb-2">
+            <div className="flex items-center gap-2">
+              <div className="p-1 rounded-lg bg-[#00f2fe]/20 text-[#00f2fe]">
+                <Thermometer className="w-3.5 h-3.5" />
               </div>
-              <span className="font-mono text-[10px] font-bold text-[#00f2fe] shrink-0 ml-1">
-                {item.value}
+              <span className="font-outfit font-bold text-xs tracking-wider uppercase text-[#00f2fe]">
+                Planetary Telemetry
               </span>
             </div>
-          );
-        })}
-      </div>
-    </div>
+            <span className={`text-[9px] font-mono font-bold px-1.5 py-0.5 rounded border ${telemetry.badgeColor}`}>
+              {temp > 0 ? `+${temp.toFixed(0)}°C` : `${temp.toFixed(0)}°C`}
+            </span>
+          </div>
+
+          {/* 5 Key Environmental Impact Points */}
+          <div className="space-y-1.5">
+            {telemetry.points.map((item, idx) => {
+              const IconComponent = item.icon;
+              return (
+                <div
+                  key={idx}
+                  className="bg-white/[0.03] hover:bg-white/[0.06] p-1.5 px-2 rounded-xl border border-white/[0.06] transition flex items-center justify-between text-xs"
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    <IconComponent className="w-3.5 h-3.5 text-[#00f2fe] shrink-0" />
+                    <div className="truncate">
+                      <div className="text-[10px] font-semibold text-gray-200 leading-tight">
+                        {item.label}
+                      </div>
+                      <div className="text-[9px] text-gray-400 truncate">
+                        {item.detail}
+                      </div>
+                    </div>
+                  </div>
+                  <span className="font-mono text-[10px] font-bold text-[#00f2fe] shrink-0 ml-1">
+                    {item.value}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </aside>
   );
 }

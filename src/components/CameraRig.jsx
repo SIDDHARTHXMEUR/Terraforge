@@ -60,7 +60,7 @@ export function CameraRig({ cameraMode, cameraResetCount, cameraPunchCount, isTr
     }
   }, [isTrueScale]);
 
-  // Frame-by-frame animation (ONLY runs during active transitions so OrbitControls remains 100% free!)
+  // Frame-by-frame animation (ONLY runs during True Scale transition so OrbitControls remains 100% free!)
   useFrame(() => {
     // 1. True Scale Toggle Camera Transition
     if (trueScaleAnimRef.current.active && perspCamRef.current) {
@@ -81,20 +81,6 @@ export function CameraRig({ cameraMode, cameraResetCount, cameraPunchCount, isTr
 
       if (progress >= 1) {
         trueScaleAnimRef.current.active = false;
-      }
-    }
-
-    // 2. Preset Switch Camera Punch Pulse
-    if (punchAnimRef.current.active && perspCamRef.current) {
-      const elapsed = performance.now() - punchAnimRef.current.startTime;
-      const duration = 1500;
-      const progress = Math.min(1, elapsed / duration);
-      const pulse = Math.sin(progress * Math.PI) * 0.45;
-
-      perspCamRef.current.position.z -= pulse;
-
-      if (progress >= 1) {
-        punchAnimRef.current.active = false;
       }
     }
   });

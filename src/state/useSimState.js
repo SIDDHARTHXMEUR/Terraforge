@@ -51,13 +51,12 @@ export function useSimState() {
   // Lerp Animation Ref
   const lerpAnimationRef = useRef(null);
 
-  // Apply Preset with ~1.5s Lerp Interpolation + Camera Punch-in Beat
+  // Apply Preset with ~1.5s Lerp Interpolation
   const applyPreset = useCallback((presetKey) => {
     const target = PRESETS[presetKey];
     if (!target) return;
 
     setActivePreset(presetKey);
-    setCameraPunchCount((prev) => prev + 1);
 
     if (lerpAnimationRef.current) {
       cancelAnimationFrame(lerpAnimationRef.current);
