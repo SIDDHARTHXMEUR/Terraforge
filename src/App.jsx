@@ -83,7 +83,13 @@ export default function App() {
           <SimTimeTracker sim={sim} setElapsedDays={setElapsedDays} cameraResetCount={cameraResetCount} />
           <Starfield />
           <Sun isTrueScale={isTrueScale} />
-          <Planet transform={transform} sim={sim} showOrbits={showOrbits} />
+          <Planet
+            transform={transform}
+            updateTransform={updateTransform}
+            sim={sim}
+            showOrbits={showOrbits}
+            activeDrawer={activeDrawer}
+          />
           <Moon planetTransform={transform} sim={sim} isTrueScale={isTrueScale} showOrbits={showOrbits} cameraResetCount={cameraResetCount} />
         </Canvas>
       </Suspense>

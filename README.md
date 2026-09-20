@@ -1,8 +1,10 @@
 # 🪐 Terraforge 3D — Planetary Simulation Engine
 
+> **🚀 Live Interactive WebGL Demo**: [terraforge-theta.vercel.app](https://terraforge-theta.vercel.app/)  
 > **RTU Computer Graphics & Multimedia (CGM) Lab Project**  
 > An interactive, real-time 3D WebGL solar system simulation engineered to demonstrate every core topic in modern computer graphics.
 
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-terraforge--theta.vercel.app-00f2fe?style=for-the-badge&logo=vercel)](https://terraforge-theta.vercel.app/)
 [![React](https://img.shields.io/badge/React-18-blue.svg?logo=react)](https://react.dev/)
 [![Three.js](https://img.shields.io/badge/Three.js-r174-black.svg?logo=three.js)](https://threejs.org/)
 [![WebGL2](https://img.shields.io/badge/WebGL2-Hardware--Accelerated-green.svg?logo=webgl)](https://www.khronos.org/webgl/)
