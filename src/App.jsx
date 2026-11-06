@@ -1,54 +1,102 @@
-import React, { Suspense, useState, useEffect } from 'react';
+import React, { Suspense, useState, useEffect, useRef } from 'react';
 import { Canvas } from '@react-three/fiber';
 import * as THREE from 'three';
 import { SolarSystemEngine } from './components/cinematic/SolarSystemEngine';
-import { CinematicUI } from './components/cinematic/CinematicUI';
+import { CinematicFilmOverlay } from './components/cinematic/CinematicFilmOverlay';
 import { LoadingScreen } from './components/LoadingScreen';
-import { useAppStore } from './state/useAppStore';
-import { ALL_CELESTIAL_BODIES } from './data/planetsData';
+import { CINEMATIC_SCENES } from './data/cinematicScenes';
+import { cosmicAudio } from './services/cosmicAudio';
 
 export default function App() {
-  const {
-    setSelectedBody,
-    sim,
-    updateSim,
-    triggerCameraReset
-  } = useAppStore();
+  const [currentSceneIndex, setCurrentSceneIndex] = useState(0);
+  const [sceneProgress, setSceneProgress] = useState(0);
+  const [isFilmPlaying, setIsFilmPlaying] = useState(true);
+  const [isAudioMuted, setIsAudioMuted] = useState(true);
+  const [isUserInteracting, setIsUserInteracting] = useState(false);
 
-  const [isCinematicTour, setIsCinematicTour] = useState(false);
-  const [showOrbits, setShowOrbits] = useState(false); // Disabled by default for cinematic cleanliness
+  const sceneTimerRef = useRef(0);
+  const currentScene = CINEMATIC_SCENES[currentSceneIndex] || CINEMATIC_SCENES[0];
 
-  // Keyboard Navigation: Space (Pause), O (Orbits), R (Reset), 0-9 (Planet shortcuts)
+  // Continuous Film Master Timeline Loop
+  useEffect(() => {
+    let animId;
+    let lastTime = performance.now();
+
+    const loop = (now) => {
+      const delta = (now - lastTime) / 1000;
+      lastTime = now;
+
+      if (isFilmPlaying && !isUserInteracting) {
+        sceneTimerRef.current += delta;
+        const duration = currentScene.duration || 12.0;
+        const progress = sceneTimerRef.current / duration;
+
+        if (progress >= 1.0) {
+          // Advance smoothly to next cinematic scene
+          sceneTimerRef.current = 0;
+          setCurrentSceneIndex((prev) => {
+            const nextIdx = (prev + 1) % CINEMATIC_SCENES.length;
+            cosmicAudio.setSceneAudio(CINEMATIC_SCENES[nextIdx].id);
+            return nextIdx;
+          });
+          setSceneProgress(0);
+        } else {
+          setSceneProgress(progress);
+        }
+      }
+
+      animId = requestAnimationFrame(loop);
+    };
+
+    animId = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(animId);
+  }, [isFilmPlaying, isUserInteracting, currentScene.duration]);
+
+  // Jump to specific scene
+  const handleSelectScene = (idx) => {
+    sceneTimerRef.current = 0;
+    setCurrentSceneIndex(idx);
+    setSceneProgress(0);
+    cosmicAudio.setSceneAudio(CINEMATIC_SCENES[idx].id);
+  };
+
+  const handleNextScene = () => {
+    const nextIdx = (currentSceneIndex + 1) % CINEMATIC_SCENES.length;
+    handleSelectScene(nextIdx);
+  };
+
+  const handlePrevScene = () => {
+    const prevIdx = (currentSceneIndex - 1 + CINEMATIC_SCENES.length) % CINEMATIC_SCENES.length;
+    handleSelectScene(prevIdx);
+  };
+
+  // Keyboard navigation
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (['INPUT', 'TEXTAREA'].includes(e.target.tagName)) return;
 
       if (e.code === 'Space') {
         e.preventDefault();
-        updateSim('isPlaying', !sim.isPlaying);
-      } else if (e.key === 'r' || e.key === 'R') {
-        triggerCameraReset();
-      } else if (e.key === 'o' || e.key === 'O') {
-        setShowOrbits((prev) => !prev);
-      } else if (e.key === '0') {
-        setIsCinematicTour(false);
-        setSelectedBody('overview');
+        setIsFilmPlaying((p) => !p);
+      } else if (e.key === 'ArrowRight') {
+        handleNextScene();
+      } else if (e.key === 'ArrowLeft') {
+        handlePrevScene();
       } else if (e.key >= '1' && e.key <= '9') {
         const idx = parseInt(e.key, 10) - 1;
-        if (idx < ALL_CELESTIAL_BODIES.length) {
-          setIsCinematicTour(false);
-          setSelectedBody(ALL_CELESTIAL_BODIES[idx]);
+        if (idx < CINEMATIC_SCENES.length) {
+          handleSelectScene(idx);
         }
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [sim.isPlaying, updateSim, triggerCameraReset, setSelectedBody]);
+  }, [currentSceneIndex]);
 
   return (
     <div className="relative w-screen h-screen bg-black overflow-hidden font-sans select-none">
-      {/* 3D WebGL Canvas Viewport with Filmic Tone Mapping */}
+      {/* 1. 3D WebGL Canvas Viewport with ACES Filmic Tone Mapping */}
       <Suspense fallback={<LoadingScreen />}>
         <Canvas
           className="w-full h-full cursor-grab active:cursor-grabbing bg-black"
@@ -58,22 +106,37 @@ export default function App() {
             logarithmicDepthBuffer: true,
             powerPreference: 'high-performance',
             toneMapping: THREE.ACESFilmicToneMapping,
-            toneMappingExposure: 1.2
+            toneMappingExposure: 1.15
           }}
+          camera={{
+            fov: currentScene.fov || 42,
+            near: 0.1,
+            far: 20000,
+            position: currentScene.cameraStart || [0, 4, 380]
+          }}
+          onPointerDown={() => setIsUserInteracting(true)}
+          onPointerUp={() => setIsUserInteracting(false)}
         >
           <SolarSystemEngine
-            isCinematicTour={isCinematicTour}
-            showOrbits={showOrbits}
+            isFilmPlaying={isFilmPlaying}
+            currentSceneIndex={currentSceneIndex}
+            sceneProgress={sceneProgress}
+            isUserInteracting={isUserInteracting}
           />
         </Canvas>
       </Suspense>
 
-      {/* Minimal, Sophisticated Cinematic Interface */}
-      <CinematicUI
-        isCinematicTour={isCinematicTour}
-        setIsCinematicTour={setIsCinematicTour}
-        showOrbits={showOrbits}
-        setShowOrbits={setShowOrbits}
+      {/* 2. Anamorphic Cinematic Film Overlay & Minimal Transport */}
+      <CinematicFilmOverlay
+        currentSceneIndex={currentSceneIndex}
+        sceneProgress={sceneProgress}
+        isFilmPlaying={isFilmPlaying}
+        setIsFilmPlaying={setIsFilmPlaying}
+        onSelectScene={handleSelectScene}
+        onNextScene={handleNextScene}
+        onPrevScene={handlePrevScene}
+        isAudioMuted={isAudioMuted}
+        setIsAudioMuted={setIsAudioMuted}
       />
     </div>
   );

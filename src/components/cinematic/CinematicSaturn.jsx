@@ -3,97 +3,94 @@ import { useFrame } from '@react-three/fiber';
 import { useTexture } from '@react-three/drei';
 import * as THREE from 'three';
 
+// Saturn with double-sided Cassini Division Ring System + Ring Shadow projection
 const SATURN_AXIAL_TILT = (26.73 * Math.PI) / 180;
 
 export function CinematicSaturn({
   position = [0, 0, 0],
-  radius = 4.2,
-  isSelected = false,
-  onClick,
+  radius = 3.6,
   isPlaying = true
 }) {
-  const planetRef = useRef();
+  const [saturnMap, ringMap] = useTexture([
+    '/assets/planets/saturn/saturn.jpg',
+    '/assets/planets/saturn/saturn_ring.png'
+  ]);
+
+  const saturnBodyRef = useRef();
   const ringRef = useRef();
 
-  const saturnTexture = useTexture('/assets/planets/saturn/saturn.jpg');
-  const ringTexture = useTexture('/assets/planets/saturn/saturn_ring.png');
-
-  // Ring UV Radial Mapping Adjustment for RingGeometry
+  // Create high-density custom Ring Geometry with radial UV mapping
   const ringGeometry = useMemo(() => {
-    const inner = radius * 1.25;
-    const outer = radius * 2.45;
-    const geo = new THREE.RingGeometry(inner, outer, 128);
-    const pos = geo.attributes.position;
-    const v3 = new THREE.Vector3();
-    const uvs = [];
+    const innerRadius = radius * 1.35;
+    const outerRadius = radius * 2.85;
+    const thetaSegments = 160;
+    const phiSegments = 32;
 
-    // Map radial distance (inner -> 0.0, outer -> 1.0) along U coordinate
+    const geo = new THREE.RingGeometry(innerRadius, outerRadius, thetaSegments, phiSegments);
+    const pos = geo.attributes.position;
+    const uvs = geo.attributes.uv;
+
+    // Map planar ring coordinates to radial 1D UV along texture
     for (let i = 0; i < pos.count; i++) {
-      v3.fromBufferAttribute(pos, i);
-      const dist = Math.sqrt(v3.x * v3.x + v3.y * v3.y);
-      const u = (dist - inner) / (outer - inner);
-      uvs.push(u, 0.5);
+      const x = pos.getX(i);
+      const y = pos.getY(i);
+      const dist = Math.sqrt(x * x + y * y);
+      const u = (dist - innerRadius) / (outerRadius - innerRadius);
+      uvs.setXY(i, u, 0.5);
     }
-    geo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+    geo.computeVertexNormals();
     return geo;
   }, [radius]);
 
   useFrame((_, delta) => {
-    if (!isPlaying) return;
-    // Saturn rotates rapidly (~10.6 hours)
-    if (planetRef.current) {
-      planetRef.current.rotation.y += delta * 0.45;
+    if (isPlaying && saturnBodyRef.current) {
+      saturnBodyRef.current.rotation.y += delta * 0.16;
     }
   });
 
   return (
-    <group position={position} onClick={onClick}>
-      {/* Selection highlight (subtle) */}
-      {isSelected && (
-        <mesh rotation={[Math.PI / 2, 0, 0]}>
-          <ringGeometry args={[radius * 2.55, radius * 2.65, 64]} />
-          <meshBasicMaterial color="#38bdf8" transparent opacity={0.6} side={THREE.DoubleSide} />
-        </mesh>
-      )}
+    <group position={position} rotation={[SATURN_AXIAL_TILT, 0, 0]}>
+      {/* 1. Saturn Gas Giant Atmosphere Body */}
+      <mesh ref={saturnBodyRef} castShadow receiveShadow>
+        <sphereGeometry args={[radius, 128, 128]} />
+        <meshStandardMaterial
+          map={saturnMap}
+          roughness={0.9}
+          metalness={0.0}
+        />
+      </mesh>
 
-      {/* Saturn Body and Ring Group with 26.73° Axial Tilt */}
-      <group rotation={[SATURN_AXIAL_TILT, 0, 0]}>
-        {/* Core Gas Giant Sphere */}
-        <mesh ref={planetRef} castShadow receiveShadow>
-          <sphereGeometry args={[radius, 96, 96]} />
-          <meshStandardMaterial
-            map={saturnTexture}
-            roughness={0.75}
-            metalness={0.05}
-          />
-        </mesh>
+      {/* 2. Saturn Subtle Pale Gold Atmospheric Limb Scattering */}
+      <mesh scale={1.03}>
+        <sphereGeometry args={[radius, 64, 64]} />
+        <meshBasicMaterial
+          color="#d4af37"
+          transparent={true}
+          opacity={0.08}
+          blending={THREE.AdditiveBlending}
+          side={THREE.BackSide}
+          depthWrite={false}
+        />
+      </mesh>
 
-        {/* Atmospheric Limb Halo */}
-        <mesh>
-          <sphereGeometry args={[radius * 1.025, 64, 64]} />
-          <meshBasicMaterial
-            color="#fef08a"
-            transparent
-            opacity={0.12}
-            side={THREE.BackSide}
-            blending={THREE.AdditiveBlending}
-            depthWrite={false}
-          />
-        </mesh>
-
-        {/* Majestic Multi-Division Rings */}
-        <mesh ref={ringRef} geometry={ringGeometry} rotation={[Math.PI / 2, 0, 0]} castShadow receiveShadow>
-          <meshStandardMaterial
-            map={ringTexture}
-            transparent={true}
-            opacity={0.92}
-            side={THREE.DoubleSide}
-            roughness={0.5}
-            metalness={0.05}
-            alphaTest={0.02}
-          />
-        </mesh>
-      </group>
+      {/* 3. Physically Photorealistic Cassini Ring Structure */}
+      <mesh
+        ref={ringRef}
+        geometry={ringGeometry}
+        rotation={[-Math.PI / 2, 0, 0]}
+        castShadow
+        receiveShadow
+      >
+        <meshStandardMaterial
+          map={ringMap}
+          transparent={true}
+          opacity={0.96}
+          roughness={0.85}
+          metalness={0.05}
+          side={THREE.DoubleSide}
+          depthWrite={true}
+        />
+      </mesh>
     </group>
   );
 }

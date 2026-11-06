@@ -3,92 +3,103 @@ import { useFrame } from '@react-three/fiber';
 import { useTexture } from '@react-three/drei';
 import * as THREE from 'three';
 
+// Dedicated Cinematic Planet Renderer for Mercury, Venus, Mars, Jupiter, Uranus, Neptune
 export function CinematicPlanet({
-  config,
+  id,
   position = [0, 0, 0],
   radius = 2.0,
-  isSelected = false,
-  onClick,
+  axialTilt = 0,
+  texturePath,
+  atmosphereColor = '#4da6ff',
+  atmosphereIntensity = 0.08,
+  hasRings = false,
   isPlaying = true
 }) {
-  const meshRef = useRef();
-  const ringRef = useRef();
+  const planetTexture = useTexture(texturePath);
+  const planetBodyRef = useRef();
+  const cloudsRef = useRef();
 
-  // Load high-resolution planet texture
-  const texture = useTexture(config.texture);
+  // If Venus, load the second cloud layer
+  const venusAtmosphereMap = id === 'venus' ? useTexture('/assets/planets/venus/venus_atmosphere.jpg') : null;
 
-  const axialTiltRad = useMemo(() => {
-    return ((config.axialTiltDeg || 0) * Math.PI) / 180;
-  }, [config.axialTiltDeg]);
-
-  const atmoColor = useMemo(() => {
-    return new THREE.Color(config.atmosphereColor || '#38bdf8');
-  }, [config.atmosphereColor]);
+  // Thin ring geometry for Uranus if specified
+  const ringGeometry = useMemo(() => {
+    if (!hasRings) return null;
+    const innerRadius = radius * 1.5;
+    const outerRadius = radius * 2.1;
+    return new THREE.RingGeometry(innerRadius, outerRadius, 96);
+  }, [hasRings, radius]);
 
   useFrame((_, delta) => {
-    if (!isPlaying) return;
-
-    // Real individual rotational velocity (retrograde for Venus and Uranus)
-    const sign = config.rotationPeriodHours && config.rotationPeriodHours < 0 ? -1 : 1;
-    const speed = (24 / Math.abs(config.rotationPeriodHours || 24)) * 0.25;
-
-    if (meshRef.current) {
-      meshRef.current.rotation.y += delta * speed * sign;
+    if (isPlaying) {
+      if (planetBodyRef.current) {
+        planetBodyRef.current.rotation.y += delta * 0.08;
+      }
+      if (cloudsRef.current) {
+        cloudsRef.current.rotation.y += delta * 0.12;
+      }
     }
   });
 
   return (
-    <group position={position} onClick={onClick}>
-      {/* Subtle Selection Halo */}
-      {isSelected && (
-        <mesh rotation={[Math.PI / 2, 0, 0]}>
-          <ringGeometry args={[radius * 1.35, radius * 1.45, 64]} />
-          <meshBasicMaterial color="#38bdf8" transparent opacity={0.6} side={THREE.DoubleSide} />
+    <group position={position} rotation={[axialTilt, 0, 0]}>
+      {/* 1. Planetary Surface Mesh */}
+      <mesh ref={planetBodyRef} castShadow receiveShadow>
+        <sphereGeometry args={[radius, 128, 128]} />
+        <meshStandardMaterial
+          map={planetTexture}
+          roughness={id === 'jupiter' || id === 'uranus' || id === 'neptune' ? 0.95 : 0.82}
+          metalness={0.02}
+        />
+      </mesh>
+
+      {/* 2. Venus Dense Supercritical Cloud Atmosphere Layer */}
+      {id === 'venus' && venusAtmosphereMap && (
+        <mesh ref={cloudsRef} scale={1.025}>
+          <sphereGeometry args={[radius, 96, 96]} />
+          <meshStandardMaterial
+            map={venusAtmosphereMap}
+            transparent={true}
+            opacity={0.88}
+            blending={THREE.NormalBlending}
+            roughness={1.0}
+            depthWrite={false}
+          />
         </mesh>
       )}
 
-      {/* Planetary Group with Real Astronomical Axial Tilt */}
-      <group rotation={[axialTiltRad, 0, 0]}>
-        {/* Core Planet Sphere */}
-        <mesh ref={meshRef} castShadow receiveShadow>
-          <sphereGeometry args={[radius, 96, 96]} />
-          <meshStandardMaterial
-            map={texture}
-            roughness={config.category?.includes('Gas') || config.category?.includes('Ice') ? 0.7 : 0.85}
-            metalness={0.05}
+      {/* 3. Atmospheric Limb Glow (Rayleigh scattering rim) */}
+      {atmosphereIntensity > 0 && (
+        <mesh scale={1.04}>
+          <sphereGeometry args={[radius, 64, 64]} />
+          <meshBasicMaterial
+            color={atmosphereColor}
+            transparent={true}
+            opacity={atmosphereIntensity}
+            blending={THREE.AdditiveBlending}
+            side={THREE.BackSide}
+            depthWrite={false}
           />
         </mesh>
+      )}
 
-        {/* Atmospheric Limb Scattering Glow for worlds with atmosphere */}
-        {config.atmosphereIntensity > 0.15 && (
-          <mesh>
-            <sphereGeometry args={[radius * 1.025, 64, 64]} />
-            <meshBasicMaterial
-              color={atmoColor}
-              transparent
-              opacity={0.16 * config.atmosphereIntensity}
-              side={THREE.BackSide}
-              blending={THREE.AdditiveBlending}
-              depthWrite={false}
-            />
-          </mesh>
-        )}
-
-        {/* Uranus Ring System */}
-        {config.id === 'uranus' && (
-          <mesh ref={ringRef} rotation={[Math.PI / 2, 0, 0]}>
-            <ringGeometry args={[radius * 1.35, radius * 1.9, 96]} />
-            <meshBasicMaterial
-              color="#a5f3fc"
-              transparent
-              opacity={0.4}
-              side={THREE.DoubleSide}
-              blending={THREE.AdditiveBlending}
-              depthWrite={false}
-            />
-          </mesh>
-        )}
-      </group>
+      {/* 4. Planetary Rings (e.g. Uranus faint ice ring system) */}
+      {hasRings && ringGeometry && (
+        <mesh
+          geometry={ringGeometry}
+          rotation={[-Math.PI / 2, 0, 0]}
+          castShadow
+          receiveShadow
+        >
+          <meshBasicMaterial
+            color="#bfe8ff"
+            transparent={true}
+            opacity={0.35}
+            side={THREE.DoubleSide}
+            depthWrite={false}
+          />
+        </mesh>
+      )}
     </group>
   );
 }

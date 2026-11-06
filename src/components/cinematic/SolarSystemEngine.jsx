@@ -1,30 +1,23 @@
-import React, { useRef, useState, useMemo, useEffect } from 'react';
+import React, { useRef, useState, useMemo } from 'react';
 import { useFrame } from '@react-three/fiber';
-import { useAppStore } from '../../state/useAppStore';
 import { CinematicSun } from './CinematicSun';
 import { CinematicEarth } from './CinematicEarth';
 import { CinematicSaturn } from './CinematicSaturn';
+import { CinematicJupiter } from './CinematicJupiter';
 import { CinematicPlanet } from './CinematicPlanet';
 import { AsteroidBelt } from './AsteroidBelt';
 import { DeepSpaceSkybox } from './DeepSpaceSkybox';
-import { CinematicCamera } from './CinematicCamera';
-import { OrbitsVisualizer } from '../OrbitsVisualizer';
-import { PLANETS_CONFIG, SOLAR_SYSTEM_PLANETS, ALL_CELESTIAL_BODIES } from '../../data/planetsData';
-import * as THREE from 'three';
+import { CinematicDirectorCamera } from './CinematicDirectorCamera';
+import { PLANETS_CONFIG, SOLAR_SYSTEM_PLANETS } from '../../data/planetsData';
 
 export function SolarSystemEngine({
-  isCinematicTour = false,
+  isFilmPlaying = true,
+  currentSceneIndex = 0,
+  sceneProgress = 0,
+  isUserInteracting = false,
   showOrbits = false
 }) {
-  const {
-    selectedBody,
-    setSelectedBody,
-    sim,
-    timeSpeed,
-    cameraResetCount
-  } = useAppStore();
-
-  // Planetary orbital angles state
+  // Planetary orbital angles
   const anglesRef = useRef({
     mercury: PLANETS_CONFIG.mercury.initialAngle,
     venus: PLANETS_CONFIG.venus.initialAngle,
@@ -38,7 +31,12 @@ export function SolarSystemEngine({
 
   // Current real-time world positions of planets
   const [positions, setPositions] = useState(() => {
-    const init = { sun: [0, 0, 0] };
+    const init = {
+      sun: [0, 0, 0],
+      void: [0, 0, 0],
+      asteroids: [48, 0, 32],
+      overview: [0, 0, 0]
+    };
     SOLAR_SYSTEM_PLANETS.forEach((id) => {
       const cfg = PLANETS_CONFIG[id];
       const r = cfg.cinematicOrbitRadius;
@@ -48,26 +46,15 @@ export function SolarSystemEngine({
     return init;
   });
 
-  // Cinematic Tour sequence manager
-  const tourIndexRef = useRef(0);
-  const tourTimerRef = useRef(0);
-  const tourSequence = useMemo(() => [
-    'overview',
-    'sun',
-    'mercury',
-    'venus',
-    'earth',
-    'mars',
-    'jupiter',
-    'saturn',
-    'uranus',
-    'neptune'
-  ], []);
-
-  // Frame animation for orbital revolution & cinematic tour stepping
+  // Orbital revolution frame loop
   useFrame((_, delta) => {
-    const advance = sim.isPlaying ? delta * 0.22 * timeSpeed : 0;
-    const updated = { sun: [0, 0, 0] };
+    const advance = delta * 0.15;
+    const updated = {
+      sun: [0, 0, 0],
+      void: [0, 0, 0],
+      asteroids: [48, 0, 32],
+      overview: [0, 0, 0]
+    };
 
     SOLAR_SYSTEM_PLANETS.forEach((id) => {
       const cfg = PLANETS_CONFIG[id];
@@ -80,174 +67,112 @@ export function SolarSystemEngine({
     });
 
     setPositions(updated);
-
-    // Cinematic Tour auto-advancing every 9 seconds
-    if (isCinematicTour) {
-      tourTimerRef.current += delta;
-      if (tourTimerRef.current > 9.0) {
-        tourTimerRef.current = 0;
-        tourIndexRef.current = (tourIndexRef.current + 1) % tourSequence.length;
-        setSelectedBody(tourSequence[tourIndexRef.current]);
-      }
-    } else {
-      tourTimerRef.current = 0;
-    }
   });
-
-  // Current focus target position and radius for camera
-  const { currentTargetPos, currentTargetRadius } = useMemo(() => {
-    if (selectedBody === 'overview' || selectedBody === 'sun') {
-      return { currentTargetPos: [0, 0, 0], currentTargetRadius: PLANETS_CONFIG.sun.cinematicRadius };
-    }
-    const pos = positions[selectedBody] || [
-      PLANETS_CONFIG[selectedBody]?.cinematicOrbitRadius || 40,
-      0,
-      0
-    ];
-    const r = PLANETS_CONFIG[selectedBody]?.cinematicRadius || 2.0;
-    return { currentTargetPos: pos, currentTargetRadius: r };
-  }, [selectedBody, positions]);
 
   return (
     <>
-      {/* High-Fidelity Cinematic Camera Rig */}
-      <CinematicCamera
-        selectedBody={selectedBody}
-        targetPosition={currentTargetPos}
-        targetRadius={currentTargetRadius}
-        cameraResetCount={cameraResetCount}
+      {/* 1. Deep Space Starfield & Cosmic Void Background */}
+      <DeepSpaceSkybox count={3200} />
+
+      {/* 2. IMAX Director Camera */}
+      <CinematicDirectorCamera
+        isFilmPlaying={isFilmPlaying}
+        currentSceneIndex={currentSceneIndex}
+        sceneProgress={sceneProgress}
+        bodyPositions={positions}
+        isUserInteracting={isUserInteracting}
       />
 
-      {/* Deep Space Point Stars Skybox */}
-      <DeepSpaceSkybox />
+      {/* 3. The Central Thermonuclear Sun */}
+      <CinematicSun radius={15.0} />
 
-      {/* Central Luminous Sun at [0, 0, 0] */}
-      <CinematicSun
-        radius={PLANETS_CONFIG.sun.cinematicRadius}
-        isSelected={selectedBody === 'sun'}
-        onClick={(e) => {
-          e.stopPropagation();
-          setSelectedBody('sun');
-        }}
-      />
-
-      {/* Orbits Visualizer (Off by default for pure cinematic cleanliness) */}
-      <OrbitsVisualizer
-        showOrbits={showOrbits}
-        selectedPlanet={selectedBody}
-        isTrueScale={false}
-        onSelectPlanet={setSelectedBody}
-      />
-
-      {/* Realistic Rocky Asteroid Belt between Mars & Jupiter */}
-      <AsteroidBelt
-        innerRadius={61.0}
-        outerRadius={68.0}
-        isPlaying={sim.isPlaying}
-        timeSpeed={timeSpeed}
-      />
-
-      {/* Mercury */}
+      {/* 4. Mercury */}
       <CinematicPlanet
-        config={PLANETS_CONFIG.mercury}
+        id="mercury"
         position={positions.mercury}
-        radius={PLANETS_CONFIG.mercury.cinematicRadius}
-        isSelected={selectedBody === 'mercury'}
-        onClick={(e) => {
-          e.stopPropagation();
-          setSelectedBody('mercury');
-        }}
-        isPlaying={sim.isPlaying}
+        radius={0.85}
+        axialTilt={(0.03 * Math.PI) / 180}
+        texturePath="/assets/planets/mercury/mercury.jpg"
+        atmosphereIntensity={0.0}
+        isPlaying={isFilmPlaying}
       />
 
-      {/* Venus */}
+      {/* 5. Venus */}
       <CinematicPlanet
-        config={PLANETS_CONFIG.venus}
+        id="venus"
         position={positions.venus}
-        radius={PLANETS_CONFIG.venus.cinematicRadius}
-        isSelected={selectedBody === 'venus'}
-        onClick={(e) => {
-          e.stopPropagation();
-          setSelectedBody('venus');
-        }}
-        isPlaying={sim.isPlaying}
+        radius={1.75}
+        axialTilt={(177.3 * Math.PI) / 180}
+        texturePath="/assets/planets/venus/venus_surface.jpg"
+        atmosphereColor="#ffd180"
+        atmosphereIntensity={0.16}
+        isPlaying={isFilmPlaying}
       />
 
-      {/* Earth (with Version 1 Enhanced Multi-Texture Shader & Moon) */}
+      {/* 6. Earth & The Moon */}
       <CinematicEarth
         position={positions.earth}
-        radius={PLANETS_CONFIG.earth.cinematicRadius}
-        isSelected={selectedBody === 'earth'}
-        onClick={(e) => {
-          e.stopPropagation();
-          setSelectedBody('earth');
-        }}
-        isPlaying={sim.isPlaying}
-        sim={sim}
+        radius={1.85}
+        isPlaying={isFilmPlaying}
       />
 
-      {/* Mars */}
+      {/* 7. Mars */}
       <CinematicPlanet
-        config={PLANETS_CONFIG.mars}
+        id="mars"
         position={positions.mars}
-        radius={PLANETS_CONFIG.mars.cinematicRadius}
-        isSelected={selectedBody === 'mars'}
-        onClick={(e) => {
-          e.stopPropagation();
-          setSelectedBody('mars');
-        }}
-        isPlaying={sim.isPlaying}
+        radius={1.15}
+        axialTilt={(25.19 * Math.PI) / 180}
+        texturePath="/assets/planets/mars/mars.jpg"
+        atmosphereColor="#d97543"
+        atmosphereIntensity={0.06}
+        isPlaying={isFilmPlaying}
       />
 
-      {/* Jupiter */}
-      <CinematicPlanet
-        config={PLANETS_CONFIG.jupiter}
+      {/* 8. Asteroid Belt & Ceres */}
+      <AsteroidBelt
+        innerRadius={36}
+        outerRadius={50}
+        count={850}
+        isPlaying={isFilmPlaying}
+      />
+
+      {/* 9. Jupiter & Galilean Moons (Io & Europa) */}
+      <CinematicJupiter
         position={positions.jupiter}
-        radius={PLANETS_CONFIG.jupiter.cinematicRadius}
-        isSelected={selectedBody === 'jupiter'}
-        onClick={(e) => {
-          e.stopPropagation();
-          setSelectedBody('jupiter');
-        }}
-        isPlaying={sim.isPlaying}
+        radius={5.2}
+        isPlaying={isFilmPlaying}
       />
 
-      {/* Saturn (with multi-division rings and transparency) */}
+      {/* 10. Saturn & Cassini Division Rings */}
       <CinematicSaturn
         position={positions.saturn}
-        radius={PLANETS_CONFIG.saturn.cinematicRadius}
-        isSelected={selectedBody === 'saturn'}
-        onClick={(e) => {
-          e.stopPropagation();
-          setSelectedBody('saturn');
-        }}
-        isPlaying={sim.isPlaying}
+        radius={3.8}
+        isPlaying={isFilmPlaying}
       />
 
-      {/* Uranus (with tilted rings) */}
+      {/* 11. Uranus */}
       <CinematicPlanet
-        config={PLANETS_CONFIG.uranus}
+        id="uranus"
         position={positions.uranus}
-        radius={PLANETS_CONFIG.uranus.cinematicRadius}
-        isSelected={selectedBody === 'uranus'}
-        onClick={(e) => {
-          e.stopPropagation();
-          setSelectedBody('uranus');
-        }}
-        isPlaying={sim.isPlaying}
+        radius={2.7}
+        axialTilt={(97.77 * Math.PI) / 180}
+        texturePath="/assets/planets/uranus/uranus.jpg"
+        atmosphereColor="#a6e3e9"
+        atmosphereIntensity={0.10}
+        hasRings={true}
+        isPlaying={isFilmPlaying}
       />
 
-      {/* Neptune */}
+      {/* 12. Neptune */}
       <CinematicPlanet
-        config={PLANETS_CONFIG.neptune}
+        id="neptune"
         position={positions.neptune}
-        radius={PLANETS_CONFIG.neptune.cinematicRadius}
-        isSelected={selectedBody === 'neptune'}
-        onClick={(e) => {
-          e.stopPropagation();
-          setSelectedBody('neptune');
-        }}
-        isPlaying={sim.isPlaying}
+        radius={2.6}
+        axialTilt={(28.32 * Math.PI) / 180}
+        texturePath="/assets/planets/neptune/neptune.jpg"
+        atmosphereColor="#3b69ff"
+        atmosphereIntensity={0.12}
+        isPlaying={isFilmPlaying}
       />
     </>
   );
