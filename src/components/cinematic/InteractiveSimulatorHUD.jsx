@@ -7,27 +7,25 @@ import {
   Minimize2,
   Eye,
   EyeOff,
-  Compass,
-  Info,
   X,
-  ChevronRight,
-  Globe2,
-  Orbit
+  Orbit,
+  Tag,
+  ChevronRight
 } from 'lucide-react';
 import { PLANETS_CONFIG } from '../../data/planetsData';
 
 const CELESTIAL_LIST = [
-  { id: 'overview', name: 'Overview', color: '#38bdf8', icon: '🌌' },
-  { id: 'sun', name: 'Sol', color: '#ffaa00', icon: '☀️' },
-  { id: 'mercury', name: 'Mercury', color: '#9ca3af', icon: '☿' },
-  { id: 'venus', name: 'Venus', color: '#fbbf24', icon: '♀' },
-  { id: 'earth', name: 'Earth', color: '#38bdf8', icon: '🌍' },
-  { id: 'mars', name: 'Mars', color: '#ea580c', icon: '♂' },
-  { id: 'asteroids', name: 'Asteroids', color: '#a8a29e', icon: '🪐' },
-  { id: 'jupiter', name: 'Jupiter', color: '#facc15', icon: '♃' },
-  { id: 'saturn', name: 'Saturn', color: '#fef08a', icon: '♄' },
-  { id: 'uranus', name: 'Uranus', color: '#67e8f9', icon: '♅' },
-  { id: 'neptune', name: 'Neptune', color: '#60a5fa', icon: '♆' }
+  { id: 'overview', name: 'Overview', dot: '#ffffff' },
+  { id: 'sun', name: 'Sol', dot: '#ffb703' },
+  { id: 'mercury', name: 'Mercury', dot: '#94a3b8' },
+  { id: 'venus', name: 'Venus', dot: '#fef08a' },
+  { id: 'earth', name: 'Earth', dot: '#38bdf8' },
+  { id: 'mars', name: 'Mars', dot: '#fb923c' },
+  { id: 'asteroids', name: 'Asteroids', dot: '#a8a29e' },
+  { id: 'jupiter', name: 'Jupiter', dot: '#eab308' },
+  { id: 'saturn', name: 'Saturn', dot: '#fde047' },
+  { id: 'uranus', name: 'Uranus', dot: '#67e8f9' },
+  { id: 'neptune', name: 'Neptune', dot: '#60a5fa' }
 ];
 
 const SPEED_PRESETS = [1, 5, 25, 100, 500];
@@ -48,8 +46,29 @@ export function InteractiveSimulatorHUD({
   const [uiVisible, setUiVisible] = useState(true);
   const [isTelemetryOpen, setIsTelemetryOpen] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isIdle, setIsIdle] = useState(false);
 
-  // Close or open telemetry card automatically when body selection changes
+  // Auto-dim UI during prolonged inactivity
+  useEffect(() => {
+    let timeout;
+    const handleActivity = () => {
+      setIsIdle(false);
+      clearTimeout(timeout);
+      timeout = setTimeout(() => {
+        setIsIdle(true);
+      }, 6000);
+    };
+
+    window.addEventListener('mousemove', handleActivity);
+    window.addEventListener('keydown', handleActivity);
+    return () => {
+      clearTimeout(timeout);
+      window.removeEventListener('mousemove', handleActivity);
+      window.removeEventListener('keydown', handleActivity);
+    };
+  }, []);
+
+  // Re-open inspector when selecting a different celestial body
   useEffect(() => {
     if (selectedBody && selectedBody !== 'overview') {
       setIsTelemetryOpen(true);
@@ -69,36 +88,36 @@ export function InteractiveSimulatorHUD({
   const selectedData = PLANETS_CONFIG[selectedBody] || (selectedBody === 'asteroids' ? {
     id: 'asteroids',
     name: 'Asteroid Belt & Ceres',
-    category: 'Circumstellar Debris Ring',
-    tagline: 'Remnants of Early Solar System Accretion',
-    radiusKm: 473, // Ceres mean radius
-    mass: '3.0 × 10²¹ kg (~4% of the Moon)',
-    gravity: '0.28 m/s² (Ceres)',
+    category: 'Circumstellar Debris Belt',
+    tagline: 'Remnants of Early Solar System Planetary Accretion',
+    radiusKm: 473,
+    mass: '3.0 × 10²¹ kg',
+    gravity: '0.28 m/s²',
     meanTempC: -106,
-    rotationPeriodHours: 9.07,
     orbitalPeriodDays: 1682,
     atmosphereComposition: 'Vacuum / Trace water-vapor plumes on Ceres',
-    description: 'A vast circumstellar disc located between the orbits of Mars and Jupiter. Occupied by hundreds of thousands of irregular rocky asteroids, and anchored by dwarf planet Ceres.'
+    description: 'A vast circumstellar torus orbiting between Mars and Jupiter. Occupied by hundreds of thousands of rocky chondrite bodies and anchored by dwarf planet Ceres.'
   } : null);
 
   return (
-    <div className="absolute inset-0 pointer-events-none select-none z-30 flex flex-col justify-between overflow-hidden">
-      {/* 1. TOP HEADER & CELESTIAL QUICK-PICKER BAR */}
+    <div className={`absolute inset-0 pointer-events-none select-none z-30 flex flex-col justify-between overflow-hidden transition-opacity duration-700 ${
+      isIdle ? 'opacity-35 hover:opacity-100' : 'opacity-100'
+    }`}>
+      {/* 1. TOP HEADER & CELESTIAL NAV BAR (Swiss Editorial Minimalism) */}
       <header
-        className={`w-full pt-3 px-4 sm:px-6 flex flex-col items-center transition-all duration-500 pointer-events-auto ${
+        className={`w-full pt-4 px-6 flex flex-col items-center transition-all duration-500 pointer-events-auto ${
           uiVisible ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-6 pointer-events-none'
         }`}
       >
-        <div className="w-full max-w-6xl flex items-center justify-between pb-2">
-          {/* Brand & System Status */}
-          <div className="flex items-center space-x-3 bg-black/60 backdrop-blur-md px-3.5 py-1.5 rounded-full border border-white/10 shadow-lg">
-            <Globe2 className="w-4 h-4 text-cyan-400 animate-pulse" />
-            <span className="text-[11px] uppercase tracking-[0.25em] font-mono font-semibold text-white/90">
-              TERRAFORGE <span className="text-white/40">|</span> SOLAR SIMULATOR
+        <div className="w-full max-w-6xl flex items-center justify-between pb-2.5">
+          {/* Brand & Real-Time Indicator */}
+          <div className="flex items-center space-x-3 bg-black/50 backdrop-blur-xl px-4 py-1.5 rounded-full border border-white/[0.08]">
+            <span className="text-[10px] uppercase tracking-[0.25em] font-mono font-medium text-white/90">
+              TERRAFORGE <span className="text-white/30">|</span> SOLAR SYSTEM
             </span>
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-            <span className="text-[9px] font-mono tracking-widest text-emerald-400 uppercase">
-              REAL-TIME
+            <span className="w-1 h-1 rounded-full bg-emerald-400"></span>
+            <span className="text-[9px] font-mono tracking-widest text-emerald-400/90 uppercase">
+              {isPaused ? 'SIMULATION PAUSED' : 'REAL-TIME'}
             </span>
           </div>
 
@@ -106,14 +125,14 @@ export function InteractiveSimulatorHUD({
           <div className="flex items-center space-x-2">
             <button
               onClick={() => setUiVisible((v) => !v)}
-              className="bg-black/60 hover:bg-black/80 backdrop-blur-md text-white/70 hover:text-white p-2 rounded-full border border-white/10 transition-all text-xs flex items-center space-x-1"
+              className="bg-black/50 hover:bg-black/80 backdrop-blur-xl text-white/60 hover:text-white p-2 rounded-full border border-white/[0.08] transition-all text-xs"
               title="Toggle HUD (H)"
             >
               {uiVisible ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
             </button>
             <button
               onClick={toggleFullscreen}
-              className="bg-black/60 hover:bg-black/80 backdrop-blur-md text-white/70 hover:text-white p-2 rounded-full border border-white/10 transition-all text-xs"
+              className="bg-black/50 hover:bg-black/80 backdrop-blur-xl text-white/60 hover:text-white p-2 rounded-full border border-white/[0.08] transition-all text-xs"
               title="Fullscreen (F)"
             >
               {isFullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
@@ -121,23 +140,26 @@ export function InteractiveSimulatorHUD({
           </div>
         </div>
 
-        {/* Celestial Body Navigation Tabs */}
+        {/* Minimalist Celestial Selection Bar */}
         <nav className="w-full max-w-5xl flex items-center justify-center overflow-x-auto py-1 px-2">
-          <div className="flex items-center space-x-1 sm:space-x-1.5 bg-black/75 backdrop-blur-xl p-1.5 rounded-2xl border border-white/12 shadow-[0_12px_40px_rgba(0,0,0,0.85)]">
-            {CELESTIAL_LIST.map(({ id, name, color, icon }) => {
+          <div className="flex items-center space-x-1 bg-black/60 backdrop-blur-2xl p-1 rounded-full border border-white/[0.08] shadow-[0_8px_32px_rgba(0,0,0,0.8)]">
+            {CELESTIAL_LIST.map(({ id, name, dot }) => {
               const isActive = selectedBody === id;
               return (
                 <button
                   key={id}
                   onClick={() => onSelectBody(id)}
-                  className={`flex items-center space-x-1.5 px-2.5 sm:px-3 py-1 rounded-xl text-xs font-mono font-medium tracking-wider transition-all duration-200 cursor-pointer shrink-0 ${
+                  className={`flex items-center space-x-2 px-3 py-1 rounded-full text-[11px] font-mono tracking-wider transition-all duration-200 cursor-pointer shrink-0 ${
                     isActive
-                      ? 'bg-white/20 text-white shadow-[0_0_15px_rgba(255,255,255,0.3)] border border-white/30 scale-105'
-                      : 'text-white/60 hover:text-white hover:bg-white/10 border border-transparent'
+                      ? 'bg-white/15 text-white border border-white/25 shadow-[0_0_12px_rgba(255,255,255,0.2)]'
+                      : 'text-white/50 hover:text-white hover:bg-white/[0.06] border border-transparent'
                   }`}
                 >
-                  <span className="text-xs">{icon}</span>
-                  <span className="hidden sm:inline uppercase">{name}</span>
+                  <span
+                    className="w-1.5 h-1.5 rounded-full"
+                    style={{ backgroundColor: dot }}
+                  />
+                  <span className="uppercase text-[10px]">{name}</span>
                 </button>
               );
             })}
@@ -145,29 +167,29 @@ export function InteractiveSimulatorHUD({
         </nav>
       </header>
 
-      {/* 2. ASTROPHYSICAL TELEMETRY CARD (FLOATING DRAWER) */}
+      {/* 2. CONTEXTUAL PLANETARY INSPECTOR DRAWER (Aerospace Elegance) */}
       {selectedData && selectedBody !== 'overview' && (
-        <div
-          className={`absolute left-4 sm:left-6 bottom-24 sm:bottom-28 w-80 sm:w-96 transition-all duration-500 pointer-events-auto z-20 ${
+        <aside
+          className={`absolute left-6 bottom-24 w-84 sm:w-96 transition-all duration-500 pointer-events-auto z-20 ${
             uiVisible && isTelemetryOpen
               ? 'opacity-100 translate-y-0 scale-100'
               : 'opacity-0 translate-y-8 scale-95 pointer-events-none'
           }`}
         >
-          <div className="bg-black/85 backdrop-blur-2xl border border-white/15 rounded-2xl p-5 shadow-[0_20px_50px_rgba(0,0,0,0.95)]">
+          <div className="bg-black/75 backdrop-blur-2xl border border-white/[0.1] rounded-2xl p-5 shadow-[0_24px_64px_rgba(0,0,0,0.95)]">
             {/* Header */}
-            <div className="flex items-start justify-between border-b border-white/10 pb-3 mb-3">
+            <div className="flex items-start justify-between border-b border-white/[0.08] pb-3 mb-3.5">
               <div>
                 <div className="flex items-center space-x-2">
-                  <h2 className="text-xl sm:text-2xl font-light tracking-wider text-white uppercase">
+                  <h2 className="text-xl font-light tracking-[0.12em] text-white uppercase">
                     {selectedData.name}
                   </h2>
-                  <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-cyan-950/80 text-cyan-400 border border-cyan-800/60 uppercase">
-                    {selectedData.category || 'Body'}
+                  <span className="text-[9px] font-mono px-2 py-0.5 rounded-full bg-white/[0.08] text-white/70 border border-white/10 uppercase tracking-widest">
+                    {selectedData.category || 'Celestial Body'}
                   </span>
                 </div>
-                <p className="text-[11px] font-mono text-white/50 tracking-wide mt-0.5">
-                  {selectedData.tagline || 'Solar System Explorer'}
+                <p className="text-[10px] font-mono text-white/40 tracking-wider mt-1">
+                  {selectedData.tagline || 'Astronomical Observation Target'}
                 </p>
               </div>
               <button
@@ -175,96 +197,85 @@ export function InteractiveSimulatorHUD({
                 className="text-white/40 hover:text-white transition-colors p-1"
                 title="Dismiss Telemetry"
               >
-                <X className="w-4 h-4" />
+                <X className="w-3.5 h-3.5" />
               </button>
             </div>
 
-            {/* Scientific Parameters Grid */}
-            <div className="grid grid-cols-2 gap-2.5 mb-3 text-xs font-mono">
-              <div className="bg-white/5 p-2 rounded-lg border border-white/5">
+            {/* Scientific Parameters Matrix */}
+            <div className="grid grid-cols-2 gap-2 mb-3.5 text-xs font-mono">
+              <div className="bg-white/[0.04] p-2.5 rounded-xl border border-white/[0.05]">
                 <div className="text-[9px] uppercase tracking-wider text-white/40">Mean Radius</div>
-                <div className="text-white font-medium">
+                <div className="text-white/90 font-medium text-xs mt-0.5">
                   {selectedData.radiusKm ? `${selectedData.radiusKm.toLocaleString()} km` : 'N/A'}
                 </div>
               </div>
-              <div className="bg-white/5 p-2 rounded-lg border border-white/5">
+              <div className="bg-white/[0.04] p-2.5 rounded-xl border border-white/[0.05]">
                 <div className="text-[9px] uppercase tracking-wider text-white/40">Surface Gravity</div>
-                <div className="text-white font-medium">{selectedData.gravity || 'N/A'}</div>
+                <div className="text-white/90 font-medium text-xs mt-0.5">{selectedData.gravity || 'N/A'}</div>
               </div>
-              <div className="bg-white/5 p-2 rounded-lg border border-white/5">
-                <div className="text-[9px] uppercase tracking-wider text-white/40">Surface Temp</div>
-                <div className="text-white font-medium">
+              <div className="bg-white/[0.04] p-2.5 rounded-xl border border-white/[0.05]">
+                <div className="text-[9px] uppercase tracking-wider text-white/40">Mean Temperature</div>
+                <div className="text-white/90 font-medium text-xs mt-0.5">
                   {selectedData.meanTempC !== undefined ? `${selectedData.meanTempC}°C` : 'N/A'}
                 </div>
               </div>
-              <div className="bg-white/5 p-2 rounded-lg border border-white/5">
+              <div className="bg-white/[0.04] p-2.5 rounded-xl border border-white/[0.05]">
                 <div className="text-[9px] uppercase tracking-wider text-white/40">Orbital Period</div>
-                <div className="text-white font-medium">
+                <div className="text-white/90 font-medium text-xs mt-0.5">
                   {selectedData.orbitalPeriodDays ? `${selectedData.orbitalPeriodDays} d` : 'Center'}
                 </div>
               </div>
             </div>
 
-            {/* Atmosphere Composition */}
+            {/* Atmosphere Summary */}
             {selectedData.atmosphereComposition && (
-              <div className="mb-3 text-[10px] font-mono bg-white/5 p-2 rounded-lg border border-white/5">
+              <div className="mb-3.5 text-[10px] font-mono bg-white/[0.04] p-2.5 rounded-xl border border-white/[0.05]">
                 <span className="text-white/40 uppercase tracking-wider block mb-0.5">Atmosphere</span>
-                <span className="text-white/80">{selectedData.atmosphereComposition}</span>
+                <span className="text-white/80 leading-relaxed">{selectedData.atmosphereComposition}</span>
               </div>
             )}
 
-            {/* Description */}
-            <p className="text-xs text-white/70 font-light leading-relaxed mb-4 line-clamp-3">
+            {/* Concise Scientific Description */}
+            <p className="text-xs text-white/60 font-light leading-relaxed mb-4">
               {selectedData.description}
             </p>
 
             {/* Return to Overview Action */}
             <button
               onClick={() => onSelectBody('overview')}
-              className="w-full flex items-center justify-center space-x-2 bg-white/10 hover:bg-white/20 text-white border border-white/20 py-2 rounded-xl text-xs font-mono uppercase tracking-wider transition-all"
+              className="w-full flex items-center justify-center space-x-2 bg-white/[0.08] hover:bg-white/[0.14] text-white border border-white/[0.12] py-2 rounded-xl text-xs font-mono uppercase tracking-wider transition-all"
             >
               <span>Return to Solar Overview</span>
-              <ChevronRight className="w-3.5 h-3.5" />
+              <ChevronRight className="w-3.5 h-3.5 text-white/50" />
             </button>
           </div>
-        </div>
+        </aside>
       )}
 
-      {/* Floating telemetry button when drawer closed */}
-      {selectedData && selectedBody !== 'overview' && !isTelemetryOpen && uiVisible && (
-        <button
-          onClick={() => setIsTelemetryOpen(true)}
-          className="absolute left-6 bottom-28 bg-black/80 hover:bg-black backdrop-blur-xl border border-white/20 text-white px-4 py-2 rounded-full pointer-events-auto flex items-center space-x-2 text-xs font-mono uppercase tracking-wider shadow-xl transition-all"
-        >
-          <Info className="w-4 h-4 text-cyan-400" />
-          <span>{selectedData.name} Telemetry</span>
-        </button>
-      )}
-
-      {/* 3. BOTTOM CONTROL BAR: SIMULATION TRANSPORT & DISPLAY TOGGLES */}
+      {/* 3. BOTTOM TRANSPORT BAR & DISPLAY TOGGLES (Restrained Control Dock) */}
       <footer
-        className={`w-full pb-4 px-4 sm:px-6 flex flex-col items-center pointer-events-auto transition-all duration-500 ${
+        className={`w-full pb-4 px-6 flex flex-col items-center pointer-events-auto transition-all duration-500 ${
           uiVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6 pointer-events-none'
         }`}
       >
-        <div className="w-full max-w-3xl bg-black/80 backdrop-blur-2xl border border-white/12 rounded-2xl p-2.5 sm:p-3 shadow-[0_20px_50px_rgba(0,0,0,0.9)] flex flex-wrap items-center justify-between gap-3">
-          {/* Left: Play / Pause & Time Multipliers */}
+        <div className="w-full max-w-2xl bg-black/60 backdrop-blur-2xl border border-white/[0.08] rounded-2xl p-2 px-3 shadow-[0_16px_40px_rgba(0,0,0,0.85)] flex items-center justify-between gap-3">
+          {/* Simulation Playback & Speed Multipliers */}
           <div className="flex items-center space-x-2">
             <button
               onClick={() => setIsPaused(!isPaused)}
-              className={`p-2 sm:px-3 sm:py-1.5 rounded-xl font-mono text-xs flex items-center space-x-1.5 transition-all ${
+              className={`p-1.5 px-3 rounded-xl font-mono text-[11px] flex items-center space-x-1.5 transition-all ${
                 isPaused
-                  ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 hover:bg-amber-500/30'
-                  : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 hover:bg-emerald-500/30'
+                  ? 'bg-amber-500/15 text-amber-300 border border-amber-500/30'
+                  : 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
               }`}
               title="Toggle Play / Pause (Space)"
             >
-              {isPaused ? <Play className="w-3.5 h-3.5" /> : <Pause className="w-3.5 h-3.5" />}
-              <span className="hidden sm:inline font-semibold">{isPaused ? 'PAUSED' : 'REAL-TIME'}</span>
+              {isPaused ? <Play className="w-3 h-3" /> : <Pause className="w-3 h-3" />}
+              <span className="uppercase tracking-wider">{isPaused ? 'Paused' : '1x Active'}</span>
             </button>
 
-            {/* Speed Multipliers */}
-            <div className="flex items-center space-x-1 bg-white/5 p-1 rounded-xl border border-white/5">
+            {/* Stepped Multipliers */}
+            <div className="flex items-center space-x-0.5 bg-white/[0.04] p-0.5 rounded-xl border border-white/[0.05]">
               {SPEED_PRESETS.map((multiplier) => {
                 const isActive = timeMultiplier === multiplier && !isPaused;
                 return (
@@ -276,8 +287,8 @@ export function InteractiveSimulatorHUD({
                     }}
                     className={`px-2 py-1 rounded-lg text-[10px] font-mono tracking-wider transition-all ${
                       isActive
-                        ? 'bg-cyan-500 text-black font-bold shadow-[0_0_10px_rgba(6,182,212,0.8)]'
-                        : 'text-white/60 hover:text-white hover:bg-white/10'
+                        ? 'bg-white/20 text-white font-medium border border-white/30'
+                        : 'text-white/50 hover:text-white'
                     }`}
                   >
                     {multiplier}x
@@ -287,56 +298,53 @@ export function InteractiveSimulatorHUD({
             </div>
           </div>
 
-          {/* Right: View Toggles & Reset */}
+          {/* View Toggles & Camera Reset */}
           <div className="flex items-center space-x-1.5">
-            {/* Orbits Toggle */}
             <button
               onClick={() => setShowOrbits(!showOrbits)}
-              className={`px-2.5 py-1.5 rounded-xl text-xs font-mono flex items-center space-x-1.5 transition-all border ${
+              className={`px-2.5 py-1 rounded-xl text-[11px] font-mono flex items-center space-x-1.5 transition-all border ${
                 showOrbits
-                  ? 'bg-white/15 text-white border-white/30'
-                  : 'bg-transparent text-white/40 border-white/10 hover:text-white/70'
+                  ? 'bg-white/15 text-white border-white/25'
+                  : 'bg-transparent text-white/40 border-white/[0.06] hover:text-white/70'
               }`}
               title="Toggle Orbits (O)"
             >
-              <Orbit className="w-3.5 h-3.5 text-cyan-400" />
-              <span className="hidden sm:inline">Orbits</span>
+              <Orbit className="w-3 h-3 text-cyan-400" />
+              <span>Orbits</span>
             </button>
 
-            {/* Labels Toggle */}
             <button
               onClick={() => setShowLabels(!showLabels)}
-              className={`px-2.5 py-1.5 rounded-xl text-xs font-mono flex items-center space-x-1.5 transition-all border ${
+              className={`px-2.5 py-1 rounded-xl text-[11px] font-mono flex items-center space-x-1.5 transition-all border ${
                 showLabels
-                  ? 'bg-white/15 text-white border-white/30'
-                  : 'bg-transparent text-white/40 border-white/10 hover:text-white/70'
+                  ? 'bg-white/15 text-white border-white/25'
+                  : 'bg-transparent text-white/40 border-white/[0.06] hover:text-white/70'
               }`}
-              title="Toggle Planet Labels (L)"
+              title="Toggle Labels (L)"
             >
-              <Globe2 className="w-3.5 h-3.5 text-amber-400" />
-              <span className="hidden sm:inline">Labels</span>
+              <Tag className="w-3 h-3 text-amber-400" />
+              <span>Labels</span>
             </button>
 
-            {/* Reset Camera */}
             <button
               onClick={onResetCamera}
-              className="px-2.5 py-1.5 rounded-xl text-xs font-mono text-white/60 hover:text-white hover:bg-white/10 border border-white/10 flex items-center space-x-1.5 transition-all"
+              className="px-2.5 py-1 rounded-xl text-[11px] font-mono text-white/50 hover:text-white hover:bg-white/[0.08] border border-white/[0.06] flex items-center space-x-1 transition-all"
               title="Reset Overview Camera (R)"
             >
-              <RotateCcw className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Reset</span>
+              <RotateCcw className="w-3 h-3" />
+              <span>Reset</span>
             </button>
           </div>
         </div>
 
-        {/* Keyboard Hints */}
-        <div className="text-[10px] font-mono text-white/40 tracking-wider mt-1.5 hidden sm:flex items-center space-x-3">
-          <span><kbd className="px-1 py-0.5 rounded bg-white/10 text-white/70">Space</kbd> Pause</span>
-          <span><kbd className="px-1 py-0.5 rounded bg-white/10 text-white/70">O</kbd> Orbits</span>
-          <span><kbd className="px-1 py-0.5 rounded bg-white/10 text-white/70">L</kbd> Labels</span>
-          <span><kbd className="px-1 py-0.5 rounded bg-white/10 text-white/70">R</kbd> Reset</span>
-          <span><kbd className="px-1 py-0.5 rounded bg-white/10 text-white/70">Esc</kbd> Overview</span>
-          <span><kbd className="px-1 py-0.5 rounded bg-white/10 text-white/70">1-9</kbd> Select Planet</span>
+        {/* Minimal Editorial Shortcuts Footer */}
+        <div className="text-[9px] font-mono text-white/30 tracking-[0.18em] mt-2 hidden sm:flex items-center space-x-4">
+          <span><kbd className="px-1 py-0.2 rounded bg-white/[0.08] text-white/60">SPACE</kbd> PAUSE</span>
+          <span><kbd className="px-1 py-0.2 rounded bg-white/[0.08] text-white/60">O</kbd> ORBITS</span>
+          <span><kbd className="px-1 py-0.2 rounded bg-white/[0.08] text-white/60">L</kbd> LABELS</span>
+          <span><kbd className="px-1 py-0.2 rounded bg-white/[0.08] text-white/60">R</kbd> RESET</span>
+          <span><kbd className="px-1 py-0.2 rounded bg-white/[0.08] text-white/60">ESC</kbd> OVERVIEW</span>
+          <span><kbd className="px-1 py-0.2 rounded bg-white/[0.08] text-white/60">1-9</kbd> SELECT BODY</span>
         </div>
       </footer>
     </div>

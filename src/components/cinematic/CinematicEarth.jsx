@@ -7,21 +7,20 @@ import * as THREE from 'three';
 const EARTH_AXIAL_TILT = (23.44 * Math.PI) / 180;
 const MOON_INCLINATION = (5.14 * Math.PI) / 180;
 
-// Earth Multi-Texture GLSL Shader (Version 1 Enhanced with Photographic Realism)
-const EarthGLSLShader = {
+// 1. Earth Surface Multi-Layer GLSL Shader
+// Features: NASA 2K Blue/Black Marble textures, physical terminator with twilight band,
+// land/ocean specular glint, cloud shadow projection, and night city illumination.
+const EarthSurfaceShader = {
   vertexShader: `
     varying vec2 vUv;
     varying vec3 vNormal;
     varying vec3 vWorldNormal;
-    varying vec3 vWorldPosition;
     varying vec3 vViewPosition;
 
     void main() {
       vUv = uv;
       vNormal = normalize(normalMatrix * normal);
       vWorldNormal = normalize((modelMatrix * vec4(normal, 0.0)).xyz);
-      vec4 worldPos = modelMatrix * vec4(position, 1.0);
-      vWorldPosition = worldPos.xyz;
       vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
       vViewPosition = -mvPosition.xyz;
       gl_Position = projectionMatrix * mvPosition;
@@ -31,63 +30,144 @@ const EarthGLSLShader = {
     varying vec2 vUv;
     varying vec3 vNormal;
     varying vec3 vWorldNormal;
-    varying vec3 vWorldPosition;
     varying vec3 vViewPosition;
 
     uniform sampler2D uAlbedo;
     uniform sampler2D uLandmask;
     uniform sampler2D uBumpMap;
     uniform sampler2D uNightLights;
-    uniform vec3 uSunPosition;
+    uniform sampler2D uCloudsMap;
+    uniform vec3 uSunDirection;
     uniform float uTime;
 
     void main() {
       vec3 viewDir = normalize(vViewPosition);
       vec3 normal = normalize(vNormal);
       vec3 worldNormal = normalize(vWorldNormal);
+      vec3 sunDir = normalize(uSunDirection);
 
-      vec3 sunDir = normalize(uSunPosition - vWorldPosition);
-
-      // 1. Textures
+      // 1. Texture Samples
       vec3 albedo = texture2D(uAlbedo, vUv).rgb;
       float landFactor = texture2D(uLandmask, vUv).r; // 1.0 = Land, 0.0 = Ocean
-      float bumpVal = texture2D(uBumpMap, vUv).r;
+      float bump = texture2D(uBumpMap, vUv).r;
       vec3 nightLights = texture2D(uNightLights, vUv).rgb;
 
-      // 2. Day/Night lighting with physical terminator roll-off
+      // 2. Day/Night Lighting & Terminator Roll-off
       float sunDot = dot(worldNormal, sunDir);
-      float dayFactor = smoothstep(-0.18, 0.22, sunDot);
-      float diffuse = max(0.0, sunDot);
+      float dayFactor = smoothstep(-0.20, 0.22, sunDot);
+      float diffuse = max(0.0, sunDot * 0.95 + 0.05);
 
-      // Deep, vibrant photorealistic ocean and continents
-      vec3 surfaceDay = albedo * (diffuse * 0.95 + 0.05);
+      // 3. Subtle Cloud Shadow Projection onto ground
+      vec2 shadowUv = vUv + vec2(sunDir.x, sunDir.z) * 0.008;
+      float cloudShadow = 1.0 - texture2D(uCloudsMap, shadowUv).r * 0.35;
 
-      // 3. Ocean Specular Sun Glint (Only on oceans, water roughness pow(36))
+      vec3 surfaceDay = albedo * diffuse * cloudShadow;
+
+      // 4. Twilight Rayleigh Sunset Band along Terminator
+      float twilightFactor = smoothstep(0.22, 0.0, abs(sunDot)) * 0.4;
+      vec3 twilightColor = vec3(0.95, 0.38, 0.12) * twilightFactor;
+
+      // 5. Ocean Specular Sun Glint (Only on water, masked by land and clouds)
       vec3 halfVec = normalize(sunDir + viewDir);
       float specAngle = max(0.0, dot(normal, halfVec));
-      float oceanGlint = pow(specAngle, 42.0) * (1.0 - landFactor) * dayFactor;
-      vec3 glintColor = vec3(1.0, 0.96, 0.85) * oceanGlint * 2.2;
+      float cloudVal = texture2D(uCloudsMap, vUv).r;
+      float oceanGlint = pow(specAngle, 48.0) * (1.0 - landFactor) * dayFactor * (1.0 - cloudVal * 0.85);
+      vec3 glintColor = vec3(1.0, 0.95, 0.85) * oceanGlint * 2.5;
 
-      // 4. Night Lights on Dark Hemisphere
+      // 6. NASA Black Marble Night Lights (Active ONLY on dark side)
       float nightFactor = smoothstep(0.12, -0.22, sunDot);
-      vec3 litNight = nightLights * nightFactor * 1.6;
+      vec3 litNight = nightLights * nightFactor * 1.8;
 
-      // 5. Rayleigh Blue Atmospheric Limb Scattering
+      // 7. Atmospheric Rayleigh Limb Scattering
       float rim = 1.0 - max(0.0, dot(normal, viewDir));
-      float rayleighIntensity = pow(rim, 3.4) * max(0.1, sunDot * 0.6 + 0.4);
-      vec3 atmosphereScatter = vec3(0.12, 0.48, 1.0) * rayleighIntensity * 1.8;
+      float rayleighIntensity = pow(rim, 3.2) * max(0.1, sunDot * 0.7 + 0.3);
+      vec3 atmosphereScatter = vec3(0.18, 0.55, 1.0) * rayleighIntensity * 1.6;
 
-      vec3 finalColor = surfaceDay + glintColor + litNight + atmosphereScatter;
+      // Combine layers
+      vec3 finalColor = surfaceDay + twilightColor + glintColor + litNight + atmosphereScatter;
       gl_FragColor = vec4(finalColor, 1.0);
+    }
+  `
+};
+
+// 2. Dynamic Weather Clouds GLSL Shader
+// Soft illuminated clouds on day side with self-shadowing, fading to darkness on night side.
+const EarthCloudsShader = {
+  vertexShader: `
+    varying vec2 vUv;
+    varying vec3 vNormal;
+    varying vec3 vWorldNormal;
+
+    void main() {
+      vUv = uv;
+      vNormal = normalize(normalMatrix * normal);
+      vWorldNormal = normalize((modelMatrix * vec4(normal, 0.0)).xyz);
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    }
+  `,
+  fragmentShader: `
+    varying vec2 vUv;
+    varying vec3 vNormal;
+    varying vec3 vWorldNormal;
+
+    uniform sampler2D uCloudsMap;
+    uniform vec3 uSunDirection;
+
+    void main() {
+      vec4 cloudTex = texture2D(uCloudsMap, vUv);
+      if (cloudTex.r < 0.04) discard;
+
+      vec3 sunDir = normalize(uSunDirection);
+      vec3 worldNormal = normalize(vWorldNormal);
+
+      float sunDot = dot(worldNormal, sunDir);
+      float dayFactor = smoothstep(-0.15, 0.25, sunDot);
+
+      // Lit clouds on daylight side, dark translucent clouds on night side
+      vec3 cloudColor = vec3(1.0, 1.0, 1.0) * (dayFactor * 0.95 + 0.05);
+      float alpha = cloudTex.r * (dayFactor * 0.75 + 0.20);
+
+      gl_FragColor = vec4(cloudColor, alpha * 0.92);
+    }
+  `
+};
+
+// 3. Smooth Atmospheric Outer Rayleigh Limb Halo Shader
+const EarthAtmosphereHaloShader = {
+  vertexShader: `
+    varying vec3 vNormal;
+    varying vec3 vViewPosition;
+
+    void main() {
+      vNormal = normalize(normalMatrix * normal);
+      vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+      vViewPosition = -mvPosition.xyz;
+      gl_Position = projectionMatrix * mvPosition;
+    }
+  `,
+  fragmentShader: `
+    varying vec3 vNormal;
+    varying vec3 vViewPosition;
+
+    void main() {
+      vec3 normal = normalize(vNormal);
+      vec3 viewDir = normalize(vViewPosition);
+
+      float rim = 1.0 - clamp(abs(dot(normal, viewDir)), 0.0, 1.0);
+      float glow = pow(rim, 3.6);
+
+      vec3 atmoColor = mix(vec3(0.15, 0.45, 1.0), vec3(0.4, 0.75, 1.0), rim);
+      gl_FragColor = vec4(atmoColor * glow * 1.5, glow * 0.8);
     }
   `
 };
 
 export function CinematicEarth({
   position = [0, 0, 0],
-  radius = 1.8,
+  radius = 2.0,
   isPlaying = true,
   axialTilt = EARTH_AXIAL_TILT,
+  sunDirection,
   onClick
 }) {
   const [albedoMap, bumpMap, cloudsMap, landmaskMap, nightlightsMap, moonAlbedo, moonBump] = useTexture([
@@ -105,29 +185,42 @@ export function CinematicEarth({
   const cloudsRef = useRef();
   const moonRef = useRef();
   const moonOrbitAngleRef = useRef(0);
-  const shaderRef = useRef();
+  const surfaceShaderRef = useRef();
+  const cloudsShaderRef = useRef();
+
+  // Compute accurate sunlight vector arriving at Earth
+  const computedSunDir = useMemo(() => {
+    if (sunDirection) return sunDirection;
+    const earthPos = new THREE.Vector3(...position);
+    if (earthPos.lengthSq() > 1.0) {
+      // In solar system: vector from Earth toward Sun at [0, 0, 0]
+      return new THREE.Vector3(0, 0, 0).sub(earthPos).normalize();
+    }
+    // In standalone inspection: standard key sunlight [1, 0.45, 1]
+    return new THREE.Vector3(1, 0.45, 1).normalize();
+  }, [position, sunDirection]);
 
   useFrame((state, delta) => {
     const elapsed = state.clock.getElapsedTime();
 
-    if (shaderRef.current) {
-      shaderRef.current.uniforms.uTime.value = elapsed;
+    if (surfaceShaderRef.current) {
+      surfaceShaderRef.current.uniforms.uTime.value = elapsed;
     }
 
     if (isPlaying) {
-      // Earth rotation
+      // Earth axial rotation (23.93 hours)
       if (earthBodyRef.current) {
         earthBodyRef.current.rotation.y += delta * 0.12;
       }
-      // Dynamic cloud drift slightly faster than planet rotation
+      // Differential atmospheric cloud drift (+25% faster than terrain)
       if (cloudsRef.current) {
-        cloudsRef.current.rotation.y += delta * 0.145;
+        cloudsRef.current.rotation.y += delta * 0.148;
       }
-      // Moon Keplerian orbit: 27.3 Earth days per orbit
+      // Lunar Keplerian orbit (27.3 Earth days per lunar revolution)
       moonOrbitAngleRef.current += delta * (0.12 / 27.3) * 6.0;
     }
 
-    // Moon Tidal Lock and Position
+    // Moon Position & Tidal Locking
     const moonDist = radius * 5.8;
     const mAngle = moonOrbitAngleRef.current;
     if (moonRef.current) {
@@ -136,52 +229,55 @@ export function CinematicEarth({
         Math.sin(mAngle * 0.5) * 0.4,
         Math.sin(mAngle) * moonDist
       );
-      // Tidal locking: same face continuously directed towards Earth
+      // Tidal lock: Same lunar face continuously faces Earth
       moonRef.current.rotation.y = -mAngle + Math.PI / 2;
     }
   });
 
   return (
     <group position={position} onClick={onClick}>
-      {/* Earth tilted group with 23.44° axial tilt */}
-      <group ref={earthGroupRef} rotation={[axialTilt, 0, 0]}>
+      {/* Earth tilted group with 23.44° astronomical axial tilt on Z */}
+      <group ref={earthGroupRef} rotation={[0, 0, axialTilt]}>
         {/* 1. Main Planet Surface */}
         <mesh ref={earthBodyRef} castShadow receiveShadow>
           <sphereGeometry args={[radius, 128, 128]} />
           <shaderMaterial
-            ref={shaderRef}
-            args={[EarthGLSLShader]}
+            ref={surfaceShaderRef}
+            args={[EarthSurfaceShader]}
             uniforms={{
               uAlbedo: { value: albedoMap },
               uLandmask: { value: landmaskMap },
               uBumpMap: { value: bumpMap },
               uNightLights: { value: nightlightsMap },
-              uSunPosition: { value: new THREE.Vector3(0, 0, 0) },
+              uCloudsMap: { value: cloudsMap },
+              uSunDirection: { value: computedSunDir },
               uTime: { value: 0 }
             }}
           />
         </mesh>
 
-        {/* 2. Realistic Dynamic Cloud Layer with Soft Self-Shadowing */}
+        {/* 2. Realistic Dynamic Cloud Layer with Terminator Shading */}
         <mesh ref={cloudsRef} scale={1.018}>
-          <sphereGeometry args={[radius, 96, 96]} />
-          <meshStandardMaterial
-            map={cloudsMap}
+          <sphereGeometry args={[radius, 128, 128]} />
+          <shaderMaterial
+            ref={cloudsShaderRef}
+            args={[EarthCloudsShader]}
+            uniforms={{
+              uCloudsMap: { value: cloudsMap },
+              uSunDirection: { value: computedSunDir }
+            }}
             transparent={true}
-            opacity={0.88}
             blending={THREE.NormalBlending}
-            roughness={1.0}
             depthWrite={false}
           />
         </mesh>
 
-        {/* 3. Outer Atmospheric Halo Glow */}
-        <mesh scale={1.07}>
-          <sphereGeometry args={[radius, 48, 48]} />
-          <meshBasicMaterial
-            color="#2277ff"
+        {/* 3. Smooth Atmospheric Outer Rayleigh Limb Halo */}
+        <mesh scale={1.045}>
+          <sphereGeometry args={[radius, 64, 64]} />
+          <shaderMaterial
+            args={[EarthAtmosphereHaloShader]}
             transparent={true}
-            opacity={0.12}
             blending={THREE.AdditiveBlending}
             side={THREE.BackSide}
             depthWrite={false}

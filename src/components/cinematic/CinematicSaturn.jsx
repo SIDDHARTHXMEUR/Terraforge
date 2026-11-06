@@ -6,9 +6,39 @@ import * as THREE from 'three';
 // Saturn with double-sided Cassini Division Ring System + Ring Shadow projection
 const SATURN_AXIAL_TILT = (26.73 * Math.PI) / 180;
 
+// Saturn Atmospheric Limb Shader
+const SaturnAtmosphereShader = {
+  vertexShader: `
+    varying vec3 vNormal;
+    varying vec3 vViewPosition;
+
+    void main() {
+      vNormal = normalize(normalMatrix * normal);
+      vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+      vViewPosition = -mvPosition.xyz;
+      gl_Position = projectionMatrix * mvPosition;
+    }
+  `,
+  fragmentShader: `
+    varying vec3 vNormal;
+    varying vec3 vViewPosition;
+
+    void main() {
+      vec3 normal = normalize(vNormal);
+      vec3 viewDir = normalize(vViewPosition);
+
+      float rim = 1.0 - clamp(abs(dot(normal, viewDir)), 0.0, 1.0);
+      float glow = pow(rim, 3.8);
+
+      vec3 atmoColor = vec3(0.95, 0.82, 0.45);
+      gl_FragColor = vec4(atmoColor * glow * 1.4, glow * 0.12);
+    }
+  `
+};
+
 export function CinematicSaturn({
   position = [0, 0, 0],
-  radius = 3.6,
+  radius = 3.8,
   isPlaying = true,
   onClick
 }) {
@@ -45,29 +75,29 @@ export function CinematicSaturn({
 
   useFrame((_, delta) => {
     if (isPlaying && saturnBodyRef.current) {
-      saturnBodyRef.current.rotation.y += delta * 0.16;
+      // Rapid 10.65-hour Jovian rotation
+      saturnBodyRef.current.rotation.y += delta * 0.18;
     }
   });
 
   return (
-    <group position={position} rotation={[SATURN_AXIAL_TILT, 0, 0]} onClick={onClick}>
+    <group position={position} rotation={[0, 0, SATURN_AXIAL_TILT]} onClick={onClick}>
       {/* 1. Saturn Gas Giant Atmosphere Body */}
       <mesh ref={saturnBodyRef} castShadow receiveShadow>
         <sphereGeometry args={[radius, 128, 128]} />
         <meshStandardMaterial
           map={saturnMap}
-          roughness={0.9}
+          roughness={0.92}
           metalness={0.0}
         />
       </mesh>
 
       {/* 2. Saturn Subtle Pale Gold Atmospheric Limb Scattering */}
-      <mesh scale={1.03}>
+      <mesh scale={1.032}>
         <sphereGeometry args={[radius, 64, 64]} />
-        <meshBasicMaterial
-          color="#d4af37"
+        <shaderMaterial
+          args={[SaturnAtmosphereShader]}
           transparent={true}
-          opacity={0.08}
           blending={THREE.AdditiveBlending}
           side={THREE.BackSide}
           depthWrite={false}
@@ -86,8 +116,9 @@ export function CinematicSaturn({
           map={ringMap}
           transparent={true}
           opacity={0.96}
-          roughness={0.85}
-          metalness={0.05}
+          alphaTest={0.02}
+          roughness={0.82}
+          metalness={0.02}
           side={THREE.DoubleSide}
           depthWrite={true}
         />

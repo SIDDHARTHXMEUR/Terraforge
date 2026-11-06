@@ -3,6 +3,36 @@ import { useFrame } from '@react-three/fiber';
 import { useTexture } from '@react-three/drei';
 import * as THREE from 'three';
 
+// Jupiter Atmospheric Limb Shader
+const JupiterAtmosphereShader = {
+  vertexShader: `
+    varying vec3 vNormal;
+    varying vec3 vViewPosition;
+
+    void main() {
+      vNormal = normalize(normalMatrix * normal);
+      vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+      vViewPosition = -mvPosition.xyz;
+      gl_Position = projectionMatrix * mvPosition;
+    }
+  `,
+  fragmentShader: `
+    varying vec3 vNormal;
+    varying vec3 vViewPosition;
+
+    void main() {
+      vec3 normal = normalize(vNormal);
+      vec3 viewDir = normalize(vViewPosition);
+
+      float rim = 1.0 - clamp(abs(dot(normal, viewDir)), 0.0, 1.0);
+      float glow = pow(rim, 3.6);
+
+      vec3 atmoColor = vec3(0.92, 0.72, 0.42);
+      gl_FragColor = vec4(atmoColor * glow * 1.5, glow * 0.14);
+    }
+  `
+};
+
 // Jupiter with Galilean Moons (Io, Europa) and Dynamic Atmospheric Limb
 export function CinematicJupiter({
   position = [0, 0, 0],
@@ -25,7 +55,7 @@ export function CinematicJupiter({
   useFrame((_, delta) => {
     if (isPlaying) {
       if (jupiterRef.current) {
-        jupiterRef.current.rotation.y += delta * 0.18; // Fast 9.9 hour Jovian day
+        jupiterRef.current.rotation.y += delta * 0.22; // Rapid 9.9-hour Jovian rotation
       }
       ioAngleRef.current += delta * 0.45;
       europaAngleRef.current += delta * 0.22;
@@ -55,8 +85,8 @@ export function CinematicJupiter({
   });
 
   return (
-    <group position={position} rotation={[(3.13 * Math.PI) / 180, 0, 0]} onClick={onClick}>
-      {/* 1. Jupiter Gas Giant Body */}
+    <group position={position} rotation={[0, 0, (3.13 * Math.PI) / 180]} onClick={onClick}>
+      {/* 1. Jupiter Gas Giant Body with High-Res Bands and Great Red Spot */}
       <mesh ref={jupiterRef} castShadow receiveShadow>
         <sphereGeometry args={[radius, 128, 128]} />
         <meshStandardMaterial
@@ -69,10 +99,9 @@ export function CinematicJupiter({
       {/* 2. Warm Amber Atmospheric Limb Rim */}
       <mesh scale={1.03}>
         <sphereGeometry args={[radius, 64, 64]} />
-        <meshBasicMaterial
-          color="#d99852"
+        <shaderMaterial
+          args={[JupiterAtmosphereShader]}
           transparent={true}
-          opacity={0.10}
           blending={THREE.AdditiveBlending}
           side={THREE.BackSide}
           depthWrite={false}
@@ -100,4 +129,3 @@ export function CinematicJupiter({
     </group>
   );
 }
-

@@ -4,6 +4,9 @@ import * as THREE from 'three';
 import { SolarSystemEngine } from './components/cinematic/SolarSystemEngine';
 import { InteractiveSimulatorHUD } from './components/cinematic/InteractiveSimulatorHUD';
 import { LoadingScreen } from './components/LoadingScreen';
+import { EarthBaselineComparator } from './components/test/EarthBaselineComparator';
+import { DeepSpaceSkybox } from './components/cinematic/DeepSpaceSkybox';
+import { OrbitControls } from '@react-three/drei';
 
 const KEY_TO_BODY = {
   '1': 'sun',
@@ -25,6 +28,10 @@ export default function App() {
   const [showOrbits, setShowOrbits] = useState(true);
   const [showLabels, setShowLabels] = useState(true);
   const [isUserInteracting, setIsUserInteracting] = useState(false);
+
+  // Check URL query parameters for Earth visual benchmark
+  const queryParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+  const benchmarkMode = queryParams?.get('benchmark'); // 'v1' or 'enhanced'
 
   // Global Keyboard Shortcuts for interactive navigation
   useEffect(() => {
@@ -54,6 +61,36 @@ export default function App() {
   const handleResetCamera = () => {
     setSelectedBody('overview');
   };
+
+  // Dedicated Fixed-Camera Benchmark Test Harness for Quality Gate Phase 1
+  if (benchmarkMode) {
+    return (
+      <div className="relative w-screen h-screen bg-black overflow-hidden select-none">
+        <div className="absolute top-4 left-6 z-30 bg-black/80 backdrop-blur-md px-4 py-2 rounded-full border border-white/20 font-mono text-xs text-white">
+          <span>BENCHMARK MODE: </span>
+          <span className="text-cyan-400 font-bold uppercase">{benchmarkMode === 'v1' ? 'Version 1.0 Baseline' : 'Enhanced Cinematic Earth'}</span>
+        </div>
+        <Canvas
+          className="w-full h-full bg-black"
+          style={{ width: '100vw', height: '100vh', position: 'absolute', inset: 0 }}
+          gl={{
+            antialias: true,
+            alpha: false,
+            powerPreference: 'high-performance',
+            toneMapping: THREE.ACESFilmicToneMapping,
+            toneMappingExposure: 1.15
+          }}
+          camera={{ fov: 42, near: 0.1, far: 20000, position: [0, 1.2, 5.2] }}
+        >
+          <Suspense fallback={null}>
+            <DeepSpaceSkybox />
+            <EarthBaselineComparator mode={benchmarkMode === 'v1' ? 'version1' : 'enhanced'} />
+            <OrbitControls enableDamping dampingFactor={0.05} />
+          </Suspense>
+        </Canvas>
+      </div>
+    );
+  }
 
   return (
     <div className="relative w-screen h-screen bg-black overflow-hidden font-sans select-none">

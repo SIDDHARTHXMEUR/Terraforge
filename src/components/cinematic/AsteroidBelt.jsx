@@ -3,14 +3,15 @@ import { useFrame } from '@react-three/fiber';
 import { useTexture } from '@react-three/drei';
 import * as THREE from 'three';
 
-// Realistic 3D Asteroid Belt with Ceres Dwarf Planet
-// Natural astronomical dispersion: varied inclination, eccentric radial spread,
-// irregular low-poly displaced rock meshes, and individual rotation tumbling.
+// Realistic 3D Asteroid Belt with Dwarf Planet Ceres
+// Scientifically grounded: dark carbonaceous/silicate chondrite rocks,
+// micro-scale boulders (not oversized white chunks), varied orbital inclinations,
+// Keplerian angular velocity (v ~ 1/sqrt(r)), and individual tumbling spin.
 
 export function AsteroidBelt({
-  innerRadius = 38,
-  outerRadius = 52,
-  count = 950,
+  innerRadius = 78,
+  outerRadius = 94,
+  count = 1200,
   isPlaying = true,
   onClick
 }) {
@@ -24,30 +25,35 @@ export function AsteroidBelt({
   const asteroidData = useMemo(() => {
     const data = [];
     for (let i = 0; i < count; i++) {
-      // Non-uniform radial clustering (Gaussian bias towards mid-belt)
-      const rRatio = Math.pow(Math.random(), 0.85);
-      const radius = innerRadius + rRatio * (outerRadius - innerRadius);
+      // Gaussian radial clustering centered around the main belt core (86 AU equivalent)
+      const u1 = Math.random();
+      const u2 = Math.random();
+      const randNormal = Math.sqrt(-2.0 * Math.log(u1 || 0.0001)) * Math.cos(2.0 * Math.PI * u2);
+      const mid = (innerRadius + outerRadius) * 0.5;
+      const spread = (outerRadius - innerRadius) * 0.35;
+      const radius = Math.max(innerRadius, Math.min(outerRadius, mid + randNormal * spread));
 
-      // Random orbital initial angle
+      // Initial angle
       const angle = Math.random() * Math.PI * 2;
 
-      // Natural orbital inclination tilt (+/- 7 degrees spread)
-      const inclination = (Math.random() - 0.5) * 0.16;
-      const height = (Math.random() - 0.5) * 6.5;
+      // Natural orbital inclination tilt (+/- 5 degrees spread)
+      const inclination = (Math.random() - 0.5) * 0.09;
+      const height = (Math.random() - 0.5) * 3.2;
 
-      // Irregular rock scale (small pebbles up to prominent 40km boulders)
-      const baseScale = Math.pow(Math.random(), 2.8) * 0.42 + 0.06;
-      const scaleX = baseScale * (0.65 + Math.random() * 0.7);
-      const scaleY = baseScale * (0.65 + Math.random() * 0.7);
-      const scaleZ = baseScale * (0.65 + Math.random() * 0.7);
+      // Realistic rock scale: fine rubble up to rare prominent boulders
+      // Power curve ensures 90% are subtle background dust/pebbles, only 10% are medium boulders
+      const baseScale = Math.pow(Math.random(), 3.5) * 0.14 + 0.035;
+      const scaleX = baseScale * (0.7 + Math.random() * 0.6);
+      const scaleY = baseScale * (0.7 + Math.random() * 0.6);
+      const scaleZ = baseScale * (0.7 + Math.random() * 0.6);
 
       // Individual tumbling rotational speeds
-      const rotSpeedX = (Math.random() - 0.5) * 0.8;
-      const rotSpeedY = (Math.random() - 0.5) * 0.8;
-      const rotSpeedZ = (Math.random() - 0.5) * 0.8;
+      const rotSpeedX = (Math.random() - 0.5) * 0.6;
+      const rotSpeedY = (Math.random() - 0.5) * 0.6;
+      const rotSpeedZ = (Math.random() - 0.5) * 0.6;
 
       // Keplerian orbital angular velocity: v ~ 1 / sqrt(r)
-      const orbitSpeed = (12.0 / Math.sqrt(radius)) * 0.04;
+      const orbitSpeed = (12.0 / Math.sqrt(radius)) * 0.035;
 
       data.push({
         radius,
@@ -63,14 +69,13 @@ export function AsteroidBelt({
     return data;
   }, [innerRadius, outerRadius, count]);
 
-  // Irregular rock 3D geometry with noise displacement
+  // Irregular displaced rock geometry (low-poly displaced dodecahedron)
   const asteroidGeometry = useMemo(() => {
     const geo = new THREE.DodecahedronGeometry(1.0, 1);
     const pos = geo.attributes.position;
     for (let i = 0; i < pos.count; i++) {
       const v = new THREE.Vector3().fromBufferAttribute(pos, i);
-      // Pseudo-noise displacement to make jagged jagged boulder surface
-      const noise = (Math.sin(v.x * 3.5) * Math.cos(v.y * 3.5) * Math.sin(v.z * 3.5)) * 0.28;
+      const noise = (Math.sin(v.x * 4.0) * Math.cos(v.y * 4.0) * Math.sin(v.z * 4.0)) * 0.22;
       v.multiplyScalar(1.0 + noise);
       pos.setXYZ(i, v.x, v.y, v.z);
     }
@@ -78,7 +83,6 @@ export function AsteroidBelt({
     return geo;
   }, []);
 
-  // Update instanced meshes each frame
   const dummy = useMemo(() => new THREE.Object3D(), []);
 
   useFrame((_, delta) => {
@@ -110,19 +114,19 @@ export function AsteroidBelt({
 
     // Orbit Ceres
     if (isPlaying) {
-      ceresAngleRef.current += delta * 0.024;
+      ceresAngleRef.current += delta * 0.022;
     }
     if (ceresRef.current) {
       const cR = (innerRadius + outerRadius) * 0.5;
       const cA = ceresAngleRef.current;
-      ceresRef.current.position.set(Math.cos(cA) * cR, 0.4, Math.sin(cA) * cR);
-      ceresRef.current.rotation.y += delta * 0.06;
+      ceresRef.current.position.set(Math.cos(cA) * cR, 0.2, Math.sin(cA) * cR);
+      ceresRef.current.rotation.y += delta * 0.05;
     }
   });
 
   return (
     <group onClick={onClick}>
-      {/* 1. Instanced Boulders & Rock Fragments */}
+      {/* 1. Dark Chondrite Rock Fragments */}
       <instancedMesh
         ref={meshRef}
         args={[asteroidGeometry, null, count]}
@@ -130,19 +134,19 @@ export function AsteroidBelt({
         receiveShadow
       >
         <meshStandardMaterial
-          color="#8c827a"
-          roughness={0.92}
-          metalness={0.08}
+          color="#524c45"
+          roughness={0.94}
+          metalness={0.06}
           flatShading={true}
         />
       </instancedMesh>
 
       {/* 2. Dwarf Planet Ceres (Largest body in asteroid belt, 940 km diameter) */}
       <mesh ref={ceresRef} castShadow receiveShadow>
-        <sphereGeometry args={[0.55, 64, 64]} />
+        <sphereGeometry args={[0.42, 64, 64]} />
         <meshStandardMaterial
           map={ceresMap}
-          roughness={0.95}
+          roughness={0.92}
           metalness={0.02}
         />
       </mesh>

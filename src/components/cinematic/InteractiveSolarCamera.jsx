@@ -8,59 +8,89 @@ const BODY_VIEW_CONFIGS = {
     offset: [0, 140, 220],
     target: [0, 0, 0],
     minDist: 10,
-    maxDist: 1500
+    maxDist: 1800
   },
   sun: {
-    offset: [0, 12, 38],
+    offset: [0, 8, 34],
     minDist: 14,
     maxDist: 350
   },
   mercury: {
-    offset: [0, 1.0, 3.2],
-    minDist: 1.2,
+    distance: 2.8,
+    minDist: 1.1,
     maxDist: 80
   },
   venus: {
-    offset: [0, 1.8, 5.2],
-    minDist: 2.2,
+    distance: 4.6,
+    minDist: 2.0,
     maxDist: 120
   },
   earth: {
-    offset: [0, 2.0, 6.2],
-    minDist: 2.2,
+    distance: 5.0,
+    minDist: 2.1,
     maxDist: 140
   },
   mars: {
-    offset: [0, 1.4, 4.2],
-    minDist: 1.5,
+    distance: 3.4,
+    minDist: 1.4,
     maxDist: 100
   },
   asteroids: {
-    offset: [0, 2.5, 6.5],
+    distance: 4.5,
     minDist: 1.0,
     maxDist: 120
   },
   jupiter: {
-    offset: [0, 5.0, 18.0],
-    minDist: 6.0,
+    distance: 14.5,
+    minDist: 5.5,
     maxDist: 250
   },
   saturn: {
-    offset: [0, 6.5, 17.0],
-    minDist: 5.0,
+    distance: 13.0,
+    minDist: 4.8,
     maxDist: 250
   },
   uranus: {
-    offset: [0, 3.2, 9.5],
-    minDist: 3.2,
+    distance: 7.8,
+    minDist: 3.0,
     maxDist: 160
   },
   neptune: {
-    offset: [0, 3.2, 9.5],
-    minDist: 3.2,
+    distance: 7.8,
+    minDist: 3.0,
     maxDist: 160
   }
 };
+
+// Computes cinematic framing offset positioned along the sunlit hemisphere
+// with a 32° terminator phase angle and 16° orbital elevation.
+function getCinematicBodyCamOffset(selectedBody, bodyPos, cfg) {
+  if (selectedBody === 'overview' || selectedBody === 'sun' || !cfg.distance) {
+    return new THREE.Vector3(...(cfg.offset || [0, 140, 220]));
+  }
+
+  const toSun = new THREE.Vector3().sub(bodyPos);
+  if (toSun.lengthSq() < 0.1) {
+    return new THREE.Vector3(0, cfg.distance * 0.3, cfg.distance);
+  }
+  toSun.normalize();
+
+  const up = new THREE.Vector3(0, 1, 0);
+  const tangent = new THREE.Vector3().crossVectors(up, toSun).normalize();
+
+  const D = cfg.distance;
+  const terminatorAngle = (32 * Math.PI) / 180;
+  const elevAngle = (16 * Math.PI) / 180;
+
+  const groundDir = new THREE.Vector3()
+    .addScaledVector(toSun, Math.cos(terminatorAngle))
+    .addScaledVector(tangent, Math.sin(terminatorAngle))
+    .normalize();
+
+  return new THREE.Vector3()
+    .addScaledVector(groundDir, D * Math.cos(elevAngle))
+    .addScaledVector(up, D * Math.sin(elevAngle));
+}
 
 export function InteractiveSolarCamera({
   selectedBody = 'overview',
@@ -112,7 +142,7 @@ export function InteractiveSolarCamera({
       // Smooth cubic ease out
       const ease = 1 - Math.pow(1 - t, 3);
 
-      const targetCamOffset = new THREE.Vector3(...cfg.offset);
+      const targetCamOffset = getCinematicBodyCamOffset(selectedBody, currentBodyVec, cfg);
       const destinationCamPos = new THREE.Vector3().addVectors(currentBodyVec, targetCamOffset);
 
       camera.position.lerpVectors(transitionStartCamPosRef.current, destinationCamPos, ease);
@@ -162,3 +192,4 @@ export function InteractiveSolarCamera({
     />
   );
 }
+

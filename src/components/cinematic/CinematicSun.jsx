@@ -84,40 +84,39 @@ const SunSurfaceShader = {
       vec3 viewDir = normalize(vViewPosition);
       vec3 normal = normalize(vNormal);
 
-      // 1. Photographic solar granulation base texture
-      vec3 texGran = texture2D(uGranulationMap, vUv * 2.0).rgb;
+      // 1. High-resolution NASA SDO solar granulation texture
+      vec3 texGran = texture2D(uGranulationMap, vUv * 3.0).rgb;
 
-      // 2. Multi-octave convective plasma flow (dynamic boiling turbulence)
-      vec3 pos = normalize(vWorldPosition) * 4.5;
-      float t = uTime * 0.12;
-      float n1 = snoise(pos + vec3(0.0, t * 0.4, 0.0));
-      float n2 = snoise(pos * 2.5 - vec3(t * 0.6, 0.0, t * 0.3)) * 0.5;
-      float n3 = snoise(pos * 6.0 + vec3(0.0, 0.0, t * 1.1)) * 0.25;
-      float plasmaNoise = (n1 + n2 + n3);
+      // 2. Slow, realistic convective plasma flow (gentle large-scale simmering)
+      vec3 pos = normalize(vWorldPosition) * 3.2;
+      float t = uTime * 0.035;
+      float n1 = snoise(pos + vec3(0.0, t * 0.2, 0.0));
+      float n2 = snoise(pos * 2.0 - vec3(t * 0.3, 0.0, t * 0.15)) * 0.4;
+      float convectiveFlow = (n1 + n2) * 0.5 + 0.5;
 
-      // 3. Solar Chromosphere Palette: Deep thermonuclear white core to fiery orange filaments
-      vec3 deepCore = vec3(1.00, 0.98, 0.92);
-      vec3 brightGold = vec3(1.00, 0.78, 0.22);
-      vec3 fieryOrange = vec3(0.96, 0.35, 0.04);
-      vec3 darkProminence = vec3(0.48, 0.10, 0.01);
+      // 3. NASA SDO Authentic Incandescent Solar Palette
+      // Blinding white-hot core transitioning smoothly to warm golden photosphere
+      vec3 incandescentWhite = vec3(1.00, 0.98, 0.94);
+      vec3 goldenPhotosphere = vec3(1.00, 0.86, 0.52);
+      vec3 amberChromosphere = vec3(0.98, 0.55, 0.12);
 
-      float heat = clamp(plasmaNoise * 0.7 + texGran.r * 0.6 + 0.3, 0.0, 1.0);
-      vec3 surfaceColor = mix(fieryOrange, brightGold, heat);
-      surfaceColor = mix(surfaceColor, deepCore, pow(heat, 3.2));
-      surfaceColor = mix(darkProminence, surfaceColor, smoothstep(0.05, 0.35, heat));
+      // Subtle granulation modulation (+/- 14% luminance variance)
+      float granLuminance = (texGran.r * 0.6 + convectiveFlow * 0.4);
+      vec3 baseSolar = mix(goldenPhotosphere, incandescentWhite, smoothstep(0.3, 0.8, granLuminance));
 
-      // 4. Astrophysical Eddington Limb Darkening Law: I(mu) = I_0 * (0.4 + 0.6 * mu)
+      // 4. Astrophysical Eddington Limb Darkening Law: I(mu) = I_0 * (0.38 + 0.62 * mu^0.8)
       float mu = max(0.0, dot(normal, viewDir));
-      float limbDarkening = 0.45 + 0.55 * pow(mu, 0.75);
-      surfaceColor *= limbDarkening;
+      float limbDarkening = 0.38 + 0.62 * pow(mu, 0.8);
+      vec3 surfaceColor = baseSolar * limbDarkening;
 
-      // 5. Chromospheric Rim Flare (Extreme Limb Emission)
+      // 5. Delicate Chromospheric Limb Flare (Prominence glow on extreme horizon)
       float rim = 1.0 - mu;
-      float limbFlare = pow(rim, 4.0) * 2.5;
-      surfaceColor += vec3(1.0, 0.65, 0.15) * limbFlare;
+      float limbFlare = pow(rim, 4.0) * 1.5;
+      surfaceColor = mix(surfaceColor, amberChromosphere, limbFlare * 0.6);
+      surfaceColor += amberChromosphere * limbFlare * 1.2;
 
-      // High Dynamic Range output
-      gl_FragColor = vec4(surfaceColor * 1.5, 1.0);
+      // High Dynamic Range output with filmic rolloff
+      gl_FragColor = vec4(surfaceColor * 1.35, 1.0);
     }
   `
 };
@@ -147,10 +146,10 @@ const CoronaShader = {
       // Fresnel rim factor that never inverts or bleeds across screen
       float d = abs(dot(normal, viewDir));
       float rim = 1.0 - clamp(d, 0.0, 1.0);
-      float corona = pow(rim, 3.2);
+      float corona = pow(rim, 3.8);
 
-      vec3 coronaColor = mix(vec3(1.0, 0.35, 0.05), vec3(1.0, 0.85, 0.35), rim);
-      gl_FragColor = vec4(coronaColor * corona * 2.0, corona * 0.85);
+      vec3 coronaColor = mix(vec3(1.0, 0.55, 0.15), vec3(1.0, 0.88, 0.45), rim);
+      gl_FragColor = vec4(coronaColor * corona * 1.6, corona * 0.7);
     }
   `
 };
@@ -188,17 +187,17 @@ export function CinematicSun({ radius = 12.0, onClick }) {
 
   return (
     <group position={[0, 0, 0]}>
-      {/* 1. Core Primary Solar Point Light: Inverse square physical illumination */}
+      {/* 1. Core Primary Solar Point Light: Uniform astronomical solar irradiance with zero artificial blowout */}
       <pointLight
         position={[0, 0, 0]}
-        intensity={2200}
-        distance={2500}
-        decay={1.2}
-        color="#fff6e8"
+        intensity={2.6}
+        distance={10000}
+        decay={0}
+        color="#fffcf5"
       />
 
-      {/* Subtle deep-space ambient light for shadowed planet hemispheres */}
-      <ambientLight intensity={0.04} color="#0a0e1c" />
+      {/* Deep-space ambient fill for shadowed planet hemispheres from galactic starfield */}
+      <ambientLight intensity={0.06} color="#0c1424" />
 
       {/* 2. Solar Photosphere Body with Eddington Limb Darkening and Convection */}
       <mesh
@@ -220,7 +219,7 @@ export function CinematicSun({ radius = 12.0, onClick }) {
       </mesh>
 
       {/* 3. Inner Chromosphere & Prominence Layer */}
-      <mesh ref={coronaMeshRef} scale={1.035}>
+      <mesh ref={coronaMeshRef} scale={1.025}>
         <sphereGeometry args={[radius, 64, 64]} />
         <shaderMaterial
           ref={coronaShaderRef}
@@ -234,12 +233,12 @@ export function CinematicSun({ radius = 12.0, onClick }) {
       </mesh>
 
       {/* 4. Outer Volumetric Solar Corona Halo */}
-      <mesh ref={outerCoronaRef} scale={1.22}>
+      <mesh ref={outerCoronaRef} scale={1.14}>
         <sphereGeometry args={[radius, 48, 48]} />
         <meshBasicMaterial
-          color="#ff7a18"
+          color="#ffa238"
           transparent={true}
-          opacity={0.09}
+          opacity={0.05}
           blending={THREE.AdditiveBlending}
           side={THREE.BackSide}
           depthWrite={false}
