@@ -1,40 +1,80 @@
-import React from 'react';
-import { Navigation } from './components/Navigation';
-import { ExplorerView } from './components/views/ExplorerView';
-import { IntelligenceView } from './components/views/IntelligenceView';
-import { SimulationLabView } from './components/views/SimulationLabView';
-import { MissionControlView } from './components/views/MissionControlView';
-import { AIAssistantView } from './components/views/AIAssistantView';
-import { WorkspaceView } from './components/views/WorkspaceView';
-import { SettingsView } from './components/views/SettingsView';
-import { OverviewView } from './components/views/OverviewView';
+import React, { Suspense, useState, useEffect } from 'react';
+import { Canvas } from '@react-three/fiber';
+import * as THREE from 'three';
+import { SolarSystemEngine } from './components/cinematic/SolarSystemEngine';
+import { CinematicUI } from './components/cinematic/CinematicUI';
+import { LoadingScreen } from './components/LoadingScreen';
 import { useAppStore } from './state/useAppStore';
+import { ALL_CELESTIAL_BODIES } from './data/planetsData';
 
 export default function App() {
-  const { activeView } = useAppStore();
+  const {
+    setSelectedBody,
+    sim,
+    updateSim,
+    triggerCameraReset
+  } = useAppStore();
+
+  const [isCinematicTour, setIsCinematicTour] = useState(false);
+  const [showOrbits, setShowOrbits] = useState(false); // Disabled by default for cinematic cleanliness
+
+  // Keyboard Navigation: Space (Pause), O (Orbits), R (Reset), 0-9 (Planet shortcuts)
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (['INPUT', 'TEXTAREA'].includes(e.target.tagName)) return;
+
+      if (e.code === 'Space') {
+        e.preventDefault();
+        updateSim('isPlaying', !sim.isPlaying);
+      } else if (e.key === 'r' || e.key === 'R') {
+        triggerCameraReset();
+      } else if (e.key === 'o' || e.key === 'O') {
+        setShowOrbits((prev) => !prev);
+      } else if (e.key === '0') {
+        setIsCinematicTour(false);
+        setSelectedBody('overview');
+      } else if (e.key >= '1' && e.key <= '9') {
+        const idx = parseInt(e.key, 10) - 1;
+        if (idx < ALL_CELESTIAL_BODIES.length) {
+          setIsCinematicTour(false);
+          setSelectedBody(ALL_CELESTIAL_BODIES[idx]);
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [sim.isPlaying, updateSim, triggerCameraReset, setSelectedBody]);
 
   return (
     <div className="relative w-screen h-screen bg-black overflow-hidden font-sans select-none">
-      {/* Top Aerospace Mission Control Navigation Bar */}
-      <Navigation />
+      {/* 3D WebGL Canvas Viewport with Filmic Tone Mapping */}
+      <Suspense fallback={<LoadingScreen />}>
+        <Canvas
+          className="w-full h-full cursor-grab active:cursor-grabbing bg-black"
+          gl={{
+            antialias: true,
+            alpha: false,
+            logarithmicDepthBuffer: true,
+            powerPreference: 'high-performance',
+            toneMapping: THREE.ACESFilmicToneMapping,
+            toneMappingExposure: 1.2
+          }}
+        >
+          <SolarSystemEngine
+            isCinematicTour={isCinematicTour}
+            showOrbits={showOrbits}
+          />
+        </Canvas>
+      </Suspense>
 
-      {/* Primary 3D Universal Explorer (Persisted in DOM to avoid WebGL context drops) */}
-      <div
-        className={`w-full h-full ${
-          activeView === 'explorer' ? 'block' : 'hidden'
-        }`}
-      >
-        <ExplorerView />
-      </div>
-
-      {/* Workspace & Scientific Views */}
-      {activeView === 'intelligence' && <IntelligenceView />}
-      {activeView === 'simlab' && <SimulationLabView />}
-      {activeView === 'missioncontrol' && <MissionControlView />}
-      {activeView === 'assistant' && <AIAssistantView />}
-      {activeView === 'workspace' && <WorkspaceView />}
-      {activeView === 'settings' && <SettingsView />}
-      {activeView === 'overview' && <OverviewView />}
+      {/* Minimal, Sophisticated Cinematic Interface */}
+      <CinematicUI
+        isCinematicTour={isCinematicTour}
+        setIsCinematicTour={setIsCinematicTour}
+        showOrbits={showOrbits}
+        setShowOrbits={setShowOrbits}
+      />
     </div>
   );
 }

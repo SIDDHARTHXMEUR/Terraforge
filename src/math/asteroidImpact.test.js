@@ -55,3 +55,4 @@ describe('Asteroid Impact Physics Engine Unit Tests', () => {
     assert.equal(giantSim.crater.craterType, 'Complex Central-Peak Impact Structure');
   });
 });
+

@@ -60,3 +60,4 @@ describe('Orbital Mechanics Unit Tests', () => {
     assert.ok(energy < 0);
   });
 });
+

@@ -7,12 +7,10 @@ export const useAppStore = create((set, get) => ({
   activeView: 'explorer',
   setActiveView: (view) => set({ activeView: view }),
 
-  // Selected Celestial Body ('mercury', 'venus', 'earth', 'moon', 'mars', 'jupiter', 'saturn', 'uranus', 'neptune')
-  selectedBody: 'earth',
+  // Selected Celestial Body ('overview' | 'sun' | 'mercury' | 'venus' | 'earth' | 'mars' | 'jupiter' | 'saturn' | 'uranus' | 'neptune')
+  selectedBody: 'overview',
   setSelectedBody: (bodyId) => {
-    if (PLANETS_DATA[bodyId]) {
-      set({ selectedBody: bodyId });
-    }
+    set({ selectedBody: bodyId });
   },
 
   // Explorer Viewing Mode
@@ -140,3 +138,4 @@ export const useAppStore = create((set, get) => ({
     ]
   }))
 }));
+

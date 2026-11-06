@@ -1,172 +1,256 @@
-import React, { Suspense, useMemo, useRef, useEffect } from 'react';
+import React, { Suspense, useState, useMemo, useRef, useEffect } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { useAppStore } from '../../state/useAppStore';
-import { Planet } from '../Planet';
 import { Sun } from '../Sun';
-import { Moon } from '../Moon';
+import { PlanetBody } from '../PlanetBody';
 import { Starfield } from '../Starfield';
 import { CameraRig } from '../CameraRig';
-import { UniversalPlanetMesh } from '../UniversalPlanet';
 import { OrbitsVisualizer } from '../OrbitsVisualizer';
 import { PlanetSelectorBar } from '../PlanetSelectorBar';
 import { Sidebar } from '../Sidebar';
 import { PlanetTelemetryHUD } from '../PlanetTelemetryHUD';
 import { TransformPanel } from '../TransformPanel';
 import { LoadingScreen } from '../LoadingScreen';
-import { PLANETS_DATA, CELESTIAL_ORDER } from '../../data/planetsData';
+import { PLANETS_CONFIG, SOLAR_SYSTEM_PLANETS } from '../../data/planetsData';
 import * as THREE from 'three';
 
-// Sim Time Tracker tracking elapsed days
-function SimTimeTracker() {
-  const { sim, timeSpeed, setElapsedDays, cameraResetCount } = useAppStore();
-  const accumRef = useRef(0);
-  const lastFlushRef = useRef(0);
-
-  useEffect(() => {
-    accumRef.current = 0;
-  }, [cameraResetCount]);
+// Moon component orbiting Earth
+function OrbitingMoon({ earthPos = [0, 0, 0], earthRadius = 2.1, isPlaying = true, simTime = 0 }) {
+  const moonRef = useRef();
+  const moonAngleRef = useRef(0);
 
   useFrame((_, delta) => {
-    if (!sim.isPlaying) return;
-    const deltaDays = (sim.rotationSpeed * delta * 0.4 * timeSpeed) / (2 * Math.PI);
-    accumRef.current += deltaDays;
-
-    const now = performance.now();
-    if (now - lastFlushRef.current > 100) {
-      lastFlushRef.current = now;
-      setElapsedDays(accumRef.current);
+    if (!isPlaying) return;
+    // Lunar orbit speed ~ 27.3 times slower than Earth rotation
+    moonAngleRef.current += delta * 0.25;
+    if (moonRef.current) {
+      const dist = earthRadius * 2.3;
+      const x = earthPos[0] + Math.cos(moonAngleRef.current) * dist;
+      const z = earthPos[2] + Math.sin(moonAngleRef.current) * dist;
+      moonRef.current.position.set(x, 0, z);
+      moonRef.current.rotation.y = -moonAngleRef.current + Math.PI / 2;
     }
   });
 
-  return null;
+  return (
+    <mesh ref={moonRef} position={[earthPos[0] + earthRadius * 2.3, 0, earthPos[2]]}>
+      <sphereGeometry args={[earthRadius * 0.27, 32, 32]} />
+      <meshStandardMaterial color="#cbd5e1" roughness={0.9} />
+    </mesh>
+  );
 }
 
-// Camera Focus Controller for Planetary Selection
-function PlanetaryFocusController() {
-  const { selectedBody, cameraResetCount } = useAppStore();
-  const targetPosRef = useRef(new THREE.Vector3(0, 0, 0));
-
-  useFrame(({ camera }, delta) => {
-    const planetData = PLANETS_DATA[selectedBody];
-    if (!planetData) return;
-
-    let targetX = 0;
-    let targetZ = 0;
-
-    if (selectedBody !== 'earth' && selectedBody !== 'moon') {
-      const radius = planetData.orbitRadiusDisplay || 50;
-      targetX = radius;
-    }
-
-    targetPosRef.current.lerp(new THREE.Vector3(targetX, 0, targetZ), Math.min(1, delta * 3.0));
+// Planetary Orbit Engine advancing celestial orbital angles per frame
+function SolarSystemEngine({
+  isTrueScale,
+  isPlaying,
+  timeSpeed,
+  selectedBody,
+  setSelectedBody,
+  showLabels,
+  sim,
+  onPlanetPositionsUpdate
+}) {
+  // Planetary orbital angles state
+  const anglesRef = useRef({
+    mercury: PLANETS_CONFIG.mercury.initialAngle,
+    venus: PLANETS_CONFIG.venus.initialAngle,
+    earth: PLANETS_CONFIG.earth.initialAngle,
+    mars: PLANETS_CONFIG.mars.initialAngle,
+    jupiter: PLANETS_CONFIG.jupiter.initialAngle,
+    saturn: PLANETS_CONFIG.saturn.initialAngle,
+    uranus: PLANETS_CONFIG.uranus.initialAngle,
+    neptune: PLANETS_CONFIG.neptune.initialAngle
   });
 
-  return null;
+  const [planetPositions, setPlanetPositions] = useState(() => {
+    const initial = {};
+    SOLAR_SYSTEM_PLANETS.forEach((id) => {
+      const cfg = PLANETS_CONFIG[id];
+      const r = cfg.cinematicOrbitRadius;
+      const a = cfg.initialAngle;
+      initial[id] = [Math.cos(a) * r, 0, Math.sin(a) * r];
+    });
+    return initial;
+  });
+
+  // Advance orbital revolution each frame
+  useFrame((_, delta) => {
+    if (!isPlaying) return;
+
+    const updated = {};
+    const baseSpeed = delta * 0.25 * timeSpeed;
+
+    SOLAR_SYSTEM_PLANETS.forEach((id) => {
+      const cfg = PLANETS_CONFIG[id];
+      const speedMult = cfg.orbitalSpeedMultiplier || 1.0;
+      anglesRef.current[id] += baseSpeed * speedMult;
+
+      const orbitRadius = isTrueScale
+        ? (cfg.semiMajorAxisAU || 1.0) * 35.0
+        : (cfg.cinematicOrbitRadius || 30.0);
+
+      const a = anglesRef.current[id];
+      updated[id] = [Math.cos(a) * orbitRadius, 0, Math.sin(a) * orbitRadius];
+    });
+
+    setPlanetPositions(updated);
+    if (onPlanetPositionsUpdate) {
+      onPlanetPositionsUpdate(updated);
+    }
+  });
+
+  return (
+    <>
+      {SOLAR_SYSTEM_PLANETS.map((id) => {
+        const config = PLANETS_CONFIG[id];
+        const pos = planetPositions[id] || [0, 0, 0];
+        const radius = isTrueScale
+          ? Math.max(0.2, (config.radiusKm / 6371.0) * 0.35)
+          : config.cinematicRadius;
+
+        return (
+          <PlanetBody
+            key={id}
+            config={config}
+            position={pos}
+            radius={radius}
+            isSelected={selectedBody === id}
+            onClick={(e) => {
+              e.stopPropagation();
+              setSelectedBody(id);
+            }}
+            isPlaying={isPlaying}
+            showLabel={showLabels}
+            sim={sim}
+          />
+        );
+      })}
+
+      {/* Earth's Moon */}
+      {planetPositions.earth && (
+        <OrbitingMoon
+          earthPos={planetPositions.earth}
+          earthRadius={isTrueScale ? 0.35 : PLANETS_CONFIG.earth.cinematicRadius}
+          isPlaying={isPlaying}
+        />
+      )}
+    </>
+  );
 }
 
 export function ExplorerView() {
   const {
-    transform,
-    updateTransform,
-    resetTransform,
-    sim,
-    updateSim,
-    activePreset,
-    applyPreset,
-    activeDrawer,
-    toggleDrawer,
+    selectedBody,
+    setSelectedBody,
     isTrueScale,
     toggleTrueScale,
     showOrbits,
     toggleShowOrbits,
     cameraMode,
-    toggleCameraMode,
     cameraResetCount,
     triggerCameraReset,
+    sim,
+    updateSim,
+    transform,
+    updateTransform,
+    resetTransform,
+    activePreset,
+    applyPreset,
+    activeDrawer,
+    toggleDrawer,
     elapsedDays,
-    selectedBody,
-    setSelectedBody,
     timeSpeed
   } = useAppStore();
 
-  // Celestial planets positioned along their orbital distances
-  const celestialPlanets = useMemo(() => {
-    return CELESTIAL_ORDER.filter(id => id !== 'earth' && id !== 'moon').map((id) => {
-      const data = PLANETS_DATA[id];
-      const radius = data.orbitRadiusDisplay || 40;
-      return {
-        id,
-        name: data.name,
-        scale: (data.scaleRadius || 1.0) * (isTrueScale ? 1.0 : 1.2),
-        position: [radius, 0, 0],
-        orbitRadius: radius
-      };
-    });
-  }, [isTrueScale]);
+  const [showLabels, setShowLabels] = useState(true);
+  const [currentPlanetPositions, setCurrentPlanetPositions] = useState({});
+
+  // Compute camera focus target position and distance
+  const { targetPos, targetDistance } = useMemo(() => {
+    if (selectedBody === 'overview') {
+      return { targetPos: [0, 0, 0], targetDistance: isTrueScale ? 350 : 140 };
+    }
+    if (selectedBody === 'sun') {
+      return { targetPos: [0, 0, 0], targetDistance: 24 };
+    }
+
+    const pos = currentPlanetPositions[selectedBody] || [
+      PLANETS_CONFIG[selectedBody]?.cinematicOrbitRadius || 40,
+      0,
+      0
+    ];
+
+    const config = PLANETS_CONFIG[selectedBody];
+    const r = isTrueScale ? 0.5 : (config?.cinematicRadius || 2.0);
+    const dist = selectedBody === 'saturn' ? r * 4.2 : r * 3.2;
+
+    return { targetPos: pos, targetDistance: Math.max(4.0, dist) };
+  }, [selectedBody, currentPlanetPositions, isTrueScale]);
 
   return (
     <div className="relative w-full h-full bg-black overflow-hidden font-sans select-none">
-      {/* 3D WebGL Canvas */}
+      {/* 3D WebGL Canvas Viewport */}
       <Suspense fallback={<LoadingScreen />}>
         <Canvas
           className="w-full h-full cursor-grab active:cursor-grabbing bg-black"
-          gl={{ antialias: true, alpha: false, logarithmicDepthBuffer: true, powerPreference: 'high-performance' }}
+          gl={{
+            antialias: true,
+            alpha: false,
+            logarithmicDepthBuffer: true,
+            powerPreference: 'high-performance'
+          }}
         >
+          {/* Dynamic Smooth Camera Rig with Auto-framing */}
           <CameraRig
             cameraMode={cameraMode}
             cameraResetCount={cameraResetCount}
-            cameraPunchCount={0}
+            targetPosition={targetPos}
+            targetDistance={targetDistance}
+            selectedBody={selectedBody}
             isTrueScale={isTrueScale}
           />
-          <SimTimeTracker />
-          <PlanetaryFocusController />
-          <Starfield />
-          <Sun isTrueScale={isTrueScale} />
 
-          {/* Orbits Visualizer */}
+          {/* Deep Space Procedural Starfield */}
+          <Starfield />
+
+          {/* Central Sun at [0, 0, 0] with Omnidirectional Sunlight */}
+          <Sun
+            isTrueScale={isTrueScale}
+            radius={PLANETS_CONFIG.sun.cinematicRadius}
+            isSelected={selectedBody === 'sun'}
+            onClick={(e) => {
+              e.stopPropagation();
+              setSelectedBody('sun');
+            }}
+          />
+
+          {/* Keplerian Orbit Lines centered at Sun */}
           <OrbitsVisualizer
             showOrbits={showOrbits}
             selectedPlanet={selectedBody}
+            isTrueScale={isTrueScale}
             onSelectPlanet={setSelectedBody}
           />
 
-          {/* Earth rendered with original multi-texture GLSL shader */}
-          <Planet
-            transform={transform}
-            updateTransform={updateTransform}
-            sim={sim}
-            showOrbits={false}
-            activeDrawer={activeDrawer}
-          />
-
-          {/* Moon rendered with original kinematic lunar orbit & tidal lock */}
-          <Moon
-            planetTransform={transform}
-            sim={sim}
+          {/* All 8 Revolving Planets */}
+          <SolarSystemEngine
             isTrueScale={isTrueScale}
-            showOrbits={false}
-            cameraResetCount={cameraResetCount}
+            isPlaying={sim.isPlaying}
+            timeSpeed={timeSpeed}
+            selectedBody={selectedBody}
+            setSelectedBody={setSelectedBody}
+            showLabels={showLabels}
+            sim={sim}
+            onPlanetPositionsUpdate={setCurrentPlanetPositions}
           />
-
-          {/* Other Solar System Planets (Mercury, Venus, Mars, Jupiter, Saturn, Uranus, Neptune) */}
-          {celestialPlanets.map((p) => (
-            <UniversalPlanetMesh
-              key={p.id}
-              planetId={p.id}
-              position={p.position}
-              scale={p.scale}
-              isPlaying={sim.isPlaying}
-              isSelected={selectedBody === p.id}
-              onClick={() => setSelectedBody(p.id)}
-            />
-          ))}
         </Canvas>
       </Suspense>
 
-      {/* Top Floating Planetary Strip & HUD Tools */}
-      <PlanetSelectorBar />
+      {/* Top Secondary Planet Selection Toolstrip */}
+      <PlanetSelectorBar showLabels={showLabels} setShowLabels={setShowLabels} />
 
-      {/* Preserved Left Sidebar Navigation */}
+      {/* Preserved Left Sidebar Navigation (Can be toggled or hovered) */}
       <Sidebar
         sim={sim}
         updateSim={updateSim}
@@ -180,7 +264,7 @@ export function ExplorerView() {
         showOrbits={showOrbits}
         toggleShowOrbits={toggleShowOrbits}
         cameraMode={cameraMode}
-        toggleCameraMode={toggleCameraMode}
+        toggleCameraMode={() => {}}
         triggerCameraReset={triggerCameraReset}
         activeDrawer={activeDrawer}
         toggleDrawer={toggleDrawer}
@@ -190,9 +274,9 @@ export function ExplorerView() {
       {/* Preserved Bottom-Right Telemetry HUD */}
       <PlanetTelemetryHUD sim={sim} />
 
-      {/* Floating Transform Inspector Flyout Drawer when activated */}
+      {/* Transform Drawer flyout when opened */}
       {activeDrawer === 'transform' && (
-        <div className="absolute top-20 right-4 z-40">
+        <div className="absolute top-24 right-4 z-40">
           <TransformPanel
             transform={transform}
             updateTransform={updateTransform}

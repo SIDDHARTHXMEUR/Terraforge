@@ -54,3 +54,4 @@ def test_orbital_mechanics():
     # Earth velocity around Sun is ~29.8 to 30.3 km/s at periapsis
     assert 29.0 <= data["state"]["current_velocity_kms"] <= 31.0
     assert 364.0 <= data["state"]["period_days"] <= 366.0
+
