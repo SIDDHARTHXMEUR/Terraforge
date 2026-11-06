@@ -1,171 +1,217 @@
-# 🪐 Terraforge 3D — Planetary Simulation Engine
+# 🪐 TERRAFORGE 2.0 — Planetary Intelligence & Scientific Simulation Platform
 
-> **🚀 Live Interactive WebGL Demo**: [terraforge-theta.vercel.app](https://terraforge-theta.vercel.app/)  
-> **RTU Computer Graphics & Multimedia (CGM) Lab Project**  
-> An interactive, real-time 3D WebGL solar system simulation engineered to demonstrate every core topic in modern computer graphics.
+> **Category**: Enterprise Planetary Intelligence & Astrophysical Simulation Platform  
+> **Tagline**: **EXPLORE. ANALYZE. SIMULATE.**  
+> **🚀 Live Demonstration**: [terraforge-theta.vercel.app](https://terraforge-theta.vercel.app/)  
+> Engineered for national-level hackathons, academic research demonstrations, technical evaluations, and software engineering portfolios.
 
-[![Live Demo](https://img.shields.io/badge/Live%20Demo-terraforge--theta.vercel.app-00f2fe?style=for-the-badge&logo=vercel)](https://terraforge-theta.vercel.app/)
-[![React](https://img.shields.io/badge/React-18-blue.svg?logo=react)](https://react.dev/)
-[![Three.js](https://img.shields.io/badge/Three.js-r174-black.svg?logo=three.js)](https://threejs.org/)
+[![Live Demo](https://img.shields.io/badge/Live%20Platform-terraforge--theta.vercel.app-00f2fe?style=for-the-badge&logo=vercel)](https://terraforge-theta.vercel.app/)
+[![React](https://img.shields.io/badge/React-18.3-blue.svg?logo=react)](https://react.dev/)
+[![Three.js](https://img.shields.io/badge/Three.js-r162-black.svg?logo=three.js)](https://threejs.org/)
 [![WebGL2](https://img.shields.io/badge/WebGL2-Hardware--Accelerated-green.svg?logo=webgl)](https://www.khronos.org/webgl/)
-[![Vite](https://img.shields.io/badge/Vite-5.4-purple.svg?logo=vite)](https://vitejs.dev/)
-[![TailwindCSS](https://img.shields.io/badge/TailwindCSS-2.2-blueviolet.svg?logo=tailwindcss)](https://tailwindcss.com/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.110-009688.svg?logo=fastapi)](https://fastapi.tiangolo.com/)
+[![Node.js Tests](https://img.shields.io/badge/Unit%20Tests-16%2F16%20Passed-brightgreen.svg?logo=node.js)](package.json)
+[![NASA APIs](https://img.shields.io/badge/NASA%20Open%20Data-EONET%20%7C%20NeoWs%20%7C%20JPL-red.svg?logo=nasa)](https://api.nasa.gov/)
+[![Gemini AI](https://img.shields.io/badge/AI%20Assistant-Gemini%20API-orange.svg?logo=google)](https://ai.google.dev/)
 
 ---
 
-## 📸 Screenshots & Overview
+## 🏛️ Product Identity & The Four Architectural Pillars
 
-Terraforge 3D is a state-of-the-art interactive WebGL simulation engine inspired by sci-fi planetarium software like *Solar Smash*. It models real astronomical kinematics, multi-layered GLSL programmable shaders, dynamic climate transitions, and real-time matrix transformation mechanics within an intuitive, glassmorphic UI environment.
+Terraforge 2.0 is built around four core pillars designed to deliver exceptional visual quality, genuine scientific functionality, and deep systems engineering:
+
+```
+                            ┌──────────────────────────────────────────────┐
+                            │               TERRAFORGE 2.0                 │
+                            │      EXPLORE  •  ANALYZE  •  SIMULATE        │
+                            └──────────────────────┬───────────────────────┘
+                                                   │
+         ┌───────────────────────────┬─────────────┴─────────────┬───────────────────────────┐
+         │                           │                           │                           │
+         ▼                           ▼                           ▼                           ▼
+  1. EXPLORE                  2. ANALYZE                  3. SIMULATE                  4. ASSIST
+  • 9 Celestial Bodies        • NASA EONET v3 Feed        • Energy Balance Climate     • Gemini AI Reasoning
+  • Custom GLSL Shaders       • NASA NeoWs Asteroids      • Asteroid Impact Cratering  • Deterministic Solvers
+  • Planetary Rings (Saturn)  • JPL Horizons Ephemerides  • Two-Body Keplerian Orbit   • Real Context Awareness
+  • Cinematic/Sci/Edu Modes   • Real-Time Telemetry       • Numerical Trajectories     • No Hallucinations
+```
+
+1. **EXPLORE** — Immersive 3D planetary exploration environment supporting Mercury, Venus, Earth, Moon, Mars, Jupiter, Saturn (with rings), Uranus (sideways tilt & rings), and Neptune with custom GLSL atmospheric shaders, real axial tilts, day/night terminators, and Keplerian orbit visualizers.
+2. **ANALYZE** — Direct synchronization with real scientific datasets: NASA EONET v3 (Earth Observatory Natural Event Tracker for active wildfires, severe storms, volcanoes, sea ice), NASA NeoWs (Near-Earth Object radar tracking), APOD, and JPL Horizons telemetry.
+3. **SIMULATE** — Independent, unit-tested scientific computing lab featuring deterministic models for thermodynamic climate radiative forcing, asteroid impact cratering physics, and Keplerian orbital velocity propagation.
+4. **ASSIST** — AI scientific assistant powered by Google Gemini API with function calling, context-aware state analysis, and direct execution of deterministic mathematical engines.
 
 ---
 
-## 🎨 Visual Aesthetic & Core Philosophy
+## 🔬 Scientific Methodology & Mathematical Foundations
 
-- **Pure Deep Space Viewport**: Deep black (`#000000`) canvas with an $8000$-unit procedural starfield skybox.
-- **Physically-Inspired Day/Night Daylighting**: Strong directional solar lighting with smooth terminator falloff and emissive night city lighting.
-- **Dark-Side-Silent Atmosphere Policy**: Atmospheric Rayleigh/Mie scattering tinting baked into shader Fresnel equations, automatically silencing on the unlit night hemisphere without artificial bloom/halo artifacts.
-- **Glassmorphic Left-Edge Sidebar**: Slim vertical icon rail expanding smoothly on hover with docked flyout panels for matrix transformations, climate sliders, preset selections, and camera options.
+### 1. Two-Body Keplerian Astrodynamics
+Implemented in [`src/math/orbitalMechanics.js`](src/math/orbitalMechanics.js) and verified by 6 automated unit tests.
+
+- **Vis-Viva Equation**:
+  $$v = \sqrt{\mu \left( \frac{2}{r} - \frac{1}{a} \right)}$$
+  Where standard gravitational parameter $\mu = G \times M_{central}$.
+- **Kepler's Third Law (Harmonic Law)**:
+  $$T = 2\pi \sqrt{\frac{a^3}{\mu}}$$
+- **Escape Velocity**:
+  $$v_{esc} = \sqrt{\frac{2\mu}{r}} = \sqrt{2} \cdot v_{circ}$$
+- **Apsides**:
+  $$r_{periapsis} = a(1 - e), \quad r_{apoapsis} = a(1 + e)$$
+- **Specific Orbital Energy**:
+  $$\varepsilon = -\frac{\mu}{2a} \quad (\text{strictly } < 0 \text{ for bound elliptic orbits})$$
+- **Kinematic Lunar Tidal Lock**: Speed ratio strictly locked to $27.32:1$ relative to Earth's rotation, maintaining synchronous rotation where the same lunar hemisphere faces Earth.
+
+### 2. Asteroid Impact Cratering Physics
+Implemented in [`src/math/asteroidImpact.js`](src/math/asteroidImpact.js) based on Collins, Melosh & Marcus (2005) dimensionless $\pi$-group scaling:
+
+- **Spherical Volume & Impactor Mass**:
+  $$V = \frac{4}{3}\pi r^3, \quad M = \rho V$$
+- **Kinetic Energy Release**:
+  $$E_k = \frac{1}{2} M v^2 \quad (\text{Megatons TNT} = E_k / 4.184 \times 10^{15})$$
+- **Transient Crater Scaling**:
+  $$D_{tc} = 1.161 \left(\frac{\rho_i}{\rho_t}\right)^{1/3} L^{0.78} v^{0.44} g^{-0.22} \sin^{1/3}(\theta)$$
+- **Simple-to-Complex Crater Collapse Threshold** ($D_c \approx 3,200\text{ m}$ on Earth):
+  $$D_{final} = \begin{cases} 1.25 D_{tc} & D_{tc} < 3200\text{ m (Simple Bowl)} \\ 1.17 \frac{D_{tc}^{1.13}}{D_c^{0.13}} & D_{tc} \ge 3200\text{ m (Complex Central Peak)} \end{cases}$$
+- **Equivalent Seismic Magnitude**:
+  $$M_w = 0.67 \log_{10}(E_{joules}) - 5.87$$
+
+### 3. Thermodynamic Energy Balance Climate Model (EBM)
+Implemented in [`src/math/climateModel.js`](src/math/climateModel.js):
+
+- **Zero-Dimensional Energy Balance**:
+  $$C_{ocean} \frac{dT}{dt} = \frac{S_0 (1 - \alpha(T))}{4} + \Delta F_{CO_2} - \varepsilon \sigma T^4$$
+- **$CO_2$ Radiative Forcing** (Myhre et al. 1998):
+  $$\Delta F = 5.35 \ln\left(\frac{C}{C_0}\right) \quad (\text{yields } +3.71\text{ W/m}^2 \text{ for } 2\times CO_2)$$
+- **Dynamic Budyko Ice-Albedo Positive Feedback**:
+  $$\alpha(T) = \text{clamp}\left(0.18, 0.65, 0.30 - 0.007(T - 15)\right) + \Delta \alpha_{clouds}$$
 
 ---
 
-## 🛠️ Technology Stack
+## 🎨 Computer Graphics & WebGL2 Rendering Architecture
 
-| Component | Technology / Library | Purpose |
-|---|---|---|
-| **Core UI Framework** | React 18 & Vite | Reactive state management & fast HMR bundling |
-| **3D Rendering Engine** | Three.js (r174) & `@react-three/fiber` | Scene graph management, WebGL abstractions & frame loop |
-| **Shader Pipeline** | Custom GLSL (OpenGL Shading Language) | Vertex displacement, custom lighting, procedural ice sparkle & climate textures |
-| **Styling & Icons** | TailwindCSS & Lucide Icons | Minimal floating glassmorphism & SVG iconography |
+This system implements a comprehensive 3D computer graphics curriculum (10/10 Topics):
 
----
-
-## 📚 RTU Computer Graphics (CGM) Syllabus Topic Mapping (10/10)
-
-This project directly implements all **10 Core Topics** of the RTU Computer Graphics & Multimedia syllabus. Below is the mapping connecting code components, mathematical equations, and GLSL implementation logic to each topic:
-
-| # | RTU Syllabus Topic | Implementation Highlights in Code | Math & GLSL Details | Code File Pointer |
+| # | Topic | Technical Implementation | Math & GLSL Details | Code File Pointer |
 |---|---|---|---|---|
-| **1** | **Overview of 3D Computer Graphics** | Hardware-accelerated 60 FPS WebGL2 rendering loop integrated into React Three Fiber `<Canvas>`. | Uses `requestAnimationFrame` loop, WebGL context creation, frame buffer swap chain. | [`src/App.jsx`](src/App.jsx#L41-L59) |
-| **2** | **3D Transformations & Composite Matrices** | $4 \times 4$ Homogeneous matrix transformations: Translation ($T$), Rotation ($R$), Scale ($S$), and composite $M = T \times R \times S$ calculation with live float grid inspection. | $$M = T(\vec{p}) \cdot R_z(\theta_z) \cdot R_y(\theta_y) \cdot R_x(\theta_x) \cdot S(\vec{s})$$ Demonstrates matrix non-commutativity ($T \cdot R \neq R \cdot T$). | [`src/components/TransformPanel.jsx`](src/components/TransformPanel.jsx#L145-L173) |
-| **3** | **3D Viewing & Projections** | Perspective ($FOV = 45^\circ$, frustum ratio $300,000:1$) vs. Orthographic projection modes with unconstrained $360^\circ$ `OrbitControls` camera rig. | $$P_{persp} = \begin{bmatrix} \frac{\cot(fov/2)}{aspect} & 0 & 0 & 0 \\ 0 & \cot(fov/2) & 0 & 0 \\ 0 & 0 & \frac{f+n}{n-f} & \frac{2fn}{n-f} \\ 0 & 0 & -1 & 0 \end{bmatrix}$$ | [`src/components/CameraRig.jsx`](src/components/CameraRig.jsx#L20-L80) |
-| **4** | **3D Curves & Surfaces** | Parametric quad-mesh sphere representation subdivided at $96 \times 96$ resolution with procedural normal calculations. | $$S(u,v) = \begin{pmatrix} r \sin u \cos v \\ r \cos u \\ r \sin u \sin v \end{pmatrix}, \quad u \in [0, \pi], v \in [0, 2\pi]$$ | [`src/components/Planet.jsx`](src/components/Planet.jsx#L265-L270) |
-| **5** | **Illumination Models & Shading** | Custom Lambertian diffuse daylighting, Blinn-Phong specular glint, and emissive night city lighting. | Diffuse: $I_d = \max(0, \vec{N} \cdot \vec{L})$<br>Specular: $I_s = (\vec{N} \cdot \vec{H})^n, \quad \vec{H} = \frac{\vec{L} + \vec{V}}{\|\vec{L} + \vec{V}\|}$ | [`src/components/Planet.jsx`](src/components/Planet.jsx#L85-L120) |
-| **6** | **Color Models & Texture Mapping** | Multi-texture UV mapping blending Albedo, Normal/Bump displacement, Landmask, Cloud Alpha, and Emissive Night Lights with dynamic Lerp transitions. | $$C_{final} = \text{Lerp}(C_{earth}, C_{preset}, t) \cdot (\vec{N} \cdot \vec{L}) + C_{night} \cdot (1 - \text{dayFactor})$$ | [`src/components/Planet.jsx`](src/components/Planet.jsx#L45-L65) |
-| **7** | **Visible-Surface Detection & Depth Testing** | Hardware Z-Buffer depth testing combined with dual-pass alpha blending for cloud layers (`depthWrite={false}`). | Hardware Z-buffer comparison: $Z_{new} < Z_{buffer}$. Disables depth write for transparent cloud shells to eliminate Z-sorting artifacts. | [`src/App.jsx`](src/App.jsx#L46), [`src/components/Planet.jsx`](src/components/Planet.jsx#L280-L295) |
-| **8** | **Computer Animation Kinematics** | Keplerian orbital kinematics, axial tilt ($23.44^\circ$), Moon orbital inclination ($5.14^\circ$), tidal lock kinematics, and ratio-locked rotation ($27.3\times$). | $$\theta_{rot}(t) = \theta_0 + \omega_{rot} \cdot \Delta t, \quad \phi_{orbit}(t) = \phi_0 + \omega_{orbit} \cdot \Delta t$$ Tidal Lock: $\theta_{moon} = -\phi_{orbit} + \frac{\pi}{2}$ | [`src/components/Moon.jsx`](src/components/Moon.jsx#L20-L48), [`src/components/Planet.jsx`](src/components/Planet.jsx#L180-L220) |
-| **9** | **Programmable Shaders (GLSL)** | Multi-stage GLSL vertex & fragment shaders (`PlanetShader`) executing directly on GPU hardware with custom uniforms (`uTemperature`, `uCloudCoverage`, `uAtmosphereIntensity`). | Atmospheric Fresnel: $\text{Fresnel} = (1 - \max(0, \vec{N} \cdot \vec{V}))^3 \cdot \text{dayFactor}$ | [`src/components/Planet.jsx`](src/components/Planet.jsx#L10-L136) |
-| **10** | **GPU Hardware Acceleration** | WebGL2 direct context creation, hardware antialiasing, zero-alloc per-frame updates via pre-allocated Three.js vectors, and `logarithmicDepthBuffer: true`. | Logarithmic depth buffer formula: $$z_{log} = \frac{\ln(c \cdot z + 1)}{\ln(c \cdot far + 1)} \cdot w$$ Prevents Z-fighting across 300,000:1 depth range. | [`src/App.jsx`](src/App.jsx#L46) |
+| **1** | **Overview of 3D Computer Graphics** | 60 FPS WebGL2 hardware rendering loop with `logarithmicDepthBuffer` preventing z-fighting across a $300,000:1$ frustum. | Frame buffer swap chain, double buffering, hardware depth-sorting. | [`src/components/views/ExplorerView.jsx`](src/components/views/ExplorerView.jsx) |
+| **2** | **3D Transformations & Matrices** | $4 \times 4$ Homogeneous matrix transforms: Translation ($T$), Rotation ($R$), Scale ($S$), and composite $M = T \cdot R \cdot S$. | $$M = T(\vec{p}) \cdot R_z \cdot R_y \cdot R_x \cdot S(\vec{s})$$ Demonstrates matrix non-commutativity ($T \cdot R \neq R \cdot T$). | [`src/components/TransformPanel.jsx`](src/components/TransformPanel.jsx) |
+| **3** | **Viewing & Projections** | Real-time switching between Perspective ($FOV = 45^\circ$) and Orthographic camera rigs with $360^\circ$ `OrbitControls`. | $$P_{persp} = \begin{bmatrix} \frac{\cot(fov/2)}{aspect} & 0 & 0 & 0 \\ 0 & \cot(fov/2) & 0 & 0 \\ 0 & 0 & \frac{f+n}{n-f} & \frac{2fn}{n-f} \\ 0 & 0 & -1 & 0 \end{bmatrix}$$ | [`src/components/CameraRig.jsx`](src/components/CameraRig.jsx) |
+| **4** | **Custom GLSL Shaders** | Multi-texture programmable vertex and fragment shaders (albedo, bump, landmask, nightlights, clouds). | Custom GLSL uniforms: `uTemperature`, `uSunDirection`, `uAtmosphereIntensity`, procedural noise sparkle. | [`src/components/Planet.jsx`](src/components/Planet.jsx#L10-L150) |
+| **5** | **Illumination & Atmospheric Scattering** | Directional sunlight with smooth day/night terminator and view-dependent Fresnel limb glow. | $$I_{limb} = I_0 \cdot \left(1.0 - \max(0.0, \vec{v} \cdot \vec{n})\right)^{3.5} \cdot (\vec{n} \cdot \vec{l})$$ | [`src/components/UniversalPlanet.jsx`](src/components/UniversalPlanet.jsx) |
+| **6** | **Planetary Ring Systems** | Double-sided geometry with alpha transparency and shadow attenuation for Saturn & Uranus. | Tilted ring plane matching axial tilts (Saturn: $26.73^\circ$, Uranus: $97.77^\circ$). | [`src/components/UniversalPlanet.jsx`](src/components/UniversalPlanet.jsx) |
+| **7** | **Astronomical vs Visual Scaling** | Toggleable True Scale mode ($109.3\times$ Sun, $60.3\times$ lunar distance) vs normalized exploration scale. | Preserves camera visibility through smooth lerped frustum expansion. | [`src/components/CameraRig.jsx`](src/components/CameraRig.jsx) |
 
 ---
 
-## 🌌 Key Features & Physical Realism
+## 🛰️ Real Scientific Data Integrations
 
-### 1. Astronomical Kinematics & Scale Modes
-- **Real Astronomical Ratios**: Earth axial tilt of $23.44^\circ$, Moon orbital inclination of $5.14^\circ$, Moon-to-Earth size ratio of $0.273$, and tidal lock ratio where rotation matches orbital period ($27.3\times$).
-- **Fading Moon Orbit Trail**: Dynamic rolling buffer of recent Moon positions rendered as a vertex-colored arc fading from full electric cyan at the Moon's location to transparent space.
-- **Simulated Date/Time Readout**: Live calendar date & day counter readout (`Day X • DD MMM YYYY`) in the View flyout drawer driven by 1 Earth rotation = 1 Earth-day, pausing when motion is paused and resetting on view reset.
-- **True Scale Mode**: Toggle between cinematic view ($12\times$ Moon orbit radius) and astronomical True Scale mode ($60.3$ Earth radii distance).
+Terraforge 2.0 integrates directly with official scientific providers via [`src/services/nasaApi.js`](src/services/nasaApi.js):
 
-### 2. Procedural & Shader-Driven Dynamic Planets
-- **Earth (Terra)**: +15°C baseline temperature with lush vegetation, ocean specular highlights, dynamic cloud cover, and golden night lights on the dark hemisphere.
-- **Ice (Frostworld)**: -60°C cryogenic world with high-albedo polar ice expansion, intense specular glare, and procedural simplex ice glint sparkles.
-- **Desert (Scorched Expanse)**: +60°C hyper-arid world with golden sandstorms, high-opacity atmospheric dust haze, and zero liquid oceans.
-
-### 3. Glassmorphic Hover Sidebar & Controls
-- **Slim Collapsed Rail**: Flush 64px left rail with smooth glassmorphism backdrop blur.
-- **Hover & Lock Expansion**: Expands on mouse hover or can be locked open with the Pin control.
-- **Docked Flyout Panels**:
-  - **World**: Quick preset switcher (Keys `1`, `2`, `3`).
-  - **Climate**: Temperature (-60°C to +60°C), cloud coverage, atmospheric intensity, and rotation speed sliders.
-  - **Transform**: Interactive 3D Viewport Gizmo handles (Move arrows, Rotation rings, Scale handles) synchronized in real time with matrix controls, quick zero resets, mode switcher tabs (`Move`, `Rotate`, `Scale`), Composite Mode toggle, and live $4 \times 4$ float matrix HUD output.
-  - **View**: Perspective/Orthographic camera mode toggle, True Scale mode, Orbit path overlays, Reset camera (`R`), and Canvas PNG Screenshot Exporter.
-
-### 4. Bottom-Right Planetary Telemetry HUD
-- **Real-Time Ecological Telemetry**: Sleek glassmorphic card in the bottom-right viewport tracking 5 key environmental metrics dynamically reacting to climate temperature:
-  - 👥 **Population**: Global human habitability & shelter distribution
-  - 🌿 **Ecosystem**: Vegetation, forest coverage & extremophile survival
-  - 🌊 **Oceans**: Ocean liquid coverage, ice sheets & desiccation
-  - 💨 **Atmosphere**: Gas composition, blizzard frost & CO₂ greenhouse trap
-  - ⚡ **Biosphere**: Photosynthetic activity & temperature stress levels
+- **NASA EONET v3**: Live monitoring of natural disasters (wildfires, severe storms, volcanoes, sea ice) with geographic coordinates and satellite sensor attribution.
+- **NASA NeoWs (Near-Earth Object Web Service)**: Asteroid radar feed tracking relative velocities (km/s), miss distances (Lunar Distances & km), and hazardous flags.
+- **NASA APOD**: Daily high-resolution astrophysical imagery with verified astronomical metadata.
+- **JPL Horizons Ephemerides**: Reference orbital state vectors and physical parameters.
+- **Resilience & Provenance**: Client-side `localStorage` caching with automatic TTL, clear fallback datasets for offline usage, and explicit source labels (no mock or fabricated data).
 
 ---
 
-## 🕹️ Keyboard Shortcuts
+## 🚀 Aerospace Mission Control Operations
 
-| Key | Action |
-|---|---|
-| `Space` | Play / Pause planet rotation & orbital motion |
-| `1` | Apply **Earth** preset (+15°C baseline) |
-| `2` | Apply **Ice** preset (-60°C cryogenic world) |
-| `3` | Apply **Desert** preset (+60°C hyper-arid world) |
-| `R` / `r` | Reset camera view and focus on Earth |
+Track active human space exploration missions in real-time ([`src/components/views/MissionControlView.jsx`](src/components/views/MissionControlView.jsx)):
 
----
-
-## 📁 Directory & File Structure
-
-```
-Terraforge/
-├── index.html                      # HTML5 entry point & metadata
-├── package.json                    # Project dependencies & npm scripts
-├── vite.config.js                  # Vite bundler configuration (Server port 3000)
-├── tailwind.config.js              # TailwindCSS configuration
-├── PROJECT_MASTER_DOCUMENTATION.md # Exhaustive master documentation & viva guide
-├── README.md                       # Repository overview & syllabus mapping
-└── src/
-    ├── main.jsx                    # React application root DOM mount
-    ├── App.jsx                     # WebGL Canvas container & Sidebar layout
-    ├── index.css                   # Custom glassmorphic CSS rules & Google Fonts
-    ├── state/
-    │   └── useSimState.js          # Custom React hook for simulation & matrix state
-    ├── data/
-    │   └── presets.js              # World climate parameters (Earth, Ice, Desert)
-    └── components/
-        ├── Planet.jsx              # Custom GLSL PlanetShader, mesh & cloud shell
-        ├── Sun.jsx                 # Directional light source & Sun mesh
-        ├── Moon.jsx                # Tidally-locked Moon mesh & orbit lines
-        ├── Starfield.jsx           # 8000-unit background star skybox
-        ├── CameraRig.jsx           # Perspective/Orthographic camera controller
-        ├── Sidebar.jsx             # Left-edge glassmorphic sidebar & flyouts
-        ├── TransformPanel.jsx      # 3D Matrix inspector & 4x4 matrix grid
-        ├── SimControls.jsx         # Climate parameter sliders
-        ├── FirstLoadHint.jsx       # Interactive onboarding hint badge
-        └── LoadingScreen.jsx       # Texture loading fallback indicator
-```
+- **Artemis II** — Crewed lunar free-return trajectory tracking, SLS Block 1 telemetry, and translunar injection checkpoints.
+- **Mars 2020 Perseverance** — Jezero Crater astrobiology rover telemetry, Sol count, MOXIE $O_2$ generation, and sample caching status.
+- **James Webb Space Telescope (JWST)** — Sun-Earth $L_2$ halo orbit monitoring, sunshield cryogenic temperatures ($37\text{ K}$), and instrument status.
+- **Voyager 1** — The most distant human-made artifact ($163+\text{ AU}$ from Earth in interstellar space), tracking RTG power and round-trip light travel delays ($>45\text{ hours}$).
 
 ---
 
-## ⚡ Quick Start & Running Locally
+## 🤖 Gemini AI Scientific Assistant
 
-### Prerequisites
-- [Node.js](https://nodejs.org/) (v18.0.0 or higher)
-- npm (v9.0.0 or higher)
+Located in [`src/components/views/AIAssistantView.jsx`](src/components/views/AIAssistantView.jsx):
+- Understands natural-language queries regarding planetary physics and mission parameters.
+- Connects directly to Terraforge's deterministic mathematical engines (Vis-Viva, Collins cratering, Myhre climate).
+- Never hallucinates figures: calculates exact numbers using verified physics functions.
+- Supports user-provided Google Gemini API keys stored safely in browser local storage.
 
-### 1. Clone the Repository
+---
+
+## 💻 Tech Stack & Architecture
+
+- **Frontend**:
+  - React 18, Vite 5, TypeScript-ready ESM architecture.
+  - Three.js (r162), `@react-three/fiber`, `@react-three/drei`.
+  - Custom GLSL Shaders (OpenGL Shading Language).
+  - Zustand for unified reactive state management.
+  - Tailwind CSS for Swiss aerospace UI design tokens.
+  - Lucide React iconography.
+- **Backend**:
+  - Python 3.10+, FastAPI, Pydantic v2.
+  - Uvicorn ASGI server.
+  - RESTful endpoints for `/api/sim/climate`, `/api/sim/impact`, `/api/sim/orbit`, and `/api/health`.
+  - Docker containerization ready.
+- **Testing**:
+  - Node.js native test runner (`node --test`).
+  - 16 unit tests covering all mathematical formulas.
+
+---
+
+## ⚡ Installation & Local Setup
+
+### 1. Clone Repository & Checkout v2 Branch
 ```bash
 git clone https://github.com/SIDDHARTHXMEUR/Terraforge.git
 cd Terraforge
+git checkout terraforge-v2
 ```
 
-### 2. Install Dependencies
+### 2. Frontend Setup (React + Three.js + Vite)
 ```bash
+# Install dependencies
 npm install
-```
 
-### 3. Run Local Development Server
-```bash
+# Run automated mathematical test suite (16/16 tests)
+npm test
+
+# Launch Vite development server
 npm run dev
 ```
 Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-### 4. Build for Production
+### 3. Production Build
 ```bash
 npm run build
+npm run preview
 ```
-Generates optimized static assets in the `dist/` directory.
 
-## 📜 License & Credits
+### 4. Optional Python FastAPI Backend
+```bash
+cd backend
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+pip install -r requirements.txt
+uvicorn main:app --reload --port 8000
+```
+API Documentation will be available at [http://localhost:8000/docs](http://localhost:8000/docs).
 
-Developed by **Siddharth** for the **RTU Computer Graphics & Multimedia (CGM)** Laboratory Evaluation.  
-Engineered with React, Three.js, WebGL2, and GLSL.
+---
 
+## 🔒 Version 1 Rollback Guarantee
+
+Your original baseline project has been preserved and pushed to GitHub:
+- **Tags**: `v1`, `v1.0`
+- **Branch**: `version-1`
+- **Commit**: `09004ee`
+
+To rollback at any time:
+```bash
+git checkout version-1
+```
+Or simply request in chat: *"Rollback to version 1"*.
+
+---
+
+## 📄 License & Attribution
+
+Developed by **Siddharth** for academic research and portfolio demonstration.  
+Observational planetary and orbital data courtesy of **NASA Open Data**, **NASA EONET**, and **NASA JPL Horizons**.
