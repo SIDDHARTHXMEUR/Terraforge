@@ -97,36 +97,41 @@ export default function App() {
   return (
     <div className="relative w-screen h-screen bg-black overflow-hidden font-sans select-none">
       {/* 1. 3D WebGL Canvas Viewport with ACES Filmic Tone Mapping */}
-      <Suspense fallback={<LoadingScreen />}>
-        <Canvas
-          className="w-full h-full cursor-grab active:cursor-grabbing bg-black"
-          gl={{
-            antialias: true,
-            alpha: false,
-            logarithmicDepthBuffer: true,
-            powerPreference: 'high-performance',
-            toneMapping: THREE.ACESFilmicToneMapping,
-            toneMappingExposure: 1.15
-          }}
-          camera={{
-            fov: currentScene.fov || 42,
-            near: 0.1,
-            far: 20000,
-            position: currentScene.cameraStart || [0, 4, 380]
-          }}
-          onPointerDown={() => setIsUserInteracting(true)}
-          onPointerUp={() => setIsUserInteracting(false)}
-        >
+      <Canvas
+        className="w-full h-full cursor-grab active:cursor-grabbing bg-black"
+        gl={{
+          antialias: true,
+          alpha: false,
+          logarithmicDepthBuffer: true,
+          powerPreference: 'high-performance',
+          toneMapping: THREE.ACESFilmicToneMapping,
+          toneMappingExposure: 1.15
+        }}
+        camera={{
+          fov: 42,
+          near: 0.1,
+          far: 20000,
+          position: [0, 4, 380]
+        }}
+        onPointerDown={() => setIsUserInteracting(true)}
+        onPointerUp={() => setIsUserInteracting(false)}
+      >
+        <Suspense fallback={null}>
           <SolarSystemEngine
             isFilmPlaying={isFilmPlaying}
             currentSceneIndex={currentSceneIndex}
             sceneProgress={sceneProgress}
             isUserInteracting={isUserInteracting}
           />
-        </Canvas>
+        </Suspense>
+      </Canvas>
+
+      {/* 2. Loading Screen positioned outside Canvas so Drei useProgress hooks can work smoothly */}
+      <Suspense fallback={<LoadingScreen />}>
+        {/* Helper loader gate */}
       </Suspense>
 
-      {/* 2. Anamorphic Cinematic Film Overlay & Minimal Transport */}
+      {/* 3. Anamorphic Cinematic Film Overlay & Minimal Transport */}
       <CinematicFilmOverlay
         currentSceneIndex={currentSceneIndex}
         sceneProgress={sceneProgress}
