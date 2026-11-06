@@ -144,20 +144,18 @@ const CoronaShader = {
       vec3 normal = normalize(vNormal);
       vec3 viewDir = normalize(vViewPosition);
 
-      float rim = 1.0 - max(0.0, dot(normal, viewDir));
-      // Multi-layer glowing falloff
-      float innerGlow = pow(rim, 2.5);
-      float outerGlow = pow(rim, 5.0) * 1.6;
+      // Fresnel rim factor that never inverts or bleeds across screen
+      float d = abs(dot(normal, viewDir));
+      float rim = 1.0 - clamp(d, 0.0, 1.0);
+      float corona = pow(rim, 3.2);
 
-      vec3 coronaColor = mix(vec3(1.0, 0.45, 0.05), vec3(1.0, 0.85, 0.4), rim);
-      float alpha = clamp(innerGlow * 0.85 + outerGlow, 0.0, 1.0);
-
-      gl_FragColor = vec4(coronaColor * 1.8, alpha * 0.75);
+      vec3 coronaColor = mix(vec3(1.0, 0.35, 0.05), vec3(1.0, 0.85, 0.35), rim);
+      gl_FragColor = vec4(coronaColor * corona * 2.0, corona * 0.85);
     }
   `
 };
 
-export function CinematicSun({ radius = 16.0 }) {
+export function CinematicSun({ radius = 12.0, onClick }) {
   const granulationMap = useTexture('/assets/planets/sun/sun_granulation.jpg');
   granulationMap.wrapS = granulationMap.wrapT = THREE.RepeatWrapping;
 
@@ -178,14 +176,13 @@ export function CinematicSun({ radius = 16.0 }) {
     }
 
     if (sunMeshRef.current) {
-      sunMeshRef.current.rotation.y = elapsed * 0.015;
+      sunMeshRef.current.rotation.y = elapsed * 0.012;
     }
     if (coronaMeshRef.current) {
-      coronaMeshRef.current.rotation.y = -elapsed * 0.008;
-      coronaMeshRef.current.rotation.z = Math.sin(elapsed * 0.05) * 0.04;
+      coronaMeshRef.current.rotation.y = -elapsed * 0.006;
     }
     if (outerCoronaRef.current) {
-      outerCoronaRef.current.rotation.y = elapsed * 0.004;
+      outerCoronaRef.current.rotation.y = elapsed * 0.003;
     }
   });
 
@@ -195,16 +192,22 @@ export function CinematicSun({ radius = 16.0 }) {
       <pointLight
         position={[0, 0, 0]}
         intensity={2200}
-        distance={2000}
-        decay={1.25}
+        distance={2500}
+        decay={1.2}
         color="#fff6e8"
       />
 
-      {/* Subtle broad fill for deep shadows */}
-      <ambientLight intensity={0.03} color="#050814" />
+      {/* Subtle deep-space ambient light for shadowed planet hemispheres */}
+      <ambientLight intensity={0.04} color="#0a0e1c" />
 
       {/* 2. Solar Photosphere Body with Eddington Limb Darkening and Convection */}
-      <mesh ref={sunMeshRef} castShadow={false} receiveShadow={false}>
+      <mesh
+        ref={sunMeshRef}
+        castShadow={false}
+        receiveShadow={false}
+        onClick={onClick}
+        cursor="pointer"
+      >
         <sphereGeometry args={[radius, 128, 128]} />
         <shaderMaterial
           ref={surfaceShaderRef}
@@ -217,7 +220,7 @@ export function CinematicSun({ radius = 16.0 }) {
       </mesh>
 
       {/* 3. Inner Chromosphere & Prominence Layer */}
-      <mesh ref={coronaMeshRef} scale={1.045}>
+      <mesh ref={coronaMeshRef} scale={1.035}>
         <sphereGeometry args={[radius, 64, 64]} />
         <shaderMaterial
           ref={coronaShaderRef}
@@ -231,12 +234,12 @@ export function CinematicSun({ radius = 16.0 }) {
       </mesh>
 
       {/* 4. Outer Volumetric Solar Corona Halo */}
-      <mesh ref={outerCoronaRef} scale={1.38}>
+      <mesh ref={outerCoronaRef} scale={1.22}>
         <sphereGeometry args={[radius, 48, 48]} />
         <meshBasicMaterial
           color="#ff7a18"
           transparent={true}
-          opacity={0.16}
+          opacity={0.09}
           blending={THREE.AdditiveBlending}
           side={THREE.BackSide}
           depthWrite={false}

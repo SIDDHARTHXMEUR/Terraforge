@@ -87,7 +87,8 @@ export function CinematicEarth({
   position = [0, 0, 0],
   radius = 1.8,
   isPlaying = true,
-  axialTilt = EARTH_AXIAL_TILT
+  axialTilt = EARTH_AXIAL_TILT,
+  onClick
 }) {
   const [albedoMap, bumpMap, cloudsMap, landmaskMap, nightlightsMap, moonAlbedo, moonBump] = useTexture([
     '/assets/planets/earth/earth_albedo.jpg',
@@ -141,7 +142,7 @@ export function CinematicEarth({
   });
 
   return (
-    <group position={position}>
+    <group position={position} onClick={onClick}>
       {/* Earth tilted group with 23.44° axial tilt */}
       <group ref={earthGroupRef} rotation={[axialTilt, 0, 0]}>
         {/* 1. Main Planet Surface */}

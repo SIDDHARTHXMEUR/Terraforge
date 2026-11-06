@@ -7,7 +7,8 @@ import * as THREE from 'three';
 export function CinematicJupiter({
   position = [0, 0, 0],
   radius = 5.2,
-  isPlaying = true
+  isPlaying = true,
+  onClick
 }) {
   const [jupiterMap, ioMap, europaMap] = useTexture([
     '/assets/planets/jupiter/jupiter.jpg',
@@ -54,7 +55,7 @@ export function CinematicJupiter({
   });
 
   return (
-    <group position={position} rotation={[(3.13 * Math.PI) / 180, 0, 0]}>
+    <group position={position} rotation={[(3.13 * Math.PI) / 180, 0, 0]} onClick={onClick}>
       {/* 1. Jupiter Gas Giant Body */}
       <mesh ref={jupiterRef} castShadow receiveShadow>
         <sphereGeometry args={[radius, 128, 128]} />

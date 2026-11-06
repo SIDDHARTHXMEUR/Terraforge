@@ -1,4 +1,4 @@
-import React, { useRef, useState, useMemo } from 'react';
+import React, { useRef, useState } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { CinematicSun } from './CinematicSun';
 import { CinematicEarth } from './CinematicEarth';
@@ -7,172 +7,298 @@ import { CinematicJupiter } from './CinematicJupiter';
 import { CinematicPlanet } from './CinematicPlanet';
 import { AsteroidBelt } from './AsteroidBelt';
 import { DeepSpaceSkybox } from './DeepSpaceSkybox';
-import { CinematicDirectorCamera } from './CinematicDirectorCamera';
-import { PLANETS_CONFIG, SOLAR_SYSTEM_PLANETS } from '../../data/planetsData';
+import { InteractiveSolarCamera } from './InteractiveSolarCamera';
+import { OrbitGuides } from './OrbitGuides';
+import { CelestialLabels } from './CelestialLabels';
+
+// Calibrated Astronomical Scale & Relative Speeds
+const ORBIT_RADII = {
+  mercury: 24,
+  venus: 36,
+  earth: 50,
+  mars: 66,
+  asteroidsInner: 78,
+  asteroidsOuter: 94,
+  jupiter: 122,
+  saturn: 165,
+  uranus: 208,
+  neptune: 250
+};
+
+const ORBIT_SPEEDS = {
+  mercury: 4.15,
+  venus: 1.62,
+  earth: 1.00,
+  mars: 0.53,
+  asteroids: 0.35,
+  jupiter: 0.22,
+  saturn: 0.14,
+  uranus: 0.08,
+  neptune: 0.05
+};
 
 export function SolarSystemEngine({
-  isFilmPlaying = true,
-  currentSceneIndex = 0,
-  sceneProgress = 0,
-  isUserInteracting = false,
-  showOrbits = false
+  selectedBody = 'overview',
+  timeMultiplier = 1.0,
+  isPaused = false,
+  showOrbits = true,
+  showLabels = true,
+  onSelectBody,
+  isUserInteracting = false
 }) {
-  // Planetary orbital angles
+  // Real-time planetary orbital angles
   const anglesRef = useRef({
-    mercury: PLANETS_CONFIG.mercury.initialAngle,
-    venus: PLANETS_CONFIG.venus.initialAngle,
-    earth: PLANETS_CONFIG.earth.initialAngle,
-    mars: PLANETS_CONFIG.mars.initialAngle,
-    jupiter: PLANETS_CONFIG.jupiter.initialAngle,
-    saturn: PLANETS_CONFIG.saturn.initialAngle,
-    uranus: PLANETS_CONFIG.uranus.initialAngle,
-    neptune: PLANETS_CONFIG.neptune.initialAngle
+    mercury: 0.4,
+    venus: 1.8,
+    earth: 3.2,
+    mars: 4.6,
+    asteroids: 1.2,
+    jupiter: 0.9,
+    saturn: 2.5,
+    uranus: 5.1,
+    neptune: 3.8
   });
 
   // Current real-time world positions of planets
-  const [positions, setPositions] = useState(() => {
-    const init = {
-      sun: [0, 0, 0],
-      void: [0, 0, 0],
-      asteroids: [48, 0, 32],
-      overview: [0, 0, 0]
-    };
-    SOLAR_SYSTEM_PLANETS.forEach((id) => {
-      const cfg = PLANETS_CONFIG[id];
-      const r = cfg.cinematicOrbitRadius;
-      const a = cfg.initialAngle;
-      init[id] = [Math.cos(a) * r, 0, Math.sin(a) * r];
-    });
-    return init;
-  });
+  const [positions, setPositions] = useState(() => ({
+    sun: [0, 0, 0],
+    overview: [0, 0, 0],
+    mercury: [Math.cos(0.4) * ORBIT_RADII.mercury, 0, Math.sin(0.4) * ORBIT_RADII.mercury],
+    venus: [Math.cos(1.8) * ORBIT_RADII.venus, 0, Math.sin(1.8) * ORBIT_RADII.venus],
+    earth: [Math.cos(3.2) * ORBIT_RADII.earth, 0, Math.sin(3.2) * ORBIT_RADII.earth],
+    mars: [Math.cos(4.6) * ORBIT_RADII.mars, 0, Math.sin(4.6) * ORBIT_RADII.mars],
+    asteroids: [Math.cos(1.2) * 86, 0, Math.sin(1.2) * 86],
+    jupiter: [Math.cos(0.9) * ORBIT_RADII.jupiter, 0, Math.sin(0.9) * ORBIT_RADII.jupiter],
+    saturn: [Math.cos(2.5) * ORBIT_RADII.saturn, 0, Math.sin(2.5) * ORBIT_RADII.saturn],
+    uranus: [Math.cos(5.1) * ORBIT_RADII.uranus, 0, Math.sin(5.1) * ORBIT_RADII.uranus],
+    neptune: [Math.cos(3.8) * ORBIT_RADII.neptune, 0, Math.sin(3.8) * ORBIT_RADII.neptune]
+  }));
 
   // Orbital revolution frame loop
   useFrame((_, delta) => {
-    const advance = delta * 0.15;
-    const updated = {
+    if (isPaused) return;
+
+    // Base orbital speed scaled by user-selected time multiplier
+    const advance = delta * 0.12 * timeMultiplier;
+
+    anglesRef.current.mercury += advance * ORBIT_SPEEDS.mercury;
+    anglesRef.current.venus += advance * ORBIT_SPEEDS.venus;
+    anglesRef.current.earth += advance * ORBIT_SPEEDS.earth;
+    anglesRef.current.mars += advance * ORBIT_SPEEDS.mars;
+    anglesRef.current.asteroids += advance * ORBIT_SPEEDS.asteroids;
+    anglesRef.current.jupiter += advance * ORBIT_SPEEDS.jupiter;
+    anglesRef.current.saturn += advance * ORBIT_SPEEDS.saturn;
+    anglesRef.current.uranus += advance * ORBIT_SPEEDS.uranus;
+    anglesRef.current.neptune += advance * ORBIT_SPEEDS.neptune;
+
+    const ceresR = (ORBIT_RADII.asteroidsInner + ORBIT_RADII.asteroidsOuter) * 0.5;
+
+    setPositions({
       sun: [0, 0, 0],
-      void: [0, 0, 0],
-      asteroids: [48, 0, 32],
-      overview: [0, 0, 0]
-    };
-
-    SOLAR_SYSTEM_PLANETS.forEach((id) => {
-      const cfg = PLANETS_CONFIG[id];
-      const speed = cfg.orbitalSpeedMultiplier || 1.0;
-      anglesRef.current[id] += advance * speed;
-
-      const r = cfg.cinematicOrbitRadius;
-      const a = anglesRef.current[id];
-      updated[id] = [Math.cos(a) * r, 0, Math.sin(a) * r];
+      overview: [0, 0, 0],
+      mercury: [
+        Math.cos(anglesRef.current.mercury) * ORBIT_RADII.mercury,
+        0,
+        Math.sin(anglesRef.current.mercury) * ORBIT_RADII.mercury
+      ],
+      venus: [
+        Math.cos(anglesRef.current.venus) * ORBIT_RADII.venus,
+        0,
+        Math.sin(anglesRef.current.venus) * ORBIT_RADII.venus
+      ],
+      earth: [
+        Math.cos(anglesRef.current.earth) * ORBIT_RADII.earth,
+        0,
+        Math.sin(anglesRef.current.earth) * ORBIT_RADII.earth
+      ],
+      mars: [
+        Math.cos(anglesRef.current.mars) * ORBIT_RADII.mars,
+        0,
+        Math.sin(anglesRef.current.mars) * ORBIT_RADII.mars
+      ],
+      asteroids: [
+        Math.cos(anglesRef.current.asteroids) * ceresR,
+        0.4,
+        Math.sin(anglesRef.current.asteroids) * ceresR
+      ],
+      jupiter: [
+        Math.cos(anglesRef.current.jupiter) * ORBIT_RADII.jupiter,
+        0,
+        Math.sin(anglesRef.current.jupiter) * ORBIT_RADII.jupiter
+      ],
+      saturn: [
+        Math.cos(anglesRef.current.saturn) * ORBIT_RADII.saturn,
+        0,
+        Math.sin(anglesRef.current.saturn) * ORBIT_RADII.saturn
+      ],
+      uranus: [
+        Math.cos(anglesRef.current.uranus) * ORBIT_RADII.uranus,
+        0,
+        Math.sin(anglesRef.current.uranus) * ORBIT_RADII.uranus
+      ],
+      neptune: [
+        Math.cos(anglesRef.current.neptune) * ORBIT_RADII.neptune,
+        0,
+        Math.sin(anglesRef.current.neptune) * ORBIT_RADII.neptune
+      ]
     });
-
-    setPositions(updated);
   });
 
   return (
     <>
       {/* 1. Deep Space Starfield & Cosmic Void Background */}
-      <DeepSpaceSkybox count={3200} />
+      <DeepSpaceSkybox />
 
-      {/* 2. IMAX Director Camera */}
-      <CinematicDirectorCamera
-        isFilmPlaying={isFilmPlaying}
-        currentSceneIndex={currentSceneIndex}
-        sceneProgress={sceneProgress}
+      {/* 2. Interactive Orbit & Follow Camera */}
+      <InteractiveSolarCamera
+        selectedBody={selectedBody}
         bodyPositions={positions}
         isUserInteracting={isUserInteracting}
       />
 
-      {/* 3. The Central Thermonuclear Sun */}
-      <CinematicSun radius={15.0} />
+      {/* 3. Subtle Orbital Guides */}
+      <OrbitGuides radii={ORBIT_RADII} visible={showOrbits} />
 
-      {/* 4. Mercury */}
+      {/* 4. Planetary Billboard Text Labels */}
+      <CelestialLabels
+        bodyPositions={positions}
+        selectedBody={selectedBody}
+        visible={showLabels}
+        onSelectBody={onSelectBody}
+      />
+
+      {/* 5. The Central Thermonuclear Sun */}
+      <CinematicSun
+        radius={12.0}
+        onClick={(e) => {
+          e.stopPropagation();
+          if (onSelectBody) onSelectBody('sun');
+        }}
+      />
+
+      {/* 6. Mercury */}
       <CinematicPlanet
         id="mercury"
         position={positions.mercury}
-        radius={0.85}
+        radius={1.0}
         axialTilt={(0.03 * Math.PI) / 180}
         texturePath="/assets/planets/mercury/mercury.jpg"
         atmosphereIntensity={0.0}
-        isPlaying={isFilmPlaying}
+        isPlaying={!isPaused}
+        onClick={(e) => {
+          e.stopPropagation();
+          if (onSelectBody) onSelectBody('mercury');
+        }}
       />
 
-      {/* 5. Venus */}
+      {/* 7. Venus */}
       <CinematicPlanet
         id="venus"
         position={positions.venus}
-        radius={1.75}
+        radius={1.8}
         axialTilt={(177.3 * Math.PI) / 180}
         texturePath="/assets/planets/venus/venus_surface.jpg"
         atmosphereColor="#ffd180"
         atmosphereIntensity={0.16}
-        isPlaying={isFilmPlaying}
+        isPlaying={!isPaused}
+        onClick={(e) => {
+          e.stopPropagation();
+          if (onSelectBody) onSelectBody('venus');
+        }}
       />
 
-      {/* 6. Earth & The Moon */}
+      {/* 8. Earth & The Moon */}
       <CinematicEarth
         position={positions.earth}
-        radius={1.85}
-        isPlaying={isFilmPlaying}
+        radius={2.0}
+        isPlaying={!isPaused}
+        onClick={(e) => {
+          e.stopPropagation();
+          if (onSelectBody) onSelectBody('earth');
+        }}
       />
 
-      {/* 7. Mars */}
+      {/* 9. Mars */}
       <CinematicPlanet
         id="mars"
         position={positions.mars}
-        radius={1.15}
+        radius={1.3}
         axialTilt={(25.19 * Math.PI) / 180}
         texturePath="/assets/planets/mars/mars.jpg"
         atmosphereColor="#d97543"
         atmosphereIntensity={0.06}
-        isPlaying={isFilmPlaying}
+        isPlaying={!isPaused}
+        onClick={(e) => {
+          e.stopPropagation();
+          if (onSelectBody) onSelectBody('mars');
+        }}
       />
 
-      {/* 8. Asteroid Belt & Ceres */}
+      {/* 10. Asteroid Belt & Ceres */}
       <AsteroidBelt
-        innerRadius={36}
-        outerRadius={50}
-        count={850}
-        isPlaying={isFilmPlaying}
+        innerRadius={ORBIT_RADII.asteroidsInner}
+        outerRadius={ORBIT_RADII.asteroidsOuter}
+        count={950}
+        isPlaying={!isPaused}
+        onClick={(e) => {
+          e.stopPropagation();
+          if (onSelectBody) onSelectBody('asteroids');
+        }}
       />
 
-      {/* 9. Jupiter & Galilean Moons (Io & Europa) */}
+      {/* 11. Jupiter & Galilean Moons (Io & Europa) */}
       <CinematicJupiter
         position={positions.jupiter}
-        radius={5.2}
-        isPlaying={isFilmPlaying}
+        radius={5.5}
+        isPlaying={!isPaused}
+        onClick={(e) => {
+          e.stopPropagation();
+          if (onSelectBody) onSelectBody('jupiter');
+        }}
       />
 
-      {/* 10. Saturn & Cassini Division Rings */}
+      {/* 12. Saturn & Cassini Division Rings */}
       <CinematicSaturn
         position={positions.saturn}
-        radius={3.8}
-        isPlaying={isFilmPlaying}
+        radius={4.2}
+        isPlaying={!isPaused}
+        onClick={(e) => {
+          e.stopPropagation();
+          if (onSelectBody) onSelectBody('saturn');
+        }}
       />
 
-      {/* 11. Uranus */}
+      {/* 13. Uranus & Ring System */}
       <CinematicPlanet
         id="uranus"
         position={positions.uranus}
-        radius={2.7}
+        radius={2.8}
         axialTilt={(97.77 * Math.PI) / 180}
         texturePath="/assets/planets/uranus/uranus.jpg"
         atmosphereColor="#a6e3e9"
         atmosphereIntensity={0.10}
         hasRings={true}
-        isPlaying={isFilmPlaying}
+        isPlaying={!isPaused}
+        onClick={(e) => {
+          e.stopPropagation();
+          if (onSelectBody) onSelectBody('uranus');
+        }}
       />
 
-      {/* 12. Neptune */}
+      {/* 14. Neptune */}
       <CinematicPlanet
         id="neptune"
         position={positions.neptune}
-        radius={2.6}
+        radius={2.7}
         axialTilt={(28.32 * Math.PI) / 180}
         texturePath="/assets/planets/neptune/neptune.jpg"
         atmosphereColor="#3b69ff"
         atmosphereIntensity={0.12}
-        isPlaying={isFilmPlaying}
+        isPlaying={!isPaused}
+        onClick={(e) => {
+          e.stopPropagation();
+          if (onSelectBody) onSelectBody('neptune');
+        }}
       />
     </>
   );

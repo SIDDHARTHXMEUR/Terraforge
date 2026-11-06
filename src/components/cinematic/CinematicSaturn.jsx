@@ -9,7 +9,8 @@ const SATURN_AXIAL_TILT = (26.73 * Math.PI) / 180;
 export function CinematicSaturn({
   position = [0, 0, 0],
   radius = 3.6,
-  isPlaying = true
+  isPlaying = true,
+  onClick
 }) {
   const [saturnMap, ringMap] = useTexture([
     '/assets/planets/saturn/saturn.jpg',
@@ -49,7 +50,7 @@ export function CinematicSaturn({
   });
 
   return (
-    <group position={position} rotation={[SATURN_AXIAL_TILT, 0, 0]}>
+    <group position={position} rotation={[SATURN_AXIAL_TILT, 0, 0]} onClick={onClick}>
       {/* 1. Saturn Gas Giant Atmosphere Body */}
       <mesh ref={saturnBodyRef} castShadow receiveShadow>
         <sphereGeometry args={[radius, 128, 128]} />

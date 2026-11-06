@@ -13,7 +13,8 @@ export function CinematicPlanet({
   atmosphereColor = '#4da6ff',
   atmosphereIntensity = 0.08,
   hasRings = false,
-  isPlaying = true
+  isPlaying = true,
+  onClick
 }) {
   const planetTexture = useTexture(texturePath);
   const planetBodyRef = useRef();
@@ -42,7 +43,11 @@ export function CinematicPlanet({
   });
 
   return (
-    <group position={position} rotation={[axialTilt, 0, 0]}>
+    <group
+      position={position}
+      rotation={[axialTilt, 0, 0]}
+      onClick={onClick}
+    >
       {/* 1. Planetary Surface Mesh */}
       <mesh ref={planetBodyRef} castShadow receiveShadow>
         <sphereGeometry args={[radius, 128, 128]} />
@@ -91,12 +96,14 @@ export function CinematicPlanet({
           castShadow
           receiveShadow
         >
-          <meshBasicMaterial
+          <meshStandardMaterial
             color="#bfe8ff"
             transparent={true}
-            opacity={0.35}
+            opacity={0.4}
+            blending={THREE.NormalBlending}
             side={THREE.DoubleSide}
             depthWrite={false}
+            roughness={0.8}
           />
         </mesh>
       )}

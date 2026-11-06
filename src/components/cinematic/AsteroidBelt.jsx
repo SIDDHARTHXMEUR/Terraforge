@@ -11,7 +11,8 @@ export function AsteroidBelt({
   innerRadius = 38,
   outerRadius = 52,
   count = 950,
-  isPlaying = true
+  isPlaying = true,
+  onClick
 }) {
   const meshRef = useRef();
   const ceresRef = useRef();
@@ -120,7 +121,7 @@ export function AsteroidBelt({
   });
 
   return (
-    <group>
+    <group onClick={onClick}>
       {/* 1. Instanced Boulders & Rock Fragments */}
       <instancedMesh
         ref={meshRef}
