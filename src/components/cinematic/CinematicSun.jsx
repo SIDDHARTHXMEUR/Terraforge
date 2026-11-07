@@ -1,20 +1,19 @@
 import React, { useRef, useMemo } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
+import { useTexture } from '@react-three/drei';
 import * as THREE from 'three';
 
 // =============================================================================
-// TERRAFORGE: PHOTOREALISTIC PROCEDURAL SUN
-// Reference: NASA Solar Dynamics Observatory (SDO/HMI Continuum) / Swedish 1m
+// TERRAFORGE: PHOTOREALISTIC NASA SDO AIA 304 Å THERMONUCLEAR SUN
+// Visual Reference: NASA Solar Dynamics Observatory / SDO 304 Å Chromosphere
 // Features:
-// 1. Layered Worley/Voronoi granulation (1-2% R) with domain-warped convective boil.
-// 2. Bright intergranular lanes & low-contrast supergranulation network.
-// 3. 4 Sunspot active groups (dark umbra + striated penumbra) in +/- 30° latitude belts.
-// 4. Bright faculae plages prominent toward the limb.
-// 5. Differential rotation (25d equator / 35d poles) with 7.25° axial tilt.
-// 6. Wavelength-dependent limb darkening: Blue drops faster than Red, shifting #FFF4E0 center to #E0752A limb.
-// 7. Additive inverse-square corona reaching zero before edge (no dark halos, no outline ring).
-// 8. Thin pinkish-red H-alpha chromosphere fringe (656.3 nm).
-// 9. Camera auto-exposure stopping down so the core never clips into flat white.
+// 1. Fiery deep orange-red thermonuclear photosphere with high-contrast boiling cells.
+// 2. High-resolution equirectangular SDO albedo blended with live procedural plasma convection.
+// 3. 4 Blazing white-hot magnetic active regions with coronal loop roots.
+// 4. Distinct 4-point cross diffraction flare on the primary solar active region.
+// 5. Wispy limb prominence loops & spicule arches protruding beyond the disc into space.
+// 6. Monotonic inverse-square coronal glow fading into pitch black with zero outline rings.
+// 7. Dynamic camera auto-exposure stopping down so core plasma never washes out to flat beige.
 // =============================================================================
 
 const PhotosphereShader = {
@@ -50,12 +49,11 @@ const PhotosphereShader = {
     varying vec3 vLocalPosition;
     varying vec3 vViewPosition;
 
+    uniform sampler2D uSdoTexture;
     uniform float uTime;
     uniform float uRadius;
 
-    // -------------------------------------------------------------------------
-    // 3D Simplex & Worley/Voronoi Math
-    // -------------------------------------------------------------------------
+    // Simplex Noise Math
     vec4 permute(vec4 x){return mod(((x*34.0)+1.0)*x, 289.0);}
     vec4 taylorInvSqrt(vec4 r){return 1.79284291400159 - 0.85373472095314 * r;}
 
@@ -107,7 +105,7 @@ const PhotosphereShader = {
       return fract(vec2(269.5, 183.3) * n);
     }
 
-    // 2D 9-sample Voronoi for high-performance cellular granulation
+    // 2D Voronoi Cellular Granulation
     vec2 voronoi2D(vec2 p) {
       vec2 b = floor(p);
       vec2 f = fract(p);
@@ -129,175 +127,98 @@ const PhotosphereShader = {
       return vec2(f1, f2);
     }
 
-    // Sunspot helper: evaluates dark umbra, penumbral striations, and faculae plages
-    float evaluateSunspot(vec3 normPos, vec3 spotCenter, float rUmbra, float rPenumbra, out float outFaculae) {
-      float cosDist = dot(normPos, spotCenter);
-      float angDist = acos(clamp(cosDist, -1.0, 1.0));
-
-      outFaculae = 0.0;
-
-      // Outer faculae plage zone (bright magnetic halo outside penumbra)
-      if (angDist > rPenumbra * 0.9 && angDist < rPenumbra * 2.2) {
-        float plageMask = smoothstep(rPenumbra * 2.2, rPenumbra * 1.3, angDist)
-                        * smoothstep(rPenumbra * 0.85, rPenumbra * 1.1, angDist);
-        float plageNoise = snoise(normPos * 36.0) * 0.5 + 0.5;
-        outFaculae = plageMask * plageNoise;
-      }
-
-      if (angDist >= rPenumbra) return 1.0;
-
-      // Inside Umbra
-      if (angDist <= rUmbra) {
-        float umbraGrad = smoothstep(0.0, rUmbra, angDist);
-        // Cool dark umbra (temperature ~4000 K vs 5772 K photosphere)
-        return mix(0.18, 0.28, umbraGrad);
-      }
-
-      // Inside Penumbra: filamentary radially striated structure
-      float penumbraT = (angDist - rUmbra) / (rPenumbra - rUmbra);
-      // Magnetic fibrils radially aligned toward umbra
-      vec3 localDir = normalize(normPos - spotCenter);
-      float fibrilAngle = atan(localDir.y, localDir.x);
-      float striation = sin(fibrilAngle * 38.0 + snoise(normPos * 25.0) * 3.5) * 0.12;
-      float penumbraLuminance = mix(0.32, 0.88, penumbraT) + striation;
-      return clamp(penumbraLuminance, 0.25, 0.95);
-    }
-
     void main() {
       #include <logdepthbuf_fragment>
 
-      vec3 viewDir = normalize(vViewPosition);
       vec3 normal = normalize(vNormal);
+      vec3 viewDir = normalize(vViewPosition);
       vec3 normLocal = normalize(vLocalPosition);
 
-      // -----------------------------------------------------------------------
-      // 1. Differential Rotation (Equator ~25d, Poles ~35d)
-      // -----------------------------------------------------------------------
-      float sinLat = normLocal.y; // sin(latitude)
-      float diffRate = (1.0 - 0.28 * sinLat * sinLat);
-      float rotTime = uTime * 0.012 * diffRate;
+      // Differential solar rotation
+      float latRad = asin(clamp(normLocal.y, -1.0, 1.0));
+      float diffSpeed = 0.024 * (1.0 - 0.22 * sin(latRad) * sin(latRad));
+      vec2 rotatedUv = vec2(fract(vUv.x + uTime * diffSpeed), vUv.y);
 
-      // Rotated UV coordinates
-      vec2 rotatedUv = vUv;
-      rotatedUv.x = fract(rotatedUv.x + rotTime);
+      // 1. NASA SDO AIA 304 Å Texture Albedo
+      vec3 sdoSample = texture2D(uSdoTexture, rotatedUv).rgb;
 
-      // Subtle micro-warp for organic cell shapes (kept tiny to prevent stretching)
-      vec3 warpCoord = normLocal * 4.5 + vec3(0.0, uTime * 0.005, 0.0);
-      vec2 warp = vec2(
-        snoise(warpCoord),
-        snoise(warpCoord + vec3(4.3, 1.7, 2.9))
-      ) * 0.007;
+      // 2. High-Frequency Live Convective Plasma Boiling
+      vec2 boilNoise = vec2(
+        snoise(normLocal * 24.0 + vec3(uTime * 0.06, 0.0, 0.0)),
+        snoise(normLocal * 24.0 + vec3(0.0, uTime * 0.06, 12.0))
+      );
+      vec2 granUv = (rotatedUv + boilNoise * 0.012) * vec2(180.0, 90.0);
+      vec2 vor = voronoi2D(granUv);
 
-      // -----------------------------------------------------------------------
-      // 2. Photosphere Granulation (Voronoi Cells ~1-2% of R, 220x110 cells)
-      // -----------------------------------------------------------------------
-      vec2 granUv = (rotatedUv + warp) * vec2(220.0, 110.0);
-      vec2 granVor = voronoi2D(granUv);
+      float granule = 1.0 - vor.x;
+      float lane = smoothstep(0.02, 0.16, vor.y - vor.x);
+      float fineBoil = mix(0.78, 1.25, granule * lane);
 
-      // Cell core has a convex parabolic profile (brightest in center)
-      float cellDist = granVor.x;
-      float granuleCore = sqrt(clamp(1.0 - cellDist * 2.2, 0.0, 1.0));
+      // 3. SDO Fiery Color Synthesis (Deep Orange-Red)
+      // Base convective plasma: deep crimson-red in sinking channels, blazing gold in upwelling cores
+      vec3 deepCrimson = vec3(0.72, 0.12, 0.01);
+      vec3 fieryOrange = vec3(0.98, 0.42, 0.04);
+      vec3 blazingGold  = vec3(1.00, 0.72, 0.15);
 
-      // Dark, narrow intergranular channels where cooler plasma sinks
-      float laneDist = granVor.y - granVor.x;
-      float intergranularLane = smoothstep(0.02, 0.16, laneDist);
+      vec3 plasmaColor = mix(deepCrimson, fieryOrange, fineBoil);
+      plasmaColor = mix(plasmaColor, blazingGold, pow(fineBoil, 2.8) * 0.5);
 
-      // Slow convective simmering modulation
-      float simmer = sin(uTime * 0.10 + snoise(normLocal * 15.0) * 6.28) * 0.05;
-      float granulation = mix(0.82, 1.06, granuleCore * intergranularLane) + simmer;
+      // Blend seamlessly with the NASA SDO albedo map
+      vec3 baseSun = mix(sdoSample * 1.25, plasmaColor, 0.38);
 
-      // -----------------------------------------------------------------------
-      // 3. Supergranulation (Macro Convective Network, 8x larger)
-      // -----------------------------------------------------------------------
-      vec2 superUv = (rotatedUv + warp * 0.5) * vec2(24.0, 12.0);
-      vec2 superVor = voronoi2D(superUv);
-      float supergran = smoothstep(0.65, 0.0, superVor.x) * 0.08 - 0.04;
-      granulation += supergran;
+      // 4. White-Hot Magnetic Active Regions & Solar Flares
+      // Detect bright magnetic plage zones from SDO map and boost into blinding white-hot emission
+      float activeIntensity = smoothstep(0.55, 0.88, dot(sdoSample, vec3(0.33, 0.45, 0.22)));
+      vec3 whiteHotCore = vec3(1.0, 0.98, 0.90) * 1.8;
+      baseSun = mix(baseSun, whiteHotCore, activeIntensity * 0.85);
 
-      // -----------------------------------------------------------------------
-      // 4. Sunspots & Limb Faculae (Active +/- 10° to 30° Latitude Belts)
-      // -----------------------------------------------------------------------
-      float spotFactor = 1.0;
-      float faculaePlages = 0.0;
-      float f1, f2, f3, f4;
+      // 5. Four-Point Diffraction Cross Flare on the Primary Central Active Region
+      // Main active region located around normalized local pos [0.12, -0.10, 0.98]
+      vec3 flareCenter = normalize(vec3(0.12, -0.10, 0.98));
+      float distToFlare = length(normLocal - flareCenter);
+      if (distToFlare < 0.28) {
+        // Cross rays oriented along X and Y axes
+        vec3 dF = normLocal - flareCenter;
+        float rayX = exp(-abs(dF.y) * 45.0) * exp(-abs(dF.x) * 4.0);
+        float rayY = exp(-abs(dF.x) * 45.0) * exp(-abs(dF.y) * 4.0);
+        float crossFlare = (rayX + rayY) * smoothstep(0.28, 0.02, distToFlare);
+        baseSun += vec3(1.0, 0.92, 0.75) * crossFlare * 1.6;
+      }
 
-      // Group 1: Northern Bipolar Group (lat +18°, lon 45°)
-      vec3 spot1 = normalize(vec3(cos(0.78) * cos(0.31), sin(0.31), sin(0.78) * cos(0.31)));
-      spotFactor *= evaluateSunspot(normLocal, spot1, 0.022, 0.065, f1);
-      faculaePlages += f1;
-
-      // Group 2: Northern Single Spot (lat +24°, lon 170°)
-      vec3 spot2 = normalize(vec3(cos(2.96) * cos(0.42), sin(0.42), sin(2.96) * cos(0.42)));
-      spotFactor *= evaluateSunspot(normLocal, spot2, 0.018, 0.052, f2);
-      faculaePlages += f2;
-
-      // Group 3: Southern Complex Group (lat -16°, lon 110°)
-      vec3 spot3 = normalize(vec3(cos(1.92) * cos(-0.28), sin(-0.28), sin(1.92) * cos(-0.28)));
-      spotFactor *= evaluateSunspot(normLocal, spot3, 0.028, 0.082, f3);
-      faculaePlages += f3;
-
-      // Group 4: Southern Small Spot (lat -22°, lon 280°)
-      vec3 spot4 = normalize(vec3(cos(4.88) * cos(-0.38), sin(-0.38), sin(4.88) * cos(-0.38)));
-      spotFactor *= evaluateSunspot(normLocal, spot4, 0.014, 0.040, f4);
-      faculaePlages += f4;
-
-      // -----------------------------------------------------------------------
-      // 5. Wavelength-Dependent Physical Limb Darkening
-      // Real solar physics: I_lambda(mu) = 1 - u(1 - mu) - v(1 - mu)^2
-      // Blue light drops significantly faster than Red, shifting #FFF4E0 to #E0752A
-      // -----------------------------------------------------------------------
+      // 6. Wavelength-Dependent Limb Darkening (SDO Chromosphere Curve)
       float mu = clamp(dot(normal, viewDir), 0.0, 1.0);
-      float oneMinusMu = 1.0 - mu;
+      float limbDark = mix(0.55, 1.0, pow(mu, 0.55));
+      vec3 limbCrimson = vec3(0.85, 0.18, 0.02);
 
-      // Coefficients: Blue drops steepest (0.75), Green (0.60), Red (0.44)
-      vec3 uCoeff = vec3(0.44, 0.60, 0.75);
-      vec3 vCoeff = vec3(0.18, 0.20, 0.22);
-      vec3 limbDarkening = vec3(1.0) - uCoeff * oneMinusMu - vCoeff * oneMinusMu * oneMinusMu;
+      // The limb deepens into pure SDO orange-red without dropping to flat darkness
+      vec3 finalPhotosphere = mix(baseSun * limbCrimson, baseSun, limbDark);
 
-      // Standard Continuum Colors:
-      // Center: Warm white-gold #FFF4E0 (Blackbody ~5772 K)
-      // Limb: Deep radiant amber-orange #E0752A
-      vec3 centerColor = vec3(1.000, 0.957, 0.878); // #FFF4E0
-      vec3 limbColor   = vec3(0.878, 0.459, 0.165); // #E0752A
-
-      // Blend base chromaticity from center to limb
-      vec3 basePhotosphere = mix(limbColor, centerColor, pow(mu, 0.75));
-
-      // Apply wavelength-dependent intensity falloff
-      vec3 solarRadiance = basePhotosphere * limbDarkening * granulation;
-
-      // Faculae plages: contrast rises dramatically near the limb due to opacity geometry
-      float limbFaculaeMultiplier = pow(1.0 - mu, 1.5);
-      float totalFaculae = faculaePlages * (0.15 + 0.55 * limbFaculaeMultiplier);
-      solarRadiance += vec3(1.0, 0.92, 0.75) * totalFaculae;
-
-      // Apply sunspots
-      solarRadiance *= spotFactor;
-
-      // Center sits just below clipping (calibrated emissive HDR output)
-      // NO outline rings, NO fresnel shell, NO hard rim.
-      gl_FragColor = vec4(solarRadiance * 1.15, 1.0);
+      // Output HDR radiance (auto-exposure stops down when closeup)
+      gl_FragColor = vec4(finalPhotosphere * 1.22, 1.0);
     }
   `
 };
 
 // =============================================================================
-// Corona Shader (Soft Atmospheric Glow, Zero Bright Rings, Zero Dark Halos)
-// Additive monotonic radial falloff (~inverse-square) that reaches exactly 0.0 at edge.
+// Limb Prominences & Spicules Shader (Wispy curved arches protruding into space)
+// Additive billboard quad right at the solar limb (R = 1.0 to 1.08 R_sun)
 // =============================================================================
-const CoronaShader = {
+const ProminenceShader = {
   vertexShader: `
     #include <common>
     #include <logdepthbuf_pars_vertex>
 
-    varying vec2 vUv;
+    varying vec2 vCoord;
+    uniform float uRadius;
+
     void main() {
-      vUv = uv;
-      // Billboard facing camera
-      vec3 cameraRight = vec3(viewMatrix[0][0], viewMatrix[1][0], viewMatrix[2][0]);
-      vec3 cameraUp    = vec3(viewMatrix[0][1], viewMatrix[1][1], viewMatrix[2][1]);
-      vec3 worldPos = position.x * cameraRight + position.y * cameraUp;
-      gl_Position = projectionMatrix * viewMatrix * vec4(worldPos, 1.0);
+      // Standard camera-facing billboard centered at model position
+      vec4 mvPosition = modelViewMatrix * vec4(0.0, 0.0, 0.0, 1.0);
+      mvPosition.xy += position.xy;
+      gl_Position = projectionMatrix * mvPosition;
+
+      // Coordinate normalized to solar radius (limb is length(vCoord) == 1.0)
+      vCoord = position.xy / uRadius;
 
       #include <logdepthbuf_vertex>
     }
@@ -305,9 +226,10 @@ const CoronaShader = {
   fragmentShader: `
     #include <logdepthbuf_pars_fragment>
 
-    varying vec2 vUv;
+    varying vec2 vCoord;
     uniform float uTime;
 
+    // Simplex Noise Math
     vec4 permute(vec4 x){return mod(((x*34.0)+1.0)*x, 289.0);}
     vec4 taylorInvSqrt(vec4 r){return 1.79284291400159 - 0.85373472095314 * r;}
     float snoise(vec3 v){
@@ -356,199 +278,206 @@ const CoronaShader = {
     void main() {
       #include <logdepthbuf_fragment>
 
-      // Coordinate in billboard from -1.0 to +1.0
-      vec2 coord = (vUv - vec2(0.5)) * 2.0;
-      float dist = length(coord); // 1.0 is edge of quad
+      float r = length(vCoord);
 
-      // Quad covers 2.4x solar radius (limb is at dist = 1.0 / 2.4 = 0.4167)
-      float limbDist = 1.0 / 2.4;
-      if (dist < limbDist * 0.99) {
-        // Behind photosphere sphere
-        discard;
-      }
+      // Only evaluate in limb prominence zone (strictly between 0.998 and 1.10 radii)
+      if (r < 0.998 || r > 1.10) discard;
 
-      // Normalized radial distance where 1.0 = solar limb, 2.4 = quad edge
-      float r = dist / limbDist;
-      if (r >= 2.3) discard;
+      float theta = atan(vCoord.y, vCoord.x);
 
-      // Smooth cutoff factor that strictly reaches 0.000 at r = 2.25
-      float edgeFade = 1.0 - smoothstep(1.0, 2.25, r);
-      edgeFade = edgeFade * edgeFade;
+      // Loop 1: North-East limb (theta ~ 0.85 rad / 48°)
+      float arch1 = sin(clamp((theta - 0.70) / 0.42, 0.0, 3.14159));
+      float loop1H = 1.0 + arch1 * 0.045;
+      float loop1 = exp(-abs(r - loop1H) * 45.0) * arch1;
 
-      // 1. Thin Pinkish-Red H-Alpha Chromosphere Fringe (656.3 nm, #FF3B6C)
-      // Only visible in the first 1.5% at the immediate limb
-      float chromoMask = smoothstep(1.018, 1.001, r) * smoothstep(0.995, 1.002, r);
-      vec3 hAlphaPink = vec3(1.000, 0.231, 0.424);
+      // Loop 2: South-East limb (theta ~ -0.95 rad / -54°)
+      float arch2 = sin(clamp((theta + 1.10) / 0.45, 0.0, 3.14159));
+      float loop2H = 1.0 + arch2 * 0.055;
+      float loop2 = exp(-abs(r - loop2H) * 40.0) * arch2;
 
-      // 2. Additive Monotonic Radial Falloff (~Inverse-Square, NO SINGULARITY, NO BRIGHT RING)
-      // Seamlessly continues the limb luminance (~0.30) smoothly down to 0.0
-      float radialFalloff = exp(-(r - 1.0) * 3.8) * 0.28 * edgeFade;
+      // Loop 3: North-West limb (theta ~ 2.45 rad / 140°)
+      float arch3 = sin(clamp((theta - 2.30) / 0.38, 0.0, 3.14159));
+      float loop3H = 1.0 + arch3 * 0.040;
+      float loop3 = exp(-abs(r - loop3H) * 50.0) * arch3;
 
-      // 3. Faint Equatorial Streamers (7.25° solar equatorial alignment)
-      float angle = atan(coord.y, coord.x);
-      float streamerAlignment = pow(abs(cos(angle - 0.126)), 2.8);
-      float streamerNoise = snoise(vec3(r * 2.5, angle * 3.0, uTime * 0.012)) * 0.5 + 0.5;
-      float equatorialStreamers = streamerAlignment * streamerNoise * smoothstep(2.1, 1.05, r) * 0.05 * edgeFade;
+      // Loop 4: West equatorial ejection loop (theta ~ 3.10 rad)
+      float arch4 = sin(clamp((abs(theta) - 2.85) / 0.40, 0.0, 3.14159));
+      float loop4H = 1.0 + arch4 * 0.060;
+      float loop4 = exp(-abs(r - loop4H) * 38.0) * arch4;
 
-      // Corona color gradient: warm golden-amber transitioning to soft deep space
-      vec3 innerCoronaColor = vec3(1.00, 0.88, 0.55);
-      vec3 outerCoronaColor = vec3(0.95, 0.55, 0.18);
-      vec3 coronaColor = mix(innerCoronaColor, outerCoronaColor, smoothstep(1.0, 1.8, r));
+      // High-frequency chromospheric spicule forest along entire perimeter
+      float spiculeNoise = snoise(vec3(cos(theta) * 40.0, sin(theta) * 40.0, uTime * 0.15));
+      float spicules = max(0.0, spiculeNoise) * smoothstep(1.04, 0.998, r) * 0.65;
 
-      vec3 totalCorona = coronaColor * (radialFalloff + equatorialStreamers) + hAlphaPink * chromoMask * 0.25;
-      float totalAlpha = clamp(radialFalloff + equatorialStreamers + chromoMask * 0.25, 0.0, 1.0);
+      float totalProminence = (loop1 + loop2 + loop3 + loop4) * 1.4 + spicules;
+      if (totalProminence < 0.01) discard;
 
-      gl_FragColor = vec4(totalCorona, totalAlpha);
+      // Chromosphere fiery orange-red emission
+      vec3 prominenceColor = vec3(1.0, 0.42, 0.06);
+      vec3 whiteCore = vec3(1.0, 0.90, 0.70);
+      vec3 finalColor = mix(prominenceColor, whiteCore, smoothstep(0.4, 1.2, totalProminence));
+
+      float alpha = clamp(totalProminence * 0.95, 0.0, 1.0);
+      gl_FragColor = vec4(finalColor * alpha, alpha);
     }
   `
 };
 
 // =============================================================================
-// Anamorphic Halation Streak Shader (Restrained Cinematic Flare)
+// Smooth Monotonic SDO Corona Shader (Zero Outline Rings, Zero Halos, Zero Box Edges)
+// Additive exponential falloff fading strictly to 0.0 at outer radius
 // =============================================================================
-const AnamorphicStreakShader = {
+const CoronaShader = {
   vertexShader: `
-    varying vec2 vUv;
+    #include <common>
+    #include <logdepthbuf_pars_vertex>
+
+    varying vec2 vCoord;
+    uniform float uRadius;
+
     void main() {
-      vUv = uv;
-      vec3 cameraRight = vec3(viewMatrix[0][0], viewMatrix[1][0], viewMatrix[2][0]);
-      vec3 cameraUp    = vec3(viewMatrix[0][1], viewMatrix[1][1], viewMatrix[2][1]);
-      vec3 worldPos = position.x * cameraRight + position.y * cameraUp;
-      gl_Position = projectionMatrix * viewMatrix * vec4(worldPos, 1.0);
+      // Standard camera-facing billboard centered at model position
+      vec4 mvPosition = modelViewMatrix * vec4(0.0, 0.0, 0.0, 1.0);
+      mvPosition.xy += position.xy;
+      gl_Position = projectionMatrix * mvPosition;
+
+      // Coordinate normalized to solar radius (limb is length(vCoord) == 1.0)
+      vCoord = position.xy / uRadius;
+
+      #include <logdepthbuf_vertex>
     }
   `,
   fragmentShader: `
-    varying vec2 vUv;
+    #include <logdepthbuf_pars_fragment>
+
+    varying vec2 vCoord;
+    uniform float uTime;
+
     void main() {
-      vec2 p = (vUv - vec2(0.5)) * 2.0;
-      float dx = abs(p.x);
-      float dy = abs(p.y);
+      #include <logdepthbuf_fragment>
 
-      // Horizontal streak profile: very faint and restrained
-      float streak = exp(-dy * 32.0) * exp(-dx * 2.2) * 0.018;
-      // Core tight halation
-      float halation = exp(-length(p) * 5.0) * 0.025;
+      float r = length(vCoord);
 
-      vec3 streakColor = vec3(1.0, 0.94, 0.82);
-      gl_FragColor = vec4(streakColor * (streak + halation), streak + halation);
+      // Discard inside the photosphere disc or beyond 3.2 radii
+      if (r < 0.998 || r > 3.2) discard;
+
+      // Smooth monotonic exponential radial falloff matching SDO 304 Å glow
+      // Exactly zero at r = 3.2 with zero derivative (hermite cubic)
+      float edgeFade = 1.0 - smoothstep(1.0, 3.2, r);
+      float radialFalloff = exp(-(r - 1.0) * 2.2) * 0.75 * edgeFade;
+
+      if (radialFalloff < 0.002) discard;
+
+      // Rich SDO orange-red corona hue
+      vec3 deepCoronaRed = vec3(0.95, 0.28, 0.03);
+      vec3 brightCoronaGold = vec3(1.0, 0.65, 0.18);
+      vec3 coronaColor = mix(deepCoronaRed, brightCoronaGold, exp(-(r - 1.0) * 4.0));
+
+      gl_FragColor = vec4(coronaColor * radialFalloff, radialFalloff);
     }
   `
 };
 
-export function CinematicSun({ radius = 12.0, onClick }) {
-  const { gl, camera } = useThree();
+export function CinematicSun({
+  radius = 14.0,
+  position = [0, 0, 0],
+  onClick
+}) {
+  const sdoTexture = useTexture('/assets/planets/sun/sun_sdo_banana.jpg');
   const sunMeshRef = useRef();
-  const surfaceShaderRef = useRef();
+  const photoShaderRef = useRef();
+  const promShaderRef = useRef();
   const coronaShaderRef = useRef();
 
-  // Solar Axial Tilt: 7.25 degrees relative to ecliptic plane
-  const SOLAR_AXIAL_TILT = (7.25 * Math.PI) / 180;
+  const { camera } = useThree();
 
-  // Frame Loop: differential animation, simmer time, and dynamic auto-exposure
-  useFrame((state) => {
+  useFrame((state, delta) => {
     const elapsed = state.clock.getElapsedTime();
 
-    if (surfaceShaderRef.current) {
-      surfaceShaderRef.current.uniforms.uTime.value = elapsed;
+    if (sunMeshRef.current) {
+      // Physical solar rotation (equatorial 25.05 days)
+      sunMeshRef.current.rotation.y += delta * 0.035;
+    }
+
+    if (photoShaderRef.current) {
+      photoShaderRef.current.uniforms.uTime.value = elapsed;
+    }
+    if (promShaderRef.current) {
+      promShaderRef.current.uniforms.uTime.value = elapsed;
     }
     if (coronaShaderRef.current) {
       coronaShaderRef.current.uniforms.uTime.value = elapsed;
     }
 
-    if (sunMeshRef.current) {
-      // Base sidereal equatorial rotation (~25 days)
-      sunMeshRef.current.rotation.y = elapsed * 0.008;
-    }
-
-    // -------------------------------------------------------------------------
-    // Camera Auto-Exposure Adaptation (Key to Cinematic Solar Realism)
-    // When the camera approaches the Sun (filling > 30% of viewport), stop down
-    // exposure so granulation and sunspot details never clip into flat white.
-    // When distant (overview), ramp exposure back to 1.15 so Sun shines brilliantly.
-    // -------------------------------------------------------------------------
-    const distToSun = camera.position.length();
-    // Clamp distance between close inspection (16) and overview (160)
-    const t = THREE.MathUtils.clamp((distToSun - 18.0) / (160.0 - 18.0), 0.0, 1.0);
-    // Exponential curve for natural iris adaptation
-    const targetExposure = THREE.MathUtils.lerp(0.52, 1.15, Math.pow(t, 0.55));
-    gl.toneMappingExposure = THREE.MathUtils.lerp(gl.toneMappingExposure, targetExposure, 0.08);
+    // Auto-exposure: stop down smoothly as camera approaches massive solar disc
+    const camDist = camera.position.distanceTo(new THREE.Vector3(...position));
+    const normalizedDist = Math.max(0.0, Math.min(1.0, (camDist - radius * 1.5) / 120.0));
+    const targetExposure = 0.50 + normalizedDist * 0.65;
+    state.gl.toneMappingExposure = targetExposure;
   });
 
-  // Dedicated Billboards
-  const coronaQuadSize = radius * 4.8; // 2.4x radius in diameter
-  const streakWidth = radius * 8.5;
-  const streakHeight = radius * 1.5;
+  // Geometries
+  const prominenceBillboardGeo = useMemo(() => new THREE.PlaneGeometry(radius * 2.5, radius * 2.5), [radius]);
+  const coronaBillboardGeo = useMemo(() => new THREE.PlaneGeometry(radius * 8.0, radius * 8.0), [radius]);
 
   return (
-    <group position={[0, 0, 0]}>
-      {/* --------------------------------------------------------------------- */}
-      {/* 1. Core Primary Solar Point Light (~5772 K, physical inverse-square) */}
-      {/* --------------------------------------------------------------------- */}
-      <pointLight
-        position={[0, 0, 0]}
-        intensity={2.8}
-        distance={10000}
-        decay={0}
-        color="#fff4e0"
-      />
-
-      {/* Deep-space ambient fill from starlight (0.05) */}
-      <ambientLight intensity={0.05} color="#0a101e" />
-
-      {/* --------------------------------------------------------------------- */}
-      {/* 2. Photosphere Sphere (7.25° Axial Tilt, Voronoi Granulation, Sunspots)*/}
-      {/* --------------------------------------------------------------------- */}
+    <group position={position} onClick={onClick}>
+      {/* 1. Massive Thermonuclear SDO Photosphere (7.25° solar axial tilt) */}
       <mesh
         ref={sunMeshRef}
-        rotation={[0, 0, SOLAR_AXIAL_TILT]}
-        castShadow={false}
-        receiveShadow={false}
-        onClick={onClick}
-        cursor="pointer"
+        rotation={[0, 0, (7.25 * Math.PI) / 180]}
+        renderOrder={1}
       >
         <sphereGeometry args={[radius, 128, 128]} />
         <shaderMaterial
-          ref={surfaceShaderRef}
+          ref={photoShaderRef}
           args={[PhotosphereShader]}
+          transparent={false}
+          depthWrite={true}
+          depthTest={true}
+          uniforms={{
+            uSdoTexture: { value: sdoTexture },
+            uTime: { value: 0 },
+            uRadius: { value: radius }
+          }}
+        />
+      </mesh>
+
+      {/* 2. Wispy Limb Prominences & Spicule Arches (Protruding beyond disc) */}
+      <mesh
+        geometry={prominenceBillboardGeo}
+        renderOrder={2}
+      >
+        <shaderMaterial
+          ref={promShaderRef}
+          args={[ProminenceShader]}
+          transparent={true}
+          blending={THREE.AdditiveBlending}
+          depthWrite={false}
+          depthTest={true}
           uniforms={{
             uTime: { value: 0 },
             uRadius: { value: radius }
           }}
-          depthTest={true}
-          depthWrite={true}
         />
       </mesh>
 
-      {/* --------------------------------------------------------------------- */}
-      {/* 3. Additive Inverse-Square Corona with Chromosphere & Streamers       */}
-      {/* --------------------------------------------------------------------- */}
-      <mesh>
-        <planeGeometry args={[coronaQuadSize, coronaQuadSize]} />
+      {/* 3. Smooth Monotonic SDO 304 Å Coronal Glow (Zero outline rings, zero halos) */}
+      <mesh
+        geometry={coronaBillboardGeo}
+        renderOrder={3}
+      >
         <shaderMaterial
           ref={coronaShaderRef}
           args={[CoronaShader]}
+          transparent={true}
+          blending={THREE.AdditiveBlending}
+          depthWrite={false}
+          depthTest={true}
           uniforms={{
             uTime: { value: 0 },
             uRadius: { value: radius }
           }}
-          transparent={true}
-          blending={THREE.AdditiveBlending}
-          depthTest={true}
-          depthWrite={false}
-        />
-      </mesh>
-
-      {/* --------------------------------------------------------------------- */}
-      {/* 4. Subtle Lens Halation & Restrained Anamorphic Horizontal Streak    */}
-      {/* --------------------------------------------------------------------- */}
-      <mesh>
-        <planeGeometry args={[streakWidth, streakHeight]} />
-        <shaderMaterial
-          args={[AnamorphicStreakShader]}
-          transparent={true}
-          blending={THREE.AdditiveBlending}
-          depthTest={true}
-          depthWrite={false}
         />
       </mesh>
     </group>

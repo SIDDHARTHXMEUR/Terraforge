@@ -7,7 +7,7 @@ const CELESTIAL_BODIES = [
   { id: 'venus', label: 'VENUS', offset: [40, -30], yLift: 2.2 },
   { id: 'earth', label: 'EARTH', offset: [42, -32], yLift: 2.5 },
   { id: 'mars', label: 'MARS', offset: [38, -28], yLift: 1.8 },
-  { id: 'asteroids', label: 'ASTEROIDS', offset: [45, -35], yLift: 2.0 },
+  { id: 'asteroids', label: 'CERES', offset: [45, -35], yLift: 1.0, hoverOnly: true },
   { id: 'jupiter', label: 'JUPITER', offset: [55, -45], yLift: 6.0 },
   { id: 'saturn', label: 'SATURN', offset: [60, -50], yLift: 5.0 },
   { id: 'uranus', label: 'URANUS', offset: [44, -34], yLift: 3.5 },
@@ -21,15 +21,16 @@ function CelestialLabelItem({
   yLift,
   position,
   isSelected,
+  hoverOnly = false,
   onSelect
 }) {
   const [isHovered, setIsHovered] = useState(false);
   const [offsetX, offsetY] = offset;
 
   // Leader line geometry: from anchor (0, 0) up-right to (offsetX, offsetY)
-  // Length of horizontal tick
   const tickLength = 16;
   const endX = offsetX + (offsetX > 0 ? tickLength : -tickLength);
+  const isVisible = !hoverOnly || isHovered;
 
   return (
     <group position={[position[0], position[1] + yLift, position[2]]}>
@@ -49,7 +50,7 @@ function CelestialLabelItem({
           onMouseLeave={() => setIsHovered(false)}
           onClick={(e) => {
             e.stopPropagation();
-            if (onSelect) onSelect(id);
+            if (!hoverOnly && onSelect) onSelect(id);
           }}
           style={{ width: '1px', height: '1px' }}
         >
@@ -59,7 +60,7 @@ function CelestialLabelItem({
             style={{
               top: 0,
               left: 0,
-              opacity: isHovered || isSelected ? 0.95 : 0.25
+              opacity: isVisible ? (isHovered || isSelected ? 0.95 : 0.25) : 0
             }}
           >
             {/* Anchor tick dot at planet position */}
@@ -81,7 +82,7 @@ function CelestialLabelItem({
 
           {/* Plain, Understated Swiss Editorial Label Text */}
           <div
-            className="absolute whitespace-nowrap transition-all duration-300"
+            className={`absolute whitespace-nowrap transition-all duration-300 ${isVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
             style={{
               left: `${endX + (offsetX > 0 ? 6 : -6)}px`,
               top: `${offsetY}px`,
@@ -120,7 +121,7 @@ export function CelestialLabels({
 
   return (
     <group>
-      {CELESTIAL_BODIES.map(({ id, label, offset, yLift }) => {
+      {CELESTIAL_BODIES.map(({ id, label, offset, yLift, hoverOnly }) => {
         const pos = bodyPositions[id] || [0, 0, 0];
         const isSelected = selectedBody === id;
 
@@ -133,6 +134,7 @@ export function CelestialLabels({
             yLift={yLift}
             position={pos}
             isSelected={isSelected}
+            hoverOnly={hoverOnly}
             onSelect={onSelectBody}
           />
         );

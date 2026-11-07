@@ -8,10 +8,9 @@ const JUPITER_AXIAL_TILT = (3.13 * Math.PI) / 180;
 
 // -----------------------------------------------------------------------------
 // Jupiter Gas Giant Atmospheric Zonal Shear Shader
-// Features: Alternating counter-rotating equatorial/tropical jet streams,
-// micro-turbulent cyclonic vortices, Great Red Spot storm whorl,
-// Io shadow transit projection on cloud deck,
-// Minnaert gas giant limb darkening, and amber/cream atmospheric Rayleigh rim.
+// Features: Counter-rotating equatorial/tropical jet streams,
+// Great Red Spot storm vortex, transiting Io shadow projection on cloud deck,
+// Minnaert limb darkening, and thin sunlit limb scattering (zero outer halo shells).
 // -----------------------------------------------------------------------------
 const JupiterSurfaceShader = {
   vertexShader: `
@@ -61,7 +60,6 @@ const JupiterSurfaceShader = {
       vec3 sunDir = normalize(uSunDirection);
 
       // Zonal Shear Velocity Profile:
-      // Alternating bands along latitude (vUv.y) have opposing velocities
       float lat = (vUv.y - 0.5) * 3.14159;
       float jetSpeed = sin(lat * 8.0) * 0.0035;
       vec2 shearedUv = vec2(vUv.x + jetSpeed * uTime, vUv.y);
@@ -94,62 +92,14 @@ const JupiterSurfaceShader = {
       float limbFalloff = pow(clamp(cosE, 0.0, 1.0), 0.35);
       float diffuse = pow(cosI, 0.92) * (limbFalloff * 0.75 + 0.25) * ioShadow;
 
-      // Day / Night illumination
+      // Thin Sunlit-Only Atmospheric Limb Scatter (2-3% of radius, zero halo on nightside)
       float sunDot = dot(worldNormal, sunDir);
-      float dayFactor = smoothstep(-0.16, 0.28, sunDot);
-
-      // Amber/Cream Atmospheric Limb Scattering
       float rim = 1.0 - max(0.0, dot(normal, viewDir));
-      float limbScatter = pow(rim, 3.4) * (dayFactor * 0.75 + 0.25);
-      vec3 jovianLimb = vec3(0.95, 0.82, 0.55) * limbScatter * 1.2;
+      float sunlitLimb = pow(rim, 5.5) * smoothstep(0.0, 0.35, sunDot);
+      vec3 jovianLimb = vec3(0.95, 0.82, 0.55) * sunlitLimb * 0.55;
 
       vec3 finalColor = texColor * diffuse * 1.15 + jovianLimb;
       gl_FragColor = vec4(finalColor, 1.0);
-    }
-  `
-};
-
-const JupiterHaloShader = {
-  vertexShader: `
-    #include <common>
-    #include <logdepthbuf_pars_vertex>
-
-    varying vec3 vNormal;
-    varying vec3 vWorldNormal;
-    varying vec3 vViewPosition;
-    void main() {
-      vNormal = normalize(normalMatrix * normal);
-      vWorldNormal = normalize((modelMatrix * vec4(normal, 0.0)).xyz);
-      vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-      vViewPosition = -mvPosition.xyz;
-      gl_Position = projectionMatrix * mvPosition;
-
-      #include <logdepthbuf_vertex>
-    }
-  `,
-  fragmentShader: `
-    #include <logdepthbuf_pars_fragment>
-
-    varying vec3 vNormal;
-    varying vec3 vWorldNormal;
-    varying vec3 vViewPosition;
-    uniform vec3 uSunDirection;
-
-    void main() {
-      #include <logdepthbuf_fragment>
-
-      vec3 normal = normalize(vNormal);
-      vec3 worldNormal = normalize(vWorldNormal);
-      vec3 viewDir = normalize(vViewPosition);
-
-      float rim = 1.0 - clamp(abs(dot(normal, viewDir)), 0.0, 1.0);
-      float glow = pow(rim, 3.6);
-
-      // Only glow on sunlit limb
-      float sunFactor = smoothstep(-0.25, 0.30, dot(worldNormal, normalize(uSunDirection)));
-
-      vec3 atmoColor = vec3(0.92, 0.75, 0.45);
-      gl_FragColor = vec4(atmoColor * glow * 1.4 * sunFactor, glow * 0.25 * sunFactor);
     }
   `
 };
@@ -168,7 +118,6 @@ export function CinematicJupiter({
 
   const jupiterRef = useRef();
   const shaderRef = useRef();
-  const haloShaderRef = useRef();
   const ioRef = useRef();
   const europaRef = useRef();
   const ioAngleRef = useRef(0.5);
@@ -195,9 +144,6 @@ export function CinematicJupiter({
         shaderRef.current.uniforms.uIoWorldPos.value.copy(ioWorldPosRef.current);
       }
     }
-    if (haloShaderRef.current) {
-      haloShaderRef.current.uniforms.uSunDirection.value = computedSunDir;
-    }
 
     if (isPlaying) {
       if (jupiterRef.current) {
@@ -208,7 +154,7 @@ export function CinematicJupiter({
       europaAngleRef.current += delta * 0.21;
     }
 
-    // Io Orbit (421,700 km, volcanic sulfur moon)
+    // Io Orbit
     if (ioRef.current) {
       const ioDist = radius * 2.2;
       ioRef.current.position.set(
@@ -219,7 +165,7 @@ export function CinematicJupiter({
       ioRef.current.rotation.y = -ioAngleRef.current;
     }
 
-    // Europa Orbit (670,900 km, ice ocean moon)
+    // Europa Orbit
     if (europaRef.current) {
       const euDist = radius * 3.4;
       europaRef.current.position.set(
@@ -235,7 +181,7 @@ export function CinematicJupiter({
 
   return (
     <group position={position} rotation={[0, 0, JUPITER_AXIAL_TILT]} onClick={onClick}>
-      {/* 1. Oblate Gas Giant Body (flattening f = 0.065, scale [1, 0.935, 1]) - Solid & Opaque */}
+      {/* Oblate Gas Giant Body - Solid, Opaque, Zero Outer Halos */}
       <mesh
         ref={jupiterRef}
         scale={[1.0, 0.935, 1.0]}
@@ -259,24 +205,7 @@ export function CinematicJupiter({
         />
       </mesh>
 
-      {/* 2. Amber/Cream Atmospheric Rayleigh Halo */}
-      <mesh scale={[1.034, 0.967, 1.034]} renderOrder={10}>
-        <sphereGeometry args={[radius, 64, 64]} />
-        <shaderMaterial
-          ref={haloShaderRef}
-          args={[JupiterHaloShader]}
-          transparent={true}
-          blending={THREE.AdditiveBlending}
-          side={THREE.BackSide}
-          depthWrite={false}
-          depthTest={true}
-          uniforms={{
-            uSunDirection: { value: computedSunDir }
-          }}
-        />
-      </mesh>
-
-      {/* 3. Io (Volcanic Sulfur Moon) */}
+      {/* Io (Volcanic Sulfur Moon) */}
       <mesh ref={ioRef} castShadow receiveShadow>
         <sphereGeometry args={[ioRadiusVal, 32, 32]} />
         <meshStandardMaterial
@@ -286,7 +215,7 @@ export function CinematicJupiter({
         />
       </mesh>
 
-      {/* 4. Europa (Subsurface Ice Ocean Moon) */}
+      {/* Europa (Subsurface Ice Ocean Moon) */}
       <mesh ref={europaRef} castShadow receiveShadow>
         <sphereGeometry args={[radius * 0.055, 32, 32]} />
         <meshStandardMaterial

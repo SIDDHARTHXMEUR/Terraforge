@@ -4,10 +4,10 @@ import { useTexture } from '@react-three/drei';
 import * as THREE from 'three';
 
 // -----------------------------------------------------------------------------
-// Venus Supercritical Atmosphere & Cloud Shaders
+// Venus Supercritical Atmosphere & Cloud Shader
 // Features: Dense CO2 + H2SO4 cloud deck, sulfur streak absorption,
 // atmospheric super-rotation, diffuse twilight wrapping past terminator,
-// and thick pale-gold Rayleigh atmospheric scattering.
+// and physically based thin sunlit limb scattering (zero outer halo shells).
 // -----------------------------------------------------------------------------
 const VenusCloudDeckShader = {
   vertexShader: `
@@ -60,74 +60,21 @@ const VenusCloudDeckShader = {
       vec3 venusCream = vec3(0.92, 0.86, 0.74);
       vec3 baseCloud = mix(clouds2, clouds1, 0.60) * venusCream;
 
-      // 1. Intense Atmospheric Multiple Scattering (Twilight wrap)
-      // Venus's 92-bar atmosphere scatters light deep past the terminator (sunDot ~ -0.28)
+      // 1. Atmospheric Multiple Scattering (Twilight wrap)
       float sunDot = dot(worldNormal, sunDir);
-      float diffuse = smoothstep(-0.35, 0.40, sunDot);
+      float diffuse = smoothstep(-0.25, 0.35, sunDot);
 
-      vec3 dayIllumination = baseCloud * (diffuse * 1.05 + 0.05);
+      vec3 dayIllumination = baseCloud * (diffuse * 1.08 + 0.04);
 
-      // 2. Thick Atmospheric Limb Scattering
+      // 2. Physically based thin limb scattering strictly on SUNLIT side (2-3% R, zero halo on nightside)
       float rim = 1.0 - max(0.0, dot(normal, viewDir));
-      float limbScatter = pow(rim, 3.2) * (diffuse * 0.7 + 0.3);
-      vec3 limbColor = vec3(0.96, 0.82, 0.55) * limbScatter * 1.2;
+      float sunlitLimb = pow(rim, 5.0) * smoothstep(-0.05, 0.35, sunDot);
+      vec3 limbColor = vec3(0.96, 0.84, 0.58) * sunlitLimb * 0.65;
 
-      // 3. Dense Nightside Infrared Heat Glow (Venus nightside glows faintly in IR / dark bronze)
-      float nightFactor = smoothstep(0.1, -0.4, sunDot);
-      vec3 nightGlow = vec3(0.015, 0.008, 0.004) * nightFactor;
+      // 3. Dense Nightside: true dark silhouette in space with deep black shadow
+      vec3 nightSide = baseCloud * 0.002;
 
-      gl_FragColor = vec4(dayIllumination + limbColor + nightGlow, 1.0);
-    }
-  `
-};
-
-const VenusAtmosphereHaloShader = {
-  vertexShader: `
-    #include <common>
-    #include <logdepthbuf_pars_vertex>
-
-    varying vec3 vNormal;
-    varying vec3 vWorldNormal;
-    varying vec3 vViewPosition;
-
-    void main() {
-      vNormal = normalize(normalMatrix * normal);
-      vWorldNormal = normalize((modelMatrix * vec4(normal, 0.0)).xyz);
-      vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-      vViewPosition = -mvPosition.xyz;
-      gl_Position = projectionMatrix * mvPosition;
-
-      #include <logdepthbuf_vertex>
-    }
-  `,
-  fragmentShader: `
-    #include <logdepthbuf_pars_fragment>
-
-    varying vec3 vNormal;
-    varying vec3 vWorldNormal;
-    varying vec3 vViewPosition;
-    uniform vec3 uSunDirection;
-
-    void main() {
-      #include <logdepthbuf_fragment>
-
-      vec3 normal = normalize(vNormal);
-      vec3 worldNormal = normalize(vWorldNormal);
-      vec3 viewDir = normalize(vViewPosition);
-      vec3 sunDir = normalize(uSunDirection);
-
-      float rim = 1.0 - clamp(abs(dot(normal, viewDir)), 0.0, 1.0);
-      float glow = pow(rim, 3.4);
-
-      // Multiple scattering extends around limb, but strongly forward-focused
-      float sunDot = dot(worldNormal, sunDir);
-      float sunFactor = smoothstep(-0.35, 0.30, sunDot);
-
-      float sunAlignment = max(0.0, dot(-normal, sunDir));
-      float forwardScatter = pow(sunAlignment, 2.0) * 0.8 + 0.2;
-
-      vec3 atmoColor = vec3(1.0, 0.84, 0.52);
-      gl_FragColor = vec4(atmoColor * glow * 1.6 * forwardScatter * sunFactor, glow * 0.45 * sunFactor);
+      gl_FragColor = vec4(dayIllumination + limbColor + nightSide, 1.0);
     }
   `
 };
@@ -146,7 +93,6 @@ export function CinematicVenus({
 
   const bodyRef = useRef();
   const deckShaderRef = useRef();
-  const haloShaderRef = useRef();
 
   const computedSunDir = useMemo(() => {
     const pos = new THREE.Vector3(...position);
@@ -163,9 +109,6 @@ export function CinematicVenus({
       deckShaderRef.current.uniforms.uTime.value = elapsed;
       deckShaderRef.current.uniforms.uSunDirection.value = computedSunDir;
     }
-    if (haloShaderRef.current) {
-      haloShaderRef.current.uniforms.uSunDirection.value = computedSunDir;
-    }
 
     if (isPlaying && bodyRef.current) {
       // Retrograde rotation (243 Earth days)
@@ -175,7 +118,7 @@ export function CinematicVenus({
 
   return (
     <group position={position} rotation={[0, 0, axialTilt]} onClick={onClick}>
-      {/* 1. Supercritical Dense Cloud Deck - Solid & Opaque */}
+      {/* Supercritical Dense Cloud Deck - Solid, Opaque, Zero Outer Halos */}
       <mesh ref={bodyRef} castShadow receiveShadow>
         <sphereGeometry args={[radius, 128, 128]} />
         <shaderMaterial
@@ -190,23 +133,6 @@ export function CinematicVenus({
             uSunDirection: { value: computedSunDir },
             uTime: { value: 0 }
           }}
-        />
-      </mesh>
-
-      {/* 2. Thick Golden Atmospheric Halo */}
-      <mesh scale={1.04} renderOrder={10}>
-        <sphereGeometry args={[radius, 64, 64]} />
-        <shaderMaterial
-          ref={haloShaderRef}
-          args={[VenusAtmosphereHaloShader]}
-          uniforms={{
-            uSunDirection: { value: computedSunDir }
-          }}
-          transparent={true}
-          blending={THREE.AdditiveBlending}
-          side={THREE.BackSide}
-          depthWrite={false}
-          depthTest={true}
         />
       </mesh>
     </group>

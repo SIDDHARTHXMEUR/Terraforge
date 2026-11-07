@@ -14,6 +14,7 @@ import { DeepSpaceSkybox } from './DeepSpaceSkybox';
 import { InteractiveSolarCamera } from './InteractiveSolarCamera';
 import { OrbitGuides } from './OrbitGuides';
 import { CelestialLabels } from './CelestialLabels';
+import { CinematicPrologueDirector } from './CinematicPrologueDirector';
 
 // Calibrated Astronomical Scale & Relative Speeds
 const ORBIT_RADII = {
@@ -49,7 +50,9 @@ export function SolarSystemEngine({
   showOrbits = true,
   showLabels = true,
   onSelectBody,
-  isUserInteracting = false
+  isUserInteracting = false,
+  isPrologueActive = false,
+  onCompletePrologue
 }) {
   // Real-time planetary orbital angles
   const anglesRef = useRef({
@@ -160,7 +163,17 @@ export function SolarSystemEngine({
         viewMode={viewMode}
         bodyPositions={positions}
         isUserInteracting={isUserInteracting}
+        enabled={!isPrologueActive}
       />
+
+      {/* 2b. Directed Nolan-Style Space Prologue Camera */}
+      {isPrologueActive && (
+        <CinematicPrologueDirector
+          isActive={isPrologueActive}
+          onComplete={onCompletePrologue}
+          bodyPositions={positions}
+        />
+      )}
 
       {/* 3. Subtle Orbital Guides */}
       <OrbitGuides

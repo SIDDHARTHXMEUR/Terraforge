@@ -14,17 +14,16 @@ import {
 import { PLANETS_CONFIG } from '../../data/planetsData';
 
 const CELESTIAL_LIST = [
-  { id: 'overview', name: 'Overview', num: '0' },
-  { id: 'sun', name: 'Sol', num: '1' },
-  { id: 'mercury', name: 'Mercury', num: '2' },
-  { id: 'venus', name: 'Venus', num: '3' },
-  { id: 'earth', name: 'Earth', num: '4' },
-  { id: 'mars', name: 'Mars', num: '5' },
-  { id: 'asteroids', name: 'Ceres', num: '6' },
-  { id: 'jupiter', name: 'Jupiter', num: '7' },
-  { id: 'saturn', name: 'Saturn', num: '8' },
-  { id: 'uranus', name: 'Uranus', num: '9' },
-  { id: 'neptune', name: 'Neptune', num: '0' }
+  { id: 'overview', name: 'Overview' },
+  { id: 'sun', name: 'Sol' },
+  { id: 'mercury', name: 'Mercury' },
+  { id: 'venus', name: 'Venus' },
+  { id: 'earth', name: 'Earth' },
+  { id: 'mars', name: 'Mars' },
+  { id: 'jupiter', name: 'Jupiter' },
+  { id: 'saturn', name: 'Saturn' },
+  { id: 'uranus', name: 'Uranus' },
+  { id: 'neptune', name: 'Neptune' }
 ];
 
 const SPEED_PRESETS = [1, 5, 25, 100, 500];
@@ -49,7 +48,7 @@ export function InteractiveSimulatorHUD({
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isIdle, setIsIdle] = useState(false);
 
-  // Auto-hide UI during mouse inactivity (4 seconds)
+  // Auto-hide UI during inactivity (4 seconds)
   useEffect(() => {
     let timeout;
     const handleActivity = () => {
@@ -79,46 +78,35 @@ export function InteractiveSimulatorHUD({
     }
   };
 
-  const selectedData = PLANETS_CONFIG[selectedBody] || (selectedBody === 'asteroids' ? {
-    id: 'asteroids',
-    name: 'Asteroid Belt & Ceres',
-    category: 'Circumstellar Torus',
-    tagline: 'Proto-planetary accretion remnants anchored by dwarf planet Ceres',
-    radiusKm: 473,
-    gravity: '0.28 m/s²',
-    meanTempC: -106,
-    orbitalPeriodDays: 1682,
-    atmosphereComposition: 'Vacuum / Trace water-vapor plumes on Ceres',
-    description: 'A vast circumstellar torus of rocky carbonaceous chondrites and metal fragments extending between 2.2 and 3.2 AU, gravitationally bounded by Jupiter and the Sun.'
-  } : null);
+  const selectedData = PLANETS_CONFIG[selectedBody];
 
   return (
     <div
-      className={`absolute inset-0 pointer-events-none select-none z-30 flex flex-col justify-between p-6 sm:p-10 transition-opacity duration-700 ${
+      className={`absolute inset-0 pointer-events-none select-none z-30 flex flex-col justify-between p-6 sm:p-8 transition-opacity duration-700 ${
         !uiVisible || isIdle ? 'opacity-0' : 'opacity-100'
       }`}
     >
       {/* --------------------------------------------------------------------- */}
-      {/* 1. TOP HEADER & CELESTIAL NAV BAR (Swiss Editorial Typography)         */}
+      {/* 1. TOP HEADER: STRICTLY ONE LINE AT ALL SCREEN SIZES                   */}
       {/* --------------------------------------------------------------------- */}
-      <header className="w-full flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pointer-events-auto">
-        {/* Brand & Simulation Telemetry */}
-        <div className="flex items-center space-x-3 text-white/90">
+      <header className="w-full flex items-center justify-between gap-4 pointer-events-auto whitespace-nowrap overflow-x-auto py-1">
+        {/* Brand & Simulation Live Indicator */}
+        <div className="flex items-center space-x-2.5 text-white/90 shrink-0">
           <span className="text-xs font-light tracking-[0.3em] uppercase">
             TERRAFORGE
           </span>
           <span className="text-white/20">/</span>
-          <span className="text-[10px] font-mono tracking-[0.2em] text-white/60 uppercase">
+          <span className="text-[10px] font-mono tracking-[0.2em] text-white/50 uppercase hidden md:inline">
             SOLAR SYSTEM SIMULATOR
           </span>
-          <span className="w-1 h-1 rounded-full bg-emerald-400/80 animate-pulse"></span>
-          <span className="text-[9px] font-mono tracking-widest text-emerald-400/90 uppercase">
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+          <span className="text-[9px] font-mono tracking-widest text-emerald-400 uppercase">
             {isPaused ? 'PAUSED' : `${timeMultiplier}X LIVE`}
           </span>
         </div>
 
-        {/* Minimalist Top Celestial Strip (Typography Over Scene) */}
-        <nav className="flex items-center space-x-3 sm:space-x-5 text-[11px] font-mono tracking-[0.18em] uppercase overflow-x-auto max-w-full py-1">
+        {/* Minimalist Top Celestial Navigation Strip */}
+        <nav className="flex items-center space-x-3 sm:space-x-4 text-[11px] font-mono tracking-[0.18em] uppercase shrink-0">
           {CELESTIAL_LIST.map(({ id, name }) => {
             const isActive = selectedBody === id;
             return (
@@ -137,18 +125,19 @@ export function InteractiveSimulatorHUD({
           })}
         </nav>
 
-        {/* View Mode Icons & CINEMATIC / SCIENTIFIC Toggle */}
-        <div className="hidden sm:flex items-center space-x-4">
-          <div className="flex items-center space-x-1 border border-white/20 rounded-full px-1.5 py-0.5 text-[9px] font-mono tracking-widest bg-black/40 backdrop-blur-md">
+        {/* View Mode (CINEMATIC / SCIENTIFIC) & Controls (Strictly One Line) */}
+        <div className="flex items-center space-x-4 shrink-0 text-[11px] font-mono tracking-[0.2em] uppercase">
+          {/* Two plain text options, active underlined (no pill) */}
+          <div className="flex items-center space-x-3">
             <button
               onClick={() => {
                 if (setViewMode) setViewMode('cinematic');
                 if (selectedBody !== 'overview') onSelectBody('overview');
               }}
-              className={`px-2.5 py-0.5 rounded-full transition-colors cursor-pointer ${
+              className={`pb-0.5 border-b cursor-pointer transition-all ${
                 viewMode === 'cinematic'
-                  ? 'bg-white text-black font-semibold'
-                  : 'text-white/50 hover:text-white'
+                  ? 'text-white border-white font-medium'
+                  : 'text-white/40 hover:text-white/80 border-transparent'
               }`}
             >
               CINEMATIC
@@ -158,102 +147,98 @@ export function InteractiveSimulatorHUD({
                 if (setViewMode) setViewMode('scientific');
                 if (selectedBody !== 'overview') onSelectBody('overview');
               }}
-              className={`px-2.5 py-0.5 rounded-full transition-colors cursor-pointer ${
+              className={`pb-0.5 border-b cursor-pointer transition-all ${
                 viewMode === 'scientific'
-                  ? 'bg-white text-black font-semibold'
-                  : 'text-white/50 hover:text-white'
+                  ? 'text-white border-white font-medium'
+                  : 'text-white/40 hover:text-white/80 border-transparent'
               }`}
             >
               SCIENTIFIC
             </button>
           </div>
 
-          <div className="flex items-center space-x-3 text-white/40">
+          <span className="text-white/20">|</span>
+
+          {/* Quick utility icons */}
+          <div className="flex items-center space-x-2.5 text-white/40">
             <button
               onClick={() => setUiVisible((v) => !v)}
               className="hover:text-white transition-colors cursor-pointer"
-              title="Toggle UI (H)"
+              title="Toggle Clean View (H)"
             >
-              {uiVisible ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              {uiVisible ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
             </button>
             <button
               onClick={toggleFullscreen}
               className="hover:text-white transition-colors cursor-pointer"
               title="Fullscreen (F)"
             >
-              {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+              {isFullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
             </button>
           </div>
         </div>
       </header>
 
       {/* --------------------------------------------------------------------- */}
-      {/* 2. HERO PLANETARY TYPOGRAPHY (Zero Boxes / Zero Cards)                 */}
+      {/* 2. REFINED PLANETARY TYPOGRAPHY (Zero Boxes / Zero Grids / Zero Lines) */}
       {/* --------------------------------------------------------------------- */}
       {selectedData && selectedBody !== 'overview' && (
-        <main className="max-w-md sm:max-w-lg pointer-events-auto transition-all duration-500 my-auto">
+        <main className="max-w-xl pointer-events-auto transition-all duration-700 my-auto pl-2">
           {/* Celestial Classification */}
-          <div className="text-[10px] font-mono tracking-[0.28em] text-white/50 uppercase mb-1.5 flex items-center space-x-2">
-            <span>{selectedData.category || 'CELESTIAL BODY'}</span>
-            <span className="text-white/20">·</span>
-            <span>TARGET 0{CELESTIAL_LIST.find((c) => c.id === selectedBody)?.num || '1'}</span>
+          <div className="text-[10px] font-mono tracking-[0.32em] text-white/50 uppercase mb-2">
+            {selectedData.category || 'CELESTIAL BODY'}
           </div>
 
-          {/* Monumental Planet Title */}
-          <h1 className="text-4xl sm:text-6xl font-extralight tracking-[0.32em] text-white uppercase drop-shadow-[0_4px_24px_rgba(0,0,0,0.85)]">
+          {/* Large Refined Planet Name */}
+          <h1 className="text-5xl sm:text-7xl font-extralight tracking-[0.25em] text-white uppercase drop-shadow-[0_4px_30px_rgba(0,0,0,0.9)]">
             {selectedData.name}
           </h1>
 
-          {/* Tagline */}
-          <p className="text-xs font-mono tracking-[0.16em] text-white/60 uppercase mt-2 mb-6">
+          {/* One-line Descriptor */}
+          <p className="text-xs font-mono tracking-[0.18em] text-white/70 uppercase mt-2 mb-8">
             {selectedData.tagline}
           </p>
 
-          {/* Astrophysical Telemetry Grid (Typographic List) */}
-          <div className="grid grid-cols-2 gap-y-3 gap-x-6 text-xs font-mono border-t border-b border-white/10 py-4 mb-5">
+          {/* 3 to 4 Key Figures in a Quiet Row (No divider lines, no grid, no boxes) */}
+          <div className="flex flex-wrap items-baseline gap-x-8 gap-y-3 text-xs font-mono mb-6">
             <div>
-              <div className="text-[9px] uppercase tracking-[0.2em] text-white/40">MEAN RADIUS</div>
-              <div className="text-white/90 text-sm font-light mt-0.5 tracking-wider">
+              <span className="text-[9px] uppercase tracking-[0.2em] text-white/40 block">RADIUS</span>
+              <span className="text-white/90 text-sm font-light tracking-wider">
                 {selectedData.radiusKm ? `${selectedData.radiusKm.toLocaleString()} KM` : 'N/A'}
-              </div>
+              </span>
             </div>
             <div>
-              <div className="text-[9px] uppercase tracking-[0.2em] text-white/40">SURFACE GRAVITY</div>
-              <div className="text-white/90 text-sm font-light mt-0.5 tracking-wider">
+              <span className="text-[9px] uppercase tracking-[0.2em] text-white/40 block">GRAVITY</span>
+              <span className="text-white/90 text-sm font-light tracking-wider">
                 {selectedData.gravity || 'N/A'}
-              </div>
+              </span>
             </div>
             <div>
-              <div className="text-[9px] uppercase tracking-[0.2em] text-white/40">MEAN TEMPERATURE</div>
-              <div className="text-white/90 text-sm font-light mt-0.5 tracking-wider">
+              <span className="text-[9px] uppercase tracking-[0.2em] text-white/40 block">TEMP</span>
+              <span className="text-white/90 text-sm font-light tracking-wider">
                 {selectedData.meanTempC !== undefined ? `${selectedData.meanTempC}°C` : 'N/A'}
-              </div>
+              </span>
             </div>
             <div>
-              <div className="text-[9px] uppercase tracking-[0.2em] text-white/40">ORBITAL PERIOD</div>
-              <div className="text-white/90 text-sm font-light mt-0.5 tracking-wider">
+              <span className="text-[9px] uppercase tracking-[0.2em] text-white/40 block">ORBIT</span>
+              <span className="text-white/90 text-sm font-light tracking-wider">
                 {selectedData.orbitalPeriodDays ? `${selectedData.orbitalPeriodDays} D` : 'CENTER'}
-              </div>
+              </span>
             </div>
           </div>
 
-          {/* Atmospheric Composition */}
+          {/* Atmosphere Composition as a Small Caption */}
           {selectedData.atmosphereComposition && (
-            <div className="text-[10px] font-mono tracking-wider text-white/70 mb-4">
-              <span className="text-white/40 uppercase tracking-[0.2em] block text-[9px] mb-1">ATMOSPHERE</span>
-              <span className="leading-relaxed">{selectedData.atmosphereComposition}</span>
+            <div className="text-[10px] font-mono tracking-wider text-white/60 mb-6 max-w-md">
+              <span className="text-white/40 uppercase tracking-[0.2em] mr-2">ATMOSPHERE:</span>
+              <span>{selectedData.atmosphereComposition}</span>
             </div>
           )}
-
-          {/* Description */}
-          <p className="text-xs font-light text-white/50 leading-relaxed max-w-sm hidden sm:block mb-5">
-            {selectedData.description}
-          </p>
 
           {/* Return Action */}
           <button
             onClick={() => onSelectBody('overview')}
-            className="flex items-center space-x-2 text-[10px] font-mono uppercase tracking-[0.22em] text-white/50 hover:text-white transition-colors cursor-pointer"
+            className="flex items-center space-x-2 text-[10px] font-mono uppercase tracking-[0.25em] text-white/40 hover:text-white transition-colors cursor-pointer"
           >
             <span>RETURN TO OVERVIEW</span>
             <ChevronRight className="w-3.5 h-3.5" />
@@ -264,7 +249,7 @@ export function InteractiveSimulatorHUD({
       {/* --------------------------------------------------------------------- */}
       {/* 3. BOTTOM TRANSPORT & DISPLAY TOGGLES (Quiet Edge Controls)           */}
       {/* --------------------------------------------------------------------- */}
-      <footer className="w-full flex flex-col sm:flex-row items-start sm:items-end justify-between gap-3 pointer-events-auto">
+      <footer className="w-full flex items-center justify-between gap-3 pointer-events-auto">
         {/* Playback & Multiplier Strip */}
         <div className="flex items-center space-x-3 text-xs font-mono">
           <button
@@ -278,7 +263,7 @@ export function InteractiveSimulatorHUD({
           <span className="text-white/20">|</span>
 
           {/* Speeds */}
-          <div className="flex items-center space-x-2 text-[10px] tracking-wider text-white/40">
+          <div className="flex items-center space-x-2.5 text-[10px] tracking-wider text-white/40">
             {SPEED_PRESETS.map((multiplier) => {
               const isActive = timeMultiplier === multiplier && !isPaused;
               return (
@@ -300,7 +285,7 @@ export function InteractiveSimulatorHUD({
         </div>
 
         {/* View Toggles & Reset */}
-        <div className="flex items-center space-x-4 text-[10px] font-mono tracking-wider text-white/40">
+        <div className="flex items-center space-x-5 text-[10px] font-mono tracking-wider text-white/40">
           <button
             onClick={() => setShowOrbits(!showOrbits)}
             className={`transition-colors cursor-pointer flex items-center space-x-1 ${

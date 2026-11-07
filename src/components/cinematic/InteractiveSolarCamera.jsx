@@ -44,7 +44,7 @@ const BODY_VIEW_CONFIGS = {
   },
   earth: {
     distance: 4.8,
-    terminatorAngle: 38, // day/night terminator + ocean glint
+    terminatorAngle: -28, // sunlit blue marble + ocean glint + day/night terminator
     elevAngle: 18,
     minDist: 2.45,
     maxDist: 140
@@ -131,12 +131,14 @@ export function InteractiveSolarCamera({
   selectedBody = 'overview',
   viewMode = 'cinematic',
   bodyPositions = {},
-  isUserInteracting = false
+  isUserInteracting = false,
+  enabled = true
 }) {
   const { camera } = useThree();
   const controlsRef = useRef();
   const lastTargetBodyRef = useRef(selectedBody);
   const lastViewModeRef = useRef(viewMode);
+  const lastEnabledRef = useRef(enabled);
   const isTransitioningRef = useRef(false);
   const transitionProgressRef = useRef(1.0);
   const transitionStartCamPosRef = useRef(new THREE.Vector3());
@@ -146,9 +148,12 @@ export function InteractiveSolarCamera({
 
   // Detect when user selects a different body or switches view mode
   useEffect(() => {
-    if (selectedBody !== lastTargetBodyRef.current || viewMode !== lastViewModeRef.current) {
+    if (!enabled) return;
+
+    if (selectedBody !== lastTargetBodyRef.current || viewMode !== lastViewModeRef.current || lastEnabledRef.current !== enabled) {
       lastTargetBodyRef.current = selectedBody;
       lastViewModeRef.current = viewMode;
+      lastEnabledRef.current = enabled;
       isTransitioningRef.current = true;
       transitionProgressRef.current = 0.0;
 
@@ -160,7 +165,7 @@ export function InteractiveSolarCamera({
       const curBodyPos = bodyPositions[selectedBody] || [0, 0, 0];
       previousTargetPosRef.current.set(...curBodyPos);
     }
-  }, [selectedBody, viewMode, bodyPositions, camera]);
+  }, [selectedBody, viewMode, enabled, bodyPositions, camera]);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -169,7 +174,7 @@ export function InteractiveSolarCamera({
   }, [camera]);
 
   useFrame((_, delta) => {
-    if (!controlsRef.current) return;
+    if (!enabled || !controlsRef.current) return;
     if (typeof window !== 'undefined') {
       window.__threeControls = controlsRef.current;
     }
@@ -245,6 +250,7 @@ export function InteractiveSolarCamera({
   return (
     <OrbitControls
       ref={controlsRef}
+      enabled={enabled}
       enableDamping
       dampingFactor={0.06}
       enablePan={selectedBody === 'overview'}

@@ -3,6 +3,7 @@ import { Canvas } from '@react-three/fiber';
 import * as THREE from 'three';
 import { SolarSystemEngine } from './components/cinematic/SolarSystemEngine';
 import { InteractiveSimulatorHUD } from './components/cinematic/InteractiveSimulatorHUD';
+import { CinematicPrologueOverlay } from './components/cinematic/CinematicPrologueOverlay';
 import { LoadingScreen } from './components/LoadingScreen';
 import { EarthBaselineComparator } from './components/test/EarthBaselineComparator';
 import { DeepSpaceSkybox } from './components/cinematic/DeepSpaceSkybox';
@@ -30,6 +31,7 @@ export default function App() {
   const [showLabels, setShowLabels] = useState(true);
   const [uiVisible, setUiVisible] = useState(true);
   const [isUserInteracting, setIsUserInteracting] = useState(false);
+  const [isPrologueActive, setIsPrologueActive] = useState(true);
 
   // Check URL query parameters for Earth visual benchmark
   const queryParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
@@ -131,20 +133,28 @@ export default function App() {
             viewMode={viewMode}
             timeMultiplier={timeMultiplier}
             isPaused={isPaused}
-            showOrbits={showOrbits}
-            showLabels={showLabels}
+            showOrbits={!isPrologueActive && showOrbits}
+            showLabels={!isPrologueActive && showLabels}
             onSelectBody={setSelectedBody}
             isUserInteracting={isUserInteracting}
+            isPrologueActive={isPrologueActive}
+            onCompletePrologue={() => setIsPrologueActive(false)}
           />
         </Suspense>
       </Canvas>
 
-      {/* 2. Loading Gate */}
+      {/* 2. Directed Christopher Nolan Prologue Overlay (Letterbox + Anamorphic Flare + Title) */}
+      <CinematicPrologueOverlay
+        isActive={isPrologueActive}
+        onSkip={() => setIsPrologueActive(false)}
+      />
+
+      {/* 3. Loading Gate */}
       <Suspense fallback={<LoadingScreen />}>
         {/* Drei texture preloader hook fallback */}
       </Suspense>
 
-      {/* 3. Interactive Solar Simulator HUD */}
+      {/* 4. Interactive Solar Simulator HUD */}
       <InteractiveSimulatorHUD
         selectedBody={selectedBody}
         onSelectBody={setSelectedBody}
@@ -158,7 +168,7 @@ export default function App() {
         setShowOrbits={setShowOrbits}
         showLabels={showLabels}
         setShowLabels={setShowLabels}
-        uiVisible={uiVisible}
+        uiVisible={!isPrologueActive && uiVisible}
         setUiVisible={setUiVisible}
         onResetCamera={handleResetCamera}
       />
