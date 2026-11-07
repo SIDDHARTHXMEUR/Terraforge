@@ -7,13 +7,19 @@ export function CinematicPrologueOverlay({
   const [elapsed, setElapsed] = useState(0);
 
   useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.__skipPrologue = onSkip;
+    }
+  }, [onSkip]);
+
+  useEffect(() => {
     if (!isActive) return;
 
     const start = performance.now();
     const interval = setInterval(() => {
       const sec = (performance.now() - start) / 1000;
       setElapsed(sec);
-      if (sec >= 26.0 && onSkip) {
+      if (sec >= 12.0 && onSkip) {
         onSkip();
       }
     }, 50);
@@ -23,25 +29,36 @@ export function CinematicPrologueOverlay({
 
   if (!isActive) return null;
 
-  // Anamorphic horizontal flare opacity during solar dawn (7s - 15s)
-  const isSolarDawn = elapsed >= 7.0 && elapsed < 15.0;
+  // Anamorphic horizontal flare opacity during solar dawn (6s - 10.5s)
+  const isSolarDawn = elapsed >= 6.0 && elapsed < 10.5;
   const flareIntensity = isSolarDawn
-    ? Math.sin(((elapsed - 7.0) / 8.0) * Math.PI) * 0.75
+    ? Math.sin(((elapsed - 6.0) / 4.5) * Math.PI) * 0.70
     : 0.0;
 
-  // Title opacity during stage 4 (20s - 26s)
-  const isTitleStage = elapsed >= 19.5 && elapsed < 26.0;
+  // Title opacity during stage 4 (10s - 12s)
+  const isTitleStage = elapsed >= 9.8 && elapsed < 12.0;
   const titleOpacity = isTitleStage
-    ? (elapsed < 23.0
-        ? (elapsed - 19.5) / 3.5
-        : Math.max(0, 1.0 - (elapsed - 23.0) / 3.0))
+    ? (elapsed < 11.0
+        ? (elapsed - 9.8) / 1.2
+        : Math.max(0, 1.0 - (elapsed - 11.0) / 1.0))
     : 0.0;
+
+  // Letterbox retracts between 10.5s and 12s
+  const isRetracting = elapsed >= 10.5;
 
   return (
     <div className="absolute inset-0 pointer-events-none select-none z-40 overflow-hidden">
       {/* 1. 2.39:1 Anamorphic Letterbox Bars (Top & Bottom) */}
-      <div className="absolute top-0 left-0 right-0 h-[8vh] sm:h-[10vh] bg-black transition-transform duration-1000 ease-out z-50"></div>
-      <div className="absolute bottom-0 left-0 right-0 h-[8vh] sm:h-[10vh] bg-black transition-transform duration-1000 ease-out z-50"></div>
+      <div
+        className={`absolute top-0 left-0 right-0 h-[8vh] sm:h-[10vh] bg-black transition-transform duration-1000 ease-out z-50 ${
+          isRetracting ? '-translate-y-full' : 'translate-y-0'
+        }`}
+      ></div>
+      <div
+        className={`absolute bottom-0 left-0 right-0 h-[8vh] sm:h-[10vh] bg-black transition-transform duration-1000 ease-out z-50 ${
+          isRetracting ? 'translate-y-full' : 'translate-y-0'
+        }`}
+      ></div>
 
       {/* 2. Restrained Anamorphic Horizontal Lens Flare Streak during Solar Dawn */}
       {flareIntensity > 0.02 && (

@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { PLANETS_CONFIG } from '../../data/planetsData';
 import { useEarthSurfaceStore, EARTH_LANDMARKS } from '../../state/useEarthSurfaceStore';
+import { useQualityStore } from '../../state/useQualityStore';
 
 const CELESTIAL_LIST = [
   { id: 'overview', name: 'Overview' },
@@ -44,10 +45,20 @@ export function InteractiveSimulatorHUD({
   setShowLabels,
   uiVisible = true,
   setUiVisible,
-  onResetCamera
+  onResetCamera,
+  onReplayIntro
 }) {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isIdle, setIsIdle] = useState(false);
+
+  const preset = useQualityStore((s) => s.preset);
+  const setPreset = useQualityStore((s) => s.setPreset);
+
+  const cycleQuality = () => {
+    if (preset === 'auto') setPreset('high');
+    else if (preset === 'high') setPreset('low');
+    else setPreset('auto');
+  };
 
   // Auto-hide UI during inactivity (4 seconds)
   useEffect(() => {
@@ -84,9 +95,17 @@ export function InteractiveSimulatorHUD({
     altitudeKm,
     focusedLocation,
     tier2Status,
+    tier2ErrorReason,
     triggerFlyTo,
     triggerReturnToOrbit
   } = useEarthSurfaceStore();
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.__triggerFlyTo = triggerFlyTo;
+      window.__triggerReturnToOrbit = triggerReturnToOrbit;
+    }
+  }, [triggerFlyTo, triggerReturnToOrbit]);
 
   const selectedData = PLANETS_CONFIG[selectedBody];
 
@@ -239,7 +258,7 @@ export function InteractiveSimulatorHUD({
                 {EARTH_LANDMARKS.map((lm) => (
                   <button
                     key={lm.id}
-                    onClick={() => triggerFlyTo({ lat: lm.lat, lon: lm.lon, altitudeKm: 2.2 })}
+                    onClick={() => triggerFlyTo({ lat: lm.lat, lon: lm.lon, altitudeKm: 0.8 })}
                     className="hover:text-white transition-colors cursor-pointer underline underline-offset-4 decoration-white/20 hover:decoration-white"
                   >
                     {lm.name}
@@ -250,7 +269,7 @@ export function InteractiveSimulatorHUD({
               {/* Quiet note if Tier 2 token is missing, forbidden or exhausted */}
               {tier2Status === 'unavailable' && (
                 <div className="text-[10px] font-mono tracking-wider text-amber-300/80 pt-0.5">
-                  High-detail city view unavailable
+                  Google 3D Tiles: {tier2ErrorReason || 'High-detail city view unavailable'} · Showing 10m Sentinel-2 satellite imagery
                 </div>
               )}
 
@@ -310,7 +329,7 @@ export function InteractiveSimulatorHUD({
                   {EARTH_LANDMARKS.map((lm) => (
                     <button
                       key={lm.id}
-                      onClick={() => triggerFlyTo({ lat: lm.lat, lon: lm.lon, altitudeKm: 2.2 })}
+                      onClick={() => triggerFlyTo({ lat: lm.lat, lon: lm.lon, altitudeKm: 0.8 })}
                       className="hover:text-white transition-colors cursor-pointer underline underline-offset-4 decoration-white/20 hover:decoration-white"
                     >
                       {lm.name}
@@ -330,6 +349,13 @@ export function InteractiveSimulatorHUD({
             </>
           )}
         </main>
+      )}
+
+      {/* Attribution Credits Centered Above Bottom Controls */}
+      {selectedBody === 'earth' && isSurfaceMode && (
+        <div className="w-full text-center text-[9px] font-mono tracking-widest text-white/45 mb-2 pointer-events-none">
+          Imagery: NASA GIBS · Sentinel-2 cloudless by EOX · 3D Tiles: Google via Cesium ion
+        </div>
       )}
 
       {/* --------------------------------------------------------------------- */}
@@ -370,13 +396,6 @@ export function InteractiveSimulatorHUD({
           </div>
         </div>
 
-        {/* Center Attribution when in Earth Surface Mode */}
-        {selectedBody === 'earth' && isSurfaceMode && (
-          <div className="hidden lg:block text-[9px] font-mono tracking-wider text-white/40">
-            Imagery: NASA GIBS · Sentinel-2 cloudless by EOX · 3D Tiles: Google via Cesium ion
-          </div>
-        )}
-
         {/* View Toggles & Reset */}
         <div className="flex items-center space-x-5 text-[10px] font-mono tracking-wider text-white/40">
           <button
@@ -406,6 +425,24 @@ export function InteractiveSimulatorHUD({
             <RotateCcw className="w-3 h-3" />
             <span className="uppercase">RESET CAMERA</span>
           </button>
+
+          <button
+            onClick={cycleQuality}
+            className="hover:text-white transition-colors cursor-pointer flex items-center space-x-1"
+            title="Cycle dynamic quality preset"
+          >
+            <span className="uppercase text-cyan-400">QUALITY ({preset.toUpperCase()})</span>
+          </button>
+
+          {onReplayIntro && (
+            <button
+              onClick={onReplayIntro}
+              className="hover:text-white transition-colors cursor-pointer flex items-center space-x-1"
+              title="Replay cinematic introduction"
+            >
+              <span className="uppercase text-amber-300/80 hover:text-amber-300">REPLAY INTRO</span>
+            </button>
+          )}
         </div>
       </footer>
     </div>

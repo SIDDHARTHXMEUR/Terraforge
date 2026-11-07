@@ -158,6 +158,7 @@ export function CinematicEarth({
   isPlaying = true,
   axialTilt = EARTH_AXIAL_TILT,
   sunDirection,
+  isSafeMode = false,
   onClick
 }) {
   const [albedoMap, bumpMap, cloudsMap, landmaskMap, nightlightsMap, moonAlbedo, moonBump] = useTexture([
@@ -202,12 +203,15 @@ export function CinematicEarth({
       surfaceShaderRef.current.uniforms.uTime.value = elapsed;
       surfaceShaderRef.current.uniforms.uSunDirection.value = sunDir;
     }
+    if (cloudsRef.current) {
+      cloudsRef.current.visible = !isSurfaceMode || altitudeKm > 35.0;
+    }
     if (cloudsShaderRef.current) {
       cloudsShaderRef.current.uniforms.uSunDirection.value = sunDir;
-      // Fade clouds opacity when camera descends into surface mode
+      // Fade clouds opacity smoothly when camera descends into surface mode
       let cloudAlpha = 1.0;
       if (isSurfaceMode) {
-        cloudAlpha = THREE.MathUtils.clamp((altitudeKm - 30) / (1200 - 30), 0.12, 1.0);
+        cloudAlpha = THREE.MathUtils.clamp((altitudeKm - 35.0) / 400.0, 0.0, 1.0);
       }
       cloudsShaderRef.current.uniforms.uCloudAlpha.value = cloudAlpha;
     }
@@ -265,11 +269,13 @@ export function CinematicEarth({
               uTime: { value: 0 }
             }}
           />
-          {/* Real Satellite & 3D Tile Surface Engine (Mounted in Earth Local Rotating Frame) */}
-          <EarthSurfaceTileEngine
-            radius={radius}
-            sunDirection={computedSunDir}
-          />
+          {/* Real Satellite & 3D Tile Surface Engine (Mounted in Earth Local Rotating Frame; disabled in Safe Mode) */}
+          {!isSafeMode && (
+            <EarthSurfaceTileEngine
+              radius={radius}
+              sunDirection={computedSunDir}
+            />
+          )}
         </mesh>
 
         {/* 2. Realistic Dynamic Cloud Layer with Terminator Shading */}

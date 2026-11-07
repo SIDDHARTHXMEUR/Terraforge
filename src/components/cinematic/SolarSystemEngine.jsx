@@ -1,5 +1,5 @@
-import React, { useRef, useState } from 'react';
-import { useFrame } from '@react-three/fiber';
+import React, { useRef, useEffect } from 'react';
+import { useFrame, useThree } from '@react-three/fiber';
 import { CinematicSun } from './CinematicSun';
 import { CinematicMercury } from './CinematicMercury';
 import { CinematicVenus } from './CinematicVenus';
@@ -16,6 +16,7 @@ import { OrbitGuides } from './OrbitGuides';
 import { CelestialLabels } from './CelestialLabels';
 import { CinematicPrologueDirector } from './CinematicPrologueDirector';
 import { DISPLAY_RADII, DISPLAY_ORBIT_RADII, ORBIT_SPEEDS } from '../../data/displayScale';
+import { useQualityStore } from '../../state/useQualityStore';
 
 export function SolarSystemEngine({
   selectedBody = 'overview',
@@ -27,8 +28,25 @@ export function SolarSystemEngine({
   onSelectBody,
   isUserInteracting = false,
   isPrologueActive = false,
-  onCompletePrologue
+  onCompletePrologue,
+  isSafeMode = false
 }) {
+  const { gl, scene, camera } = useThree();
+
+  // Warm up and pre-compile all scene shaders on GPU to eliminate first-frame hitching
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.__threeScene = scene;
+    }
+    if (gl && scene && camera) {
+      try {
+        gl.compile(scene, camera);
+      } catch {
+        // Silently continue if headless context lacks compilation hook
+      }
+    }
+  }, [gl, scene, camera]);
+
   // Real-time planetary orbital angles
   const anglesRef = useRef({
     mercury: 0.4,
@@ -42,8 +60,8 @@ export function SolarSystemEngine({
     neptune: 3.8
   });
 
-  // Current real-time world positions of planets
-  const [positions, setPositions] = useState(() => ({
+  // Mutable real-time world positions of planets (zero per-frame React state re-renders!)
+  const positionsRef = useRef({
     sun: [0, 0, 0],
     overview: [0, 0, 0],
     mercury: [Math.cos(0.4) * DISPLAY_ORBIT_RADII.mercury, 0, Math.sin(0.4) * DISPLAY_ORBIT_RADII.mercury],
@@ -55,10 +73,33 @@ export function SolarSystemEngine({
     saturn: [Math.cos(2.5) * DISPLAY_ORBIT_RADII.saturn, 0, Math.sin(2.5) * DISPLAY_ORBIT_RADII.saturn],
     uranus: [Math.cos(5.1) * DISPLAY_ORBIT_RADII.uranus, 0, Math.sin(5.1) * DISPLAY_ORBIT_RADII.uranus],
     neptune: [Math.cos(3.8) * DISPLAY_ORBIT_RADII.neptune, 0, Math.sin(3.8) * DISPLAY_ORBIT_RADII.neptune]
-  }));
+  });
 
-  // Orbital revolution frame loop
+  const mercuryGroupRef = useRef();
+  const venusGroupRef = useRef();
+  const earthGroupRef = useRef();
+  const marsGroupRef = useRef();
+  const ceresGroupRef = useRef();
+  const jupiterGroupRef = useRef();
+  const saturnGroupRef = useRef();
+  const uranusGroupRef = useRef();
+  const neptuneGroupRef = useRef();
+
+  // Rolling FPS monitor for dynamic quality auto-scaling
+  const fpsFrameCount = useRef(0);
+  const fpsLastTime = useRef(typeof performance !== 'undefined' ? performance.now() : 0);
+
+  // Orbital revolution frame loop - direct object transforms (zero allocations, zero re-renders)
   useFrame((_, delta) => {
+    fpsFrameCount.current++;
+    const now = performance.now();
+    if (now - fpsLastTime.current >= 1000) {
+      const fps = Math.round((fpsFrameCount.current * 1000) / (now - fpsLastTime.current));
+      fpsFrameCount.current = 0;
+      fpsLastTime.current = now;
+      useQualityStore.getState().reportFps(fps);
+    }
+
     if (isPaused) return;
 
     // Base orbital speed scaled by user-selected time multiplier
@@ -76,55 +117,59 @@ export function SolarSystemEngine({
 
     const ceresR = DISPLAY_ORBIT_RADII.ceres;
 
-    setPositions({
-      sun: [0, 0, 0],
-      overview: [0, 0, 0],
-      mercury: [
-        Math.cos(anglesRef.current.mercury) * DISPLAY_ORBIT_RADII.mercury,
-        0,
-        Math.sin(anglesRef.current.mercury) * DISPLAY_ORBIT_RADII.mercury
-      ],
-      venus: [
-        Math.cos(anglesRef.current.venus) * DISPLAY_ORBIT_RADII.venus,
-        0,
-        Math.sin(anglesRef.current.venus) * DISPLAY_ORBIT_RADII.venus
-      ],
-      earth: [
-        Math.cos(anglesRef.current.earth) * DISPLAY_ORBIT_RADII.earth,
-        0,
-        Math.sin(anglesRef.current.earth) * DISPLAY_ORBIT_RADII.earth
-      ],
-      mars: [
-        Math.cos(anglesRef.current.mars) * DISPLAY_ORBIT_RADII.mars,
-        0,
-        Math.sin(anglesRef.current.mars) * DISPLAY_ORBIT_RADII.mars
-      ],
-      asteroids: [
-        Math.cos(anglesRef.current.asteroids) * ceresR,
-        0.4,
-        Math.sin(anglesRef.current.asteroids) * ceresR
-      ],
-      jupiter: [
-        Math.cos(anglesRef.current.jupiter) * DISPLAY_ORBIT_RADII.jupiter,
-        0,
-        Math.sin(anglesRef.current.jupiter) * DISPLAY_ORBIT_RADII.jupiter
-      ],
-      saturn: [
-        Math.cos(anglesRef.current.saturn) * DISPLAY_ORBIT_RADII.saturn,
-        0,
-        Math.sin(anglesRef.current.saturn) * DISPLAY_ORBIT_RADII.saturn
-      ],
-      uranus: [
-        Math.cos(anglesRef.current.uranus) * DISPLAY_ORBIT_RADII.uranus,
-        0,
-        Math.sin(anglesRef.current.uranus) * DISPLAY_ORBIT_RADII.uranus
-      ],
-      neptune: [
-        Math.cos(anglesRef.current.neptune) * DISPLAY_ORBIT_RADII.neptune,
-        0,
-        Math.sin(anglesRef.current.neptune) * DISPLAY_ORBIT_RADII.neptune
-      ]
-    });
+    const mX = Math.cos(anglesRef.current.mercury) * DISPLAY_ORBIT_RADII.mercury;
+    const mZ = Math.sin(anglesRef.current.mercury) * DISPLAY_ORBIT_RADII.mercury;
+    positionsRef.current.mercury[0] = mX;
+    positionsRef.current.mercury[2] = mZ;
+    if (mercuryGroupRef.current) mercuryGroupRef.current.position.set(mX, 0, mZ);
+
+    const vX = Math.cos(anglesRef.current.venus) * DISPLAY_ORBIT_RADII.venus;
+    const vZ = Math.sin(anglesRef.current.venus) * DISPLAY_ORBIT_RADII.venus;
+    positionsRef.current.venus[0] = vX;
+    positionsRef.current.venus[2] = vZ;
+    if (venusGroupRef.current) venusGroupRef.current.position.set(vX, 0, vZ);
+
+    const eX = Math.cos(anglesRef.current.earth) * DISPLAY_ORBIT_RADII.earth;
+    const eZ = Math.sin(anglesRef.current.earth) * DISPLAY_ORBIT_RADII.earth;
+    positionsRef.current.earth[0] = eX;
+    positionsRef.current.earth[2] = eZ;
+    if (earthGroupRef.current) earthGroupRef.current.position.set(eX, 0, eZ);
+
+    const maX = Math.cos(anglesRef.current.mars) * DISPLAY_ORBIT_RADII.mars;
+    const maZ = Math.sin(anglesRef.current.mars) * DISPLAY_ORBIT_RADII.mars;
+    positionsRef.current.mars[0] = maX;
+    positionsRef.current.mars[2] = maZ;
+    if (marsGroupRef.current) marsGroupRef.current.position.set(maX, 0, maZ);
+
+    const cX = Math.cos(anglesRef.current.asteroids) * ceresR;
+    const cZ = Math.sin(anglesRef.current.asteroids) * ceresR;
+    positionsRef.current.asteroids[0] = cX;
+    positionsRef.current.asteroids[2] = cZ;
+    if (ceresGroupRef.current) ceresGroupRef.current.position.set(cX, 0.4, cZ);
+
+    const jX = Math.cos(anglesRef.current.jupiter) * DISPLAY_ORBIT_RADII.jupiter;
+    const jZ = Math.sin(anglesRef.current.jupiter) * DISPLAY_ORBIT_RADII.jupiter;
+    positionsRef.current.jupiter[0] = jX;
+    positionsRef.current.jupiter[2] = jZ;
+    if (jupiterGroupRef.current) jupiterGroupRef.current.position.set(jX, 0, jZ);
+
+    const sX = Math.cos(anglesRef.current.saturn) * DISPLAY_ORBIT_RADII.saturn;
+    const sZ = Math.sin(anglesRef.current.saturn) * DISPLAY_ORBIT_RADII.saturn;
+    positionsRef.current.saturn[0] = sX;
+    positionsRef.current.saturn[2] = sZ;
+    if (saturnGroupRef.current) saturnGroupRef.current.position.set(sX, 0, sZ);
+
+    const uX = Math.cos(anglesRef.current.uranus) * DISPLAY_ORBIT_RADII.uranus;
+    const uZ = Math.sin(anglesRef.current.uranus) * DISPLAY_ORBIT_RADII.uranus;
+    positionsRef.current.uranus[0] = uX;
+    positionsRef.current.uranus[2] = uZ;
+    if (uranusGroupRef.current) uranusGroupRef.current.position.set(uX, 0, uZ);
+
+    const nX = Math.cos(anglesRef.current.neptune) * DISPLAY_ORBIT_RADII.neptune;
+    const nZ = Math.sin(anglesRef.current.neptune) * DISPLAY_ORBIT_RADII.neptune;
+    positionsRef.current.neptune[0] = nX;
+    positionsRef.current.neptune[2] = nZ;
+    if (neptuneGroupRef.current) neptuneGroupRef.current.position.set(nX, 0, nZ);
   });
 
   return (
@@ -136,7 +181,7 @@ export function SolarSystemEngine({
       <InteractiveSolarCamera
         selectedBody={selectedBody}
         viewMode={viewMode}
-        bodyPositions={positions}
+        bodyPositions={positionsRef.current}
         isUserInteracting={isUserInteracting}
         enabled={!isPrologueActive}
       />
@@ -146,7 +191,7 @@ export function SolarSystemEngine({
         <CinematicPrologueDirector
           isActive={isPrologueActive}
           onComplete={onCompletePrologue}
-          bodyPositions={positions}
+          bodyPositions={positionsRef.current}
         />
       )}
 
@@ -155,12 +200,12 @@ export function SolarSystemEngine({
         radii={DISPLAY_ORBIT_RADII}
         visible={showOrbits}
         selectedBody={selectedBody}
-        bodyPositions={positions}
+        bodyPositions={positionsRef.current}
       />
 
       {/* 4. Planetary Billboard Text Labels */}
       <CelestialLabels
-        bodyPositions={positions}
+        bodyPositions={positionsRef.current}
         selectedBody={selectedBody}
         visible={showLabels}
         onSelectBody={onSelectBody}
@@ -176,48 +221,57 @@ export function SolarSystemEngine({
       />
 
       {/* 6. Mercury */}
-      <CinematicMercury
-        position={positions.mercury}
-        radius={DISPLAY_RADII.mercury}
-        isPlaying={!isPaused}
-        onClick={(e) => {
-          e.stopPropagation();
-          if (onSelectBody) onSelectBody('mercury');
-        }}
-      />
+      <group ref={mercuryGroupRef} position={positionsRef.current.mercury}>
+        <CinematicMercury
+          position={[0, 0, 0]}
+          radius={DISPLAY_RADII.mercury}
+          isPlaying={!isPaused}
+          onClick={(e) => {
+            e.stopPropagation();
+            if (onSelectBody) onSelectBody('mercury');
+          }}
+        />
+      </group>
 
       {/* 7. Venus */}
-      <CinematicVenus
-        position={positions.venus}
-        radius={DISPLAY_RADII.venus}
-        isPlaying={!isPaused}
-        onClick={(e) => {
-          e.stopPropagation();
-          if (onSelectBody) onSelectBody('venus');
-        }}
-      />
+      <group ref={venusGroupRef} position={positionsRef.current.venus}>
+        <CinematicVenus
+          position={[0, 0, 0]}
+          radius={DISPLAY_RADII.venus}
+          isPlaying={!isPaused}
+          onClick={(e) => {
+            e.stopPropagation();
+            if (onSelectBody) onSelectBody('venus');
+          }}
+        />
+      </group>
 
       {/* 8. Earth & The Moon */}
-      <CinematicEarth
-        position={positions.earth}
-        radius={DISPLAY_RADII.earth}
-        isPlaying={!isPaused}
-        onClick={(e) => {
-          e.stopPropagation();
-          if (onSelectBody) onSelectBody('earth');
-        }}
-      />
+      <group ref={earthGroupRef} position={positionsRef.current.earth}>
+        <CinematicEarth
+          position={[0, 0, 0]}
+          radius={DISPLAY_RADII.earth}
+          isPlaying={!isPaused}
+          isSafeMode={isSafeMode}
+          onClick={(e) => {
+            e.stopPropagation();
+            if (onSelectBody) onSelectBody('earth');
+          }}
+        />
+      </group>
 
       {/* 9. Mars */}
-      <CinematicMars
-        position={positions.mars}
-        radius={DISPLAY_RADII.mars}
-        isPlaying={!isPaused}
-        onClick={(e) => {
-          e.stopPropagation();
-          if (onSelectBody) onSelectBody('mars');
-        }}
-      />
+      <group ref={marsGroupRef} position={positionsRef.current.mars}>
+        <CinematicMars
+          position={[0, 0, 0]}
+          radius={DISPLAY_RADII.mars}
+          isPlaying={!isPaused}
+          onClick={(e) => {
+            e.stopPropagation();
+            if (onSelectBody) onSelectBody('mars');
+          }}
+        />
+      </group>
 
       {/* 10. Asteroid Belt & Ceres */}
       <AsteroidBelt
@@ -232,48 +286,56 @@ export function SolarSystemEngine({
       />
 
       {/* 11. Jupiter & Galilean Moons (Io & Europa) */}
-      <CinematicJupiter
-        position={positions.jupiter}
-        radius={DISPLAY_RADII.jupiter}
-        isPlaying={!isPaused}
-        onClick={(e) => {
-          e.stopPropagation();
-          if (onSelectBody) onSelectBody('jupiter');
-        }}
-      />
+      <group ref={jupiterGroupRef} position={positionsRef.current.jupiter}>
+        <CinematicJupiter
+          position={[0, 0, 0]}
+          radius={DISPLAY_RADII.jupiter}
+          isPlaying={!isPaused}
+          onClick={(e) => {
+            e.stopPropagation();
+            if (onSelectBody) onSelectBody('jupiter');
+          }}
+        />
+      </group>
 
       {/* 12. Saturn & Cassini Division Rings */}
-      <CinematicSaturn
-        position={positions.saturn}
-        radius={DISPLAY_RADII.saturn}
-        isPlaying={!isPaused}
-        onClick={(e) => {
-          e.stopPropagation();
-          if (onSelectBody) onSelectBody('saturn');
-        }}
-      />
+      <group ref={saturnGroupRef} position={positionsRef.current.saturn}>
+        <CinematicSaturn
+          position={[0, 0, 0]}
+          radius={DISPLAY_RADII.saturn}
+          isPlaying={!isPaused}
+          onClick={(e) => {
+            e.stopPropagation();
+            if (onSelectBody) onSelectBody('saturn');
+          }}
+        />
+      </group>
 
       {/* 13. Uranus & Ring System */}
-      <CinematicUranus
-        position={positions.uranus}
-        radius={DISPLAY_RADII.uranus}
-        isPlaying={!isPaused}
-        onClick={(e) => {
-          e.stopPropagation();
-          if (onSelectBody) onSelectBody('uranus');
-        }}
-      />
+      <group ref={uranusGroupRef} position={positionsRef.current.uranus}>
+        <CinematicUranus
+          position={[0, 0, 0]}
+          radius={DISPLAY_RADII.uranus}
+          isPlaying={!isPaused}
+          onClick={(e) => {
+            e.stopPropagation();
+            if (onSelectBody) onSelectBody('uranus');
+          }}
+        />
+      </group>
 
       {/* 14. Neptune */}
-      <CinematicNeptune
-        position={positions.neptune}
-        radius={DISPLAY_RADII.neptune}
-        isPlaying={!isPaused}
-        onClick={(e) => {
-          e.stopPropagation();
-          if (onSelectBody) onSelectBody('neptune');
-        }}
-      />
+      <group ref={neptuneGroupRef} position={positionsRef.current.neptune}>
+        <CinematicNeptune
+          position={[0, 0, 0]}
+          radius={DISPLAY_RADII.neptune}
+          isPlaying={!isPaused}
+          onClick={(e) => {
+            e.stopPropagation();
+            if (onSelectBody) onSelectBody('neptune');
+          }}
+        />
+      </group>
     </>
   );
 }

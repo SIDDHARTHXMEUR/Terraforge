@@ -8,6 +8,8 @@ import { LoadingScreen } from './components/LoadingScreen';
 import { EarthBaselineComparator } from './components/test/EarthBaselineComparator';
 import { DeepSpaceSkybox } from './components/cinematic/DeepSpaceSkybox';
 import { OrbitControls } from '@react-three/drei';
+import { SceneErrorBoundary } from './components/common/SceneErrorBoundary';
+import { useQualityStore } from './state/useQualityStore';
 
 const KEY_TO_BODY = {
   '1': 'sun',
@@ -31,11 +33,48 @@ export default function App() {
   const [showLabels, setShowLabels] = useState(true);
   const [uiVisible, setUiVisible] = useState(true);
   const [isUserInteracting, setIsUserInteracting] = useState(false);
-  const [isPrologueActive, setIsPrologueActive] = useState(true);
 
-  // Check URL query parameters for Earth visual benchmark
+  // Check URL query parameters
   const queryParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
   const benchmarkMode = queryParams?.get('benchmark'); // 'v1' or 'enhanced'
+  const isSafeMode = queryParams?.get('safe') === '1';
+
+  // Dynamic DPR from quality store
+  const dpr = useQualityStore((s) => s.dpr);
+
+  // LocalStorage-backed prologue state: skip on return visits, never show in safe mode
+  const [isPrologueActive, setIsPrologueActive] = useState(() => {
+    if (isSafeMode) return false;
+    try {
+      return localStorage.getItem('terraforge_prologue_seen') !== 'true';
+    } catch {
+      return true;
+    }
+  });
+
+  const handleEndPrologue = () => {
+    setIsPrologueActive(false);
+    try {
+      localStorage.setItem('terraforge_prologue_seen', 'true');
+    } catch {}
+  };
+
+  const handleReplayIntro = () => {
+    setSelectedBody('overview');
+    setIsPrologueActive(true);
+  };
+
+  // Prologue Watchdog: strictly forces completion at 15s maximum
+  useEffect(() => {
+    if (!isPrologueActive) return;
+
+    const watchdogTimer = setTimeout(() => {
+      console.warn('[Prologue Watchdog] 15s limit reached - forcing prologue end state');
+      handleEndPrologue();
+    }, 15000);
+
+    return () => clearTimeout(watchdogTimer);
+  }, [isPrologueActive]);
 
   // Global Keyboard Shortcuts for interactive navigation
   useEffect(() => {
@@ -106,48 +145,62 @@ export default function App() {
 
   return (
     <div className="relative w-screen h-screen bg-black overflow-hidden font-sans select-none">
-      {/* 1. Interactive 3D WebGL Solar System Canvas */}
-      <Canvas
-        className="w-full h-full cursor-grab active:cursor-grabbing bg-black"
-        style={{ width: '100vw', height: '100vh', position: 'absolute', inset: 0 }}
-        gl={{
-          antialias: true,
-          alpha: false,
-          logarithmicDepthBuffer: true,
-          powerPreference: 'high-performance',
-          toneMapping: THREE.ACESFilmicToneMapping,
-          toneMappingExposure: 1.15
-        }}
-        camera={{
-          fov: 45,
-          near: 0.1,
-          far: 25000,
-          position: [-320, 110, 310]
-        }}
-        onPointerDown={() => setIsUserInteracting(true)}
-        onPointerUp={() => setIsUserInteracting(false)}
-      >
-        <Suspense fallback={null}>
-          <SolarSystemEngine
-            selectedBody={selectedBody}
-            viewMode={viewMode}
-            timeMultiplier={timeMultiplier}
-            isPaused={isPaused}
-            showOrbits={!isPrologueActive && showOrbits}
-            showLabels={!isPrologueActive && showLabels}
-            onSelectBody={setSelectedBody}
-            isUserInteracting={isUserInteracting}
-            isPrologueActive={isPrologueActive}
-            onCompletePrologue={() => setIsPrologueActive(false)}
-          />
-        </Suspense>
-      </Canvas>
+      {/* Safe Mode Indicator Badge */}
+      {isSafeMode && (
+        <div className="absolute top-4 left-6 z-50 bg-amber-500/20 border border-amber-500/50 backdrop-blur-md px-3 py-1.5 rounded-full font-mono text-[11px] text-amber-300 flex items-center space-x-2">
+          <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+          <span>SAFE MODE ACTIVE (?safe=1) &mdash; Minimal 3D Scene</span>
+        </div>
+      )}
+
+      {/* 1. Interactive 3D WebGL Solar System Canvas with Error Boundary */}
+      <SceneErrorBoundary>
+        <Canvas
+          className="w-full h-full cursor-grab active:cursor-grabbing bg-black"
+          style={{ width: '100vw', height: '100vh', position: 'absolute', inset: 0 }}
+          dpr={dpr}
+          gl={{
+            antialias: true,
+            alpha: false,
+            logarithmicDepthBuffer: true,
+            powerPreference: 'high-performance',
+            toneMapping: THREE.ACESFilmicToneMapping,
+            toneMappingExposure: 1.15
+          }}
+          camera={{
+            fov: 45,
+            near: 0.1,
+            far: 25000,
+            position: [-320, 110, 310]
+          }}
+          onPointerDown={() => setIsUserInteracting(true)}
+          onPointerUp={() => setIsUserInteracting(false)}
+        >
+          <Suspense fallback={null}>
+            <SolarSystemEngine
+              selectedBody={selectedBody}
+              viewMode={viewMode}
+              timeMultiplier={timeMultiplier}
+              isPaused={isPaused}
+              showOrbits={!isPrologueActive && showOrbits}
+              showLabels={!isPrologueActive && showLabels}
+              onSelectBody={setSelectedBody}
+              isUserInteracting={isUserInteracting}
+              isPrologueActive={isPrologueActive}
+              onCompletePrologue={handleEndPrologue}
+              isSafeMode={isSafeMode}
+            />
+          </Suspense>
+        </Canvas>
+      </SceneErrorBoundary>
 
       {/* 2. Directed Christopher Nolan Prologue Overlay (Letterbox + Anamorphic Flare + Title) */}
-      <CinematicPrologueOverlay
-        isActive={isPrologueActive}
-        onSkip={() => setIsPrologueActive(false)}
-      />
+      {!isSafeMode && (
+        <CinematicPrologueOverlay
+          isActive={isPrologueActive}
+          onSkip={handleEndPrologue}
+        />
+      )}
 
       {/* 3. Loading Gate */}
       <Suspense fallback={<LoadingScreen />}>
@@ -171,6 +224,7 @@ export default function App() {
         uiVisible={!isPrologueActive && uiVisible}
         setUiVisible={setUiVisible}
         onResetCamera={handleResetCamera}
+        onReplayIntro={handleReplayIntro}
       />
     </div>
   );
