@@ -179,6 +179,9 @@ export function InteractiveSimulatorHUD({
           <div className="flex items-center space-x-3">
             <button
               onClick={() => {
+                if (import.meta.env.DEV && typeof window !== 'undefined') {
+                  window.__lastToggleClick = { type: 'viewMode', time: performance.now(), target: 'cinematic' };
+                }
                 if (setViewMode) setViewMode('cinematic');
                 if (selectedBody !== 'overview') onSelectBody('overview');
               }}
@@ -193,6 +196,9 @@ export function InteractiveSimulatorHUD({
             </button>
             <button
               onClick={() => {
+                if (import.meta.env.DEV && typeof window !== 'undefined') {
+                  window.__lastToggleClick = { type: 'viewMode', time: performance.now(), target: 'scientific' };
+                }
                 if (setViewMode) setViewMode('scientific');
                 if (selectedBody !== 'overview') onSelectBody('overview');
               }}
@@ -442,7 +448,12 @@ export function InteractiveSimulatorHUD({
         {/* View Toggles & Reset with Tooltips */}
         <div className="flex items-center space-x-4 text-[10px] font-mono tracking-wider text-white/40">
           <button
-            onClick={() => setShowOrbits(!showOrbits)}
+            onClick={() => {
+              if (import.meta.env.DEV && typeof window !== 'undefined') {
+                window.__lastToggleClick = { type: 'orbits', time: performance.now(), target: !showOrbits };
+              }
+              setShowOrbits(!showOrbits);
+            }}
             title="Toggle Orbital Trajectories (O)"
             className={`transition-colors cursor-pointer flex items-center space-x-1 ${
               showOrbits ? 'text-white/90' : 'hover:text-white/70'
@@ -453,7 +464,12 @@ export function InteractiveSimulatorHUD({
           </button>
 
           <button
-            onClick={() => setShowLabels(!showLabels)}
+            onClick={() => {
+              if (import.meta.env.DEV && typeof window !== 'undefined') {
+                window.__lastToggleClick = { type: 'labels', time: performance.now(), target: !showLabels };
+              }
+              setShowLabels(!showLabels);
+            }}
             title="Toggle Celestial Labels (L)"
             className={`transition-colors cursor-pointer flex items-center space-x-1 ${
               showLabels ? 'text-white/90' : 'hover:text-white/70'

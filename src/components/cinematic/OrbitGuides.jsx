@@ -3,9 +3,18 @@ import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { DISPLAY_RADII, DISPLAY_ORBIT_RADII } from '../../data/displayScale';
 
-// Subtle, thin, near-monochrome warm-white styling (no rainbow colors)
-const BASE_ORBIT_COLOR = '#FAF8F5';
-const HIGHLIGHT_ORBIT_COLOR = '#FFFFFF';
+// Restored vibrant neon color-coded palette for crisp, high-visibility celestial mechanics
+const ORBIT_COLORS = {
+  mercury: '#a1a1aa', // Slate silver
+  venus: '#facc15',   // Warm amber gold
+  earth: '#38bdf8',   // Luminous sky cyan
+  mars: '#fb923c',    // Tangerine orange
+  asteroids: '#a8a29e', // Asteroid dust subtle grey
+  jupiter: '#fde047', // Jovian radiant yellow
+  saturn: '#fef08a',  // Pale gold ringed
+  uranus: '#67e8f9',  // Electric cyan ice
+  neptune: '#818cf8'  // Deep azure-indigo
+};
 
 
 const BODY_RADII = {
@@ -230,10 +239,27 @@ export function OrbitGuides({
       targetAlpha *= closeFade;
     }
 
-    fadeAlphaRef.current = THREE.MathUtils.damp(fadeAlphaRef.current, targetAlpha, 6.0, delta);
+    // Rapid linear fade ensures turning OFF or ON takes effect in <= 80ms (strict <100ms latency requirement)
+    const fadeRate = 14.0; // 1 / 14s = ~71ms for full transition
+    if (targetAlpha === 0.0) {
+      fadeAlphaRef.current = Math.max(0.0, fadeAlphaRef.current - delta * fadeRate);
+    } else {
+      fadeAlphaRef.current = Math.min(targetAlpha, fadeAlphaRef.current + delta * fadeRate);
+    }
 
     if (groupRef.current) {
-      groupRef.current.visible = fadeAlphaRef.current > 0.005;
+      const isVis = fadeAlphaRef.current > 0.005;
+      groupRef.current.visible = isVis;
+
+      // DEV instrumentation: record toggle latency
+      if (import.meta.env.DEV && typeof window !== 'undefined' && window.__lastToggleClick?.type === 'orbits') {
+        const click = window.__lastToggleClick;
+        if ((click.target && isVis) || (!click.target && !isVis)) {
+          const latency = Math.round(performance.now() - click.time);
+          if (window.__perfMetrics) window.__perfMetrics.toggleLatencies.orbits = latency;
+          window.__lastToggleClick = null;
+        }
+      }
     }
   });
 
@@ -246,10 +272,11 @@ export function OrbitGuides({
 
   const getOrbitProps = (bodyKey) => {
     const isSelected = selectedBody === bodyKey;
+    const neonColor = ORBIT_COLORS[bodyKey] || '#FFFFFF';
     return {
-      color: isSelected ? HIGHLIGHT_ORBIT_COLOR : BASE_ORBIT_COLOR,
-      baseOpacity: isSelected ? 0.85 : 0.24,
-      ribbonOpacity: isSelected ? 0.52 : 0.16
+      color: neonColor,
+      baseOpacity: isSelected ? 0.95 : 0.50,
+      ribbonOpacity: isSelected ? 0.65 : 0.22
     };
   };
 
@@ -259,8 +286,8 @@ export function OrbitGuides({
       <OrbitLine radius={radii.venus} {...getOrbitProps('venus')} fadeAlphaRef={fadeAlphaRef} targetPos={currentTargetPos} targetRadius={currentTargetRadius} />
       <OrbitLine radius={radii.earth} {...getOrbitProps('earth')} fadeAlphaRef={fadeAlphaRef} targetPos={currentTargetPos} targetRadius={currentTargetRadius} />
       <OrbitLine radius={radii.mars} {...getOrbitProps('mars')} fadeAlphaRef={fadeAlphaRef} targetPos={currentTargetPos} targetRadius={currentTargetRadius} />
-      <OrbitLine radius={radii.asteroidsInner} {...getOrbitProps('asteroids')} baseOpacity={0.16} ribbonOpacity={0.10} fadeAlphaRef={fadeAlphaRef} targetPos={currentTargetPos} targetRadius={currentTargetRadius} />
-      <OrbitLine radius={radii.asteroidsOuter} {...getOrbitProps('asteroids')} baseOpacity={0.16} ribbonOpacity={0.10} fadeAlphaRef={fadeAlphaRef} targetPos={currentTargetPos} targetRadius={currentTargetRadius} />
+      <OrbitLine radius={radii.asteroidsInner} {...getOrbitProps('asteroids')} baseOpacity={0.28} ribbonOpacity={0.14} fadeAlphaRef={fadeAlphaRef} targetPos={currentTargetPos} targetRadius={currentTargetRadius} />
+      <OrbitLine radius={radii.asteroidsOuter} {...getOrbitProps('asteroids')} baseOpacity={0.28} ribbonOpacity={0.14} fadeAlphaRef={fadeAlphaRef} targetPos={currentTargetPos} targetRadius={currentTargetRadius} />
       <OrbitLine radius={radii.jupiter} {...getOrbitProps('jupiter')} fadeAlphaRef={fadeAlphaRef} targetPos={currentTargetPos} targetRadius={currentTargetRadius} />
       <OrbitLine radius={radii.saturn} {...getOrbitProps('saturn')} fadeAlphaRef={fadeAlphaRef} targetPos={currentTargetPos} targetRadius={currentTargetRadius} />
       <OrbitLine radius={radii.uranus} {...getOrbitProps('uranus')} fadeAlphaRef={fadeAlphaRef} targetPos={currentTargetPos} targetRadius={currentTargetRadius} />

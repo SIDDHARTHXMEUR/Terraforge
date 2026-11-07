@@ -30,19 +30,63 @@ export function SolarSystemEngine({
 }) {
   const { gl, scene, camera } = useThree();
 
-  // Warm up and pre-compile all scene shaders on GPU to eliminate first-frame hitching
+  // Progressive shader compilation and texture uploads during idle time
+  // Strictly skips execution during flights or the cinematic prologue to prevent hitching
   useEffect(() => {
     if (typeof window !== 'undefined') {
       window.__threeScene = scene;
+      window.__threeGl = gl;
     }
-    if (gl && scene && camera) {
-      try {
-        gl.compile(scene, camera);
-      } catch {
-        // Silently continue if headless context lacks compilation hook
+
+    const warmUpIdle = () => {
+      // Nothing loads or compiles during a flight or prologue
+      if (window.__isTransitioning || isPrologueActive) {
+        if ('requestIdleCallback' in window) {
+          window.requestIdleCallback(warmUpIdle, { timeout: 2000 });
+        } else {
+          setTimeout(warmUpIdle, 500);
+        }
+        return;
       }
+
+      if (gl && scene && camera) {
+        // Upload textures progressively to GPU memory
+        scene.traverse((obj) => {
+          if (obj.isMesh && obj.material) {
+            const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
+            for (const mat of mats) {
+              if (mat.map && !mat.map.__uploaded) {
+                try { gl.initTexture(mat.map); mat.map.__uploaded = true; } catch (_) {}
+              }
+              if (mat.normalMap && !mat.normalMap.__uploaded) {
+                try { gl.initTexture(mat.normalMap); mat.normalMap.__uploaded = true; } catch (_) {}
+              }
+              if (mat.roughnessMap && !mat.roughnessMap.__uploaded) {
+                try { gl.initTexture(mat.roughnessMap); mat.roughnessMap.__uploaded = true; } catch (_) {}
+              }
+            }
+          }
+        });
+
+        // Progressively pre-compile all scene shaders asynchronously
+        if (gl.compileAsync) {
+          gl.compileAsync(scene, camera).catch(() => {});
+        } else {
+          try { gl.compile(scene, camera); } catch (_) {}
+        }
+      }
+    };
+
+    if ('requestIdleCallback' in window) {
+      const id = window.requestIdleCallback(warmUpIdle, { timeout: 2500 });
+      return () => {
+        if ('cancelIdleCallback' in window) window.cancelIdleCallback(id);
+      };
+    } else {
+      const timer = setTimeout(warmUpIdle, 600);
+      return () => clearTimeout(timer);
     }
-  }, [gl, scene, camera]);
+  }, [gl, scene, camera, isPrologueActive]);
 
   // Real-time planetary orbital angles
   const anglesRef = useRef({

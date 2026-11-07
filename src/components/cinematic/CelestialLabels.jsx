@@ -27,6 +27,7 @@ function CelestialLabelItem({
   position,
   isSelected,
   hoverOnly = false,
+  isVisibleOverall = true,
   onSelect
 }) {
   const [isHovered, setIsHovered] = useState(false);
@@ -43,7 +44,7 @@ function CelestialLabelItem({
   // Leader line geometry: from anchor (0, 0) up-right to (offsetX, offsetY)
   const tickLength = 16;
   const endX = offsetX + (offsetX > 0 ? tickLength : -tickLength);
-  const isVisible = !hoverOnly || isHovered;
+  const isVisible = (!hoverOnly || isHovered) && isVisibleOverall;
 
   return (
     <group ref={groupRef} position={[position[0], position[1] + yLift, position[2]]}>
@@ -51,11 +52,13 @@ function CelestialLabelItem({
         center={false}
         occlude={true}
         position={[0, 0, 0]}
-        pointerEvents="auto"
+        pointerEvents={isVisibleOverall ? 'auto' : 'none'}
         style={{
-          pointerEvents: 'auto',
+          pointerEvents: isVisibleOverall ? 'auto' : 'none',
           transform: 'translate3d(0, 0, 0)',
-          willChange: 'transform'
+          willChange: 'transform',
+          opacity: isVisibleOverall ? 1 : 0,
+          transition: 'opacity 0.08s linear'
         }}
       >
         <div
@@ -126,14 +129,23 @@ export function CelestialLabels({
   visible = true,
   onSelectBody
 }) {
-  if (!visible) return null;
-
-  // In close-up view of an individual planet, hide all planetary labels so cinematic view is 100% pristine and unobstructed
   const isOverview = selectedBody === 'overview';
-  if (!isOverview) return null;
+  const shouldShow = visible && isOverview;
+
+  useFrame(() => {
+    // DEV instrumentation: record toggle latency for labels
+    if (import.meta.env.DEV && typeof window !== 'undefined' && window.__lastToggleClick?.type === 'labels') {
+      const click = window.__lastToggleClick;
+      if ((click.target && shouldShow) || (!click.target && !shouldShow)) {
+        const latency = Math.round(performance.now() - click.time);
+        if (window.__perfMetrics) window.__perfMetrics.toggleLatencies.labels = latency;
+        window.__lastToggleClick = null;
+      }
+    }
+  });
 
   return (
-    <group>
+    <group visible={isOverview}>
       {CELESTIAL_BODIES.map(({ id, label, offset, yLift, hoverOnly }) => {
         const pos = bodyPositions[id] || [0, 0, 0];
         const isSelected = selectedBody === id;
@@ -148,6 +160,7 @@ export function CelestialLabels({
             position={pos}
             isSelected={isSelected}
             hoverOnly={hoverOnly}
+            isVisibleOverall={shouldShow}
             onSelect={onSelectBody}
           />
         );

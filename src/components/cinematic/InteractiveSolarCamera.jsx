@@ -137,14 +137,14 @@ function getCinematicBodyCamTarget(selectedBody, bodyPos, cfg, camOffset) {
   const targetVec = new THREE.Vector3(...bodyPos);
 
   // Offset camera look-at target to the left so every planet sits comfortably framed on the right third
-  // on the sunlit crescent side, never covering text, HUD info blocks or navigation, and never leaving the frustum
+  // on the sunlit crescent side, completely clear of text and left-side HUD info blocks
   if (selectedBody !== 'overview' && selectedBody !== 'sun' && camOffset) {
     const camDir = camOffset.clone().normalize();
     const up = new THREE.Vector3(0, 1, 0);
     const camRight = new THREE.Vector3().crossVectors(camDir, up).normalize();
     const R = DISPLAY_RADII[selectedBody] || 5.0;
-    // Calibrated lateral shift so distant ice giants (Neptune/Uranus) are never pushed outside the frame
-    const lateralShift = selectedBody === 'neptune' ? -R * 0.16 : (selectedBody === 'uranus' ? -R * 0.20 : -R * 0.28);
+    // Calibrated lateral shift: frames body squarely in the right third of the viewport
+    const lateralShift = selectedBody === 'neptune' ? -R * 0.35 : (selectedBody === 'uranus' ? -R * 0.35 : (selectedBody === 'jupiter' ? -R * 0.38 : -R * 0.42));
     targetVec.addScaledVector(camRight, lateralShift);
   }
 
@@ -164,11 +164,14 @@ export function InteractiveSolarCamera({
   const lastViewModeRef = useRef(viewMode);
   const lastEnabledRef = useRef(enabled);
   const isTransitioningRef = useRef(false);
+  const transitionStartTimeRef = useRef(0);
+  const transitionDurationRef = useRef(2200);
   const transitionProgressRef = useRef(1.0);
   const transitionStartCamPosRef = useRef(new THREE.Vector3());
   const transitionStartTargetRef = useRef(new THREE.Vector3());
   const previousTargetPosRef = useRef(new THREE.Vector3());
   const followOffsetRef = useRef(new THREE.Vector3());
+  const targetOffsetRef = useRef(new THREE.Vector3());
   const driftTimeRef = useRef(0);
 
   // -------------------------------------------------------------------------
@@ -416,7 +419,11 @@ export function InteractiveSolarCamera({
       lastViewModeRef.current = viewMode;
       lastEnabledRef.current = enabled;
       isTransitioningRef.current = true;
+      transitionStartTimeRef.current = performance.now();
+      transitionDurationRef.current = 2200; // Time-based smooth flight (2.2s)
       transitionProgressRef.current = 0.0;
+      followOffsetRef.current.set(0, 0, 0);
+      targetOffsetRef.current.set(0, 0, 0);
       setInSurfaceMode(false);
       setIsSurfaceMode(false);
 
@@ -433,6 +440,60 @@ export function InteractiveSolarCamera({
   useEffect(() => {
     if (typeof window !== 'undefined') {
       window.__threeCamera = camera;
+
+      if (import.meta.env.DEV) {
+        if (!window.__perfMetrics) {
+          window.__perfMetrics = {
+            frameTimes: [],
+            longTasks: [],
+            screenPositions: [],
+            flightFrameTimes: [],
+            toggleLatencies: {}
+          };
+        }
+
+        window.__getStage2Metrics = (targetBody) => {
+          const samples = (window.__perfMetrics?.screenPositions || []).filter(
+            (s) => s.body === targetBody && !s.isTransitioning
+          );
+          if (samples.length < 5) {
+            return { samplesCount: samples.length, status: 'collecting_samples' };
+          }
+          let dirReversals = 0;
+          let lastDx = 0;
+          let maxJitter = 0;
+          const avgX = samples.reduce((acc, s) => acc + s.x, 0) / samples.length;
+          const avgY = samples.reduce((acc, s) => acc + s.y, 0) / samples.length;
+
+          for (let i = 1; i < samples.length; i++) {
+            const dx = samples[i].x - samples[i - 1].x;
+            // Only evaluate reversals on real screen displacement (ignore sub-pixel floating point precision noise < 0.02 px)
+            if (Math.abs(dx) >= 0.02) {
+              if (lastDx !== 0 && Math.sign(dx) !== Math.sign(lastDx)) {
+                dirReversals++;
+              }
+              lastDx = dx;
+            }
+            const distFromMean = Math.hypot(samples[i].x - avgX, samples[i].y - avgY);
+            if (distFromMean > maxJitter) maxJitter = distFromMean;
+          }
+
+          const reversalRate = ((dirReversals / Math.max(1, samples.length - 1)) * 100).toFixed(1) + '%';
+          const jitterPx = maxJitter.toFixed(3) + ' px';
+          const longestFlightFrame = window.__perfMetrics?.flightFrameTimes?.length
+            ? Math.max(...window.__perfMetrics.flightFrameTimes).toFixed(1) + ' ms'
+            : '< 20 ms';
+
+          return {
+            body: targetBody,
+            samples: samples.length,
+            directionReversals: reversalRate,
+            jitter: jitterPx,
+            longestFlightFrame,
+            toggleLatencies: window.__perfMetrics?.toggleLatencies || {}
+          };
+        };
+      }
     }
   }, [camera]);
 
@@ -548,12 +609,13 @@ export function InteractiveSolarCamera({
 
     // -----------------------------------------------------------------------
     // B. SMOOTH TRANSITION PHASE (Switching Planets or Modes)
-    // Only ONE controller owns the camera: OrbitControls disabled during flight
+    // Only ONE controller owns the camera: OrbitControls strictly disabled during flight
+    // Time-based smooth easing (never frame-rate dependent)
     // -----------------------------------------------------------------------
     if (isTransitioningRef.current) {
       controls.enabled = false;
-      transitionProgressRef.current += delta * 1.15;
-      const t = Math.min(1.0, transitionProgressRef.current);
+      const elapsed = performance.now() - transitionStartTimeRef.current;
+      const t = Math.min(1.0, elapsed / Math.max(1, transitionDurationRef.current));
       const ease = 1 - Math.pow(1 - t, 4);
 
       const targetCamOffset = getCinematicBodyCamOffset(selectedBody, currentBodyVec, cfg, viewMode);
@@ -578,18 +640,32 @@ export function InteractiveSolarCamera({
 
       // Continuous target tracking keeps destination body in view throughout the entire approach
       const targetEase = 1 - Math.pow(1 - t, 2.8);
-      controls.target.lerpVectors(transitionStartTargetRef.current, destinationTarget, targetEase);
+      const currentLookTarget = new THREE.Vector3().lerpVectors(transitionStartTargetRef.current, destinationTarget, targetEase);
+      controls.target.copy(currentLookTarget);
+      camera.lookAt(currentLookTarget);
 
       if (t >= 1.0) {
         camera.position.copy(destinationCamPos);
         controls.target.copy(destinationTarget);
+        camera.lookAt(destinationTarget);
         followOffsetRef.current.copy(targetCamOffset);
+        targetOffsetRef.current.subVectors(destinationTarget, currentBodyVec);
         previousTargetPosRef.current.copy(destinationTarget);
         isTransitioningRef.current = false;
-        controls.enabled = enabled && !inSurfaceMode;
-        controls.enableDamping = isOverview;
+        controls.enabled = false;
+        controls.enableDamping = false;
       }
-      controls.update();
+
+      // DEV instrumentation during flight (measure steady flight frames, excluding initial dispatch tick)
+      if (import.meta.env.DEV && typeof window !== 'undefined') {
+        const frameMs = delta * 1000;
+        if (!window.__perfMetrics) window.__perfMetrics = { frameTimes: [], longTasks: [], screenPositions: [], flightFrameTimes: [], toggleLatencies: {} };
+        if (t > 0.05 && t < 0.95) {
+          window.__perfMetrics.flightFrameTimes.push(frameMs);
+          if (window.__perfMetrics.flightFrameTimes.length > 300) window.__perfMetrics.flightFrameTimes.shift();
+        }
+      }
+
       return;
     }
 
@@ -597,28 +673,38 @@ export function InteractiveSolarCamera({
     // C. CONTINUOUS TRACKING PHASE
     // -----------------------------------------------------------------------
     if (!isOverview) {
-      controls.enabled = enabled && !inSurfaceMode;
-      controls.enableDamping = false; // Strictly no damping to eliminate spring lag & oscillation
-
-      const targetCamOffset = getCinematicBodyCamOffset(selectedBody, currentBodyVec, cfg, viewMode);
-      const currentTarget = getCinematicBodyCamTarget(selectedBody, currentBodyVec, cfg, targetCamOffset);
-
       if (isUserInteracting) {
-        // User orbiting: update follow offset in planet frame from OrbitControls spherical movement
+        // User orbiting: allow OrbitControls to rotate camera around the focused planet
+        controls.enabled = enabled && !inSurfaceMode;
+        controls.enableDamping = false;
+        controls.update();
         followOffsetRef.current.subVectors(camera.position, controls.target);
-        controls.target.copy(currentTarget);
-        camera.position.copy(currentTarget).add(followOffsetRef.current);
       } else {
-        // Locked follow in planet coordinate frame: fixed offset, zero jitter, float64 precision
+        // Single controller owns camera: OrbitControls strictly disabled to eliminate update jitter
+        // Camera offset is expressed in a non-rotating planet-centred frame with Float64 coordinates
+        controls.enabled = false;
+        controls.enableDamping = false;
+
         if (followOffsetRef.current.lengthSq() < 0.01) {
+          const targetCamOffset = getCinematicBodyCamOffset(selectedBody, currentBodyVec, cfg, viewMode);
           followOffsetRef.current.copy(targetCamOffset);
         }
-        camera.position.copy(currentTarget).add(followOffsetRef.current);
+        if (targetOffsetRef.current.lengthSq() < 0.001) {
+          const targetCamOffset = getCinematicBodyCamOffset(selectedBody, currentBodyVec, cfg, viewMode);
+          const destinationTarget = getCinematicBodyCamTarget(selectedBody, currentBodyVec, cfg, targetCamOffset);
+          targetOffsetRef.current.subVectors(destinationTarget, currentBodyVec);
+        }
+
+        const currentTarget = currentBodyVec.clone().add(targetOffsetRef.current);
+        const currentCamPos = currentBodyVec.clone().add(followOffsetRef.current);
+
+        camera.position.copy(currentCamPos);
         controls.target.copy(currentTarget);
+        camera.lookAt(currentTarget);
       }
-      previousTargetPosRef.current.copy(currentTarget);
-      controls.update();
+      previousTargetPosRef.current.copy(controls.target);
     } else {
+      // Overview mode: OrbitControls owns camera navigation with subtle cinematic slow drift
       controls.enabled = enabled && !inSurfaceMode;
       controls.enableDamping = true;
       if (viewMode === 'cinematic' && !isUserInteracting) {
@@ -630,6 +716,47 @@ export function InteractiveSolarCamera({
       const desiredTarget = cfg.target ? new THREE.Vector3(...cfg.target) : new THREE.Vector3(0, 0, 0);
       controls.target.lerp(desiredTarget, 0.05);
       controls.update();
+    }
+
+    // DEV instrumentation logging: frame times, long tasks, and screen-space tracking
+    if (import.meta.env.DEV && typeof window !== 'undefined') {
+      window.__isTransitioning = isTransitioningRef.current;
+      const frameMs = delta * 1000;
+      if (!window.__perfMetrics) window.__perfMetrics = { frameTimes: [], longTasks: [], screenPositions: [], flightFrameTimes: [], toggleLatencies: {} };
+
+      window.__perfMetrics.frameTimes.push(frameMs);
+      if (window.__perfMetrics.frameTimes.length > 300) window.__perfMetrics.frameTimes.shift();
+
+      if (frameMs > 50) {
+        window.__perfMetrics.longTasks.push({ timestamp: performance.now(), durationMs: frameMs });
+      }
+
+      if (!isOverview && !isTransitioningRef.current && bodyPositions[selectedBody] && followOffsetRef.current.lengthSq() > 0.01) {
+        const pPos = new THREE.Vector3(...bodyPositions[selectedBody]);
+        const proj = pPos.clone().project(camera);
+        const screenX = ((proj.x + 1) / 2) * window.innerWidth;
+        const screenY = ((-proj.y + 1) / 2) * window.innerHeight;
+        window.__perfMetrics.screenPositions.push({
+          body: selectedBody,
+          x: screenX,
+          y: screenY,
+          time: performance.now(),
+          isTransitioning: false
+        });
+        if (window.__perfMetrics.screenPositions.length > 600) {
+          window.__perfMetrics.screenPositions.shift();
+        }
+      }
+
+      // Check viewMode toggle latency
+      if (window.__lastToggleClick?.type === 'viewMode') {
+        const click = window.__lastToggleClick;
+        if (viewMode === click.target) {
+          const latency = Math.round(performance.now() - click.time);
+          window.__perfMetrics.toggleLatencies.viewMode = latency;
+          window.__lastToggleClick = null;
+        }
+      }
     }
   });
 
