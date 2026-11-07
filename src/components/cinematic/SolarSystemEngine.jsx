@@ -1,10 +1,14 @@
 import React, { useRef, useState } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { CinematicSun } from './CinematicSun';
+import { CinematicMercury } from './CinematicMercury';
+import { CinematicVenus } from './CinematicVenus';
 import { CinematicEarth } from './CinematicEarth';
-import { CinematicSaturn } from './CinematicSaturn';
+import { CinematicMars } from './CinematicMars';
 import { CinematicJupiter } from './CinematicJupiter';
-import { CinematicPlanet } from './CinematicPlanet';
+import { CinematicSaturn } from './CinematicSaturn';
+import { CinematicUranus } from './CinematicUranus';
+import { CinematicNeptune } from './CinematicNeptune';
 import { AsteroidBelt } from './AsteroidBelt';
 import { DeepSpaceSkybox } from './DeepSpaceSkybox';
 import { InteractiveSolarCamera } from './InteractiveSolarCamera';
@@ -177,13 +181,9 @@ export function SolarSystemEngine({
       />
 
       {/* 6. Mercury */}
-      <CinematicPlanet
-        id="mercury"
+      <CinematicMercury
         position={positions.mercury}
         radius={1.0}
-        axialTilt={(0.03 * Math.PI) / 180}
-        texturePath="/assets/planets/mercury/mercury.jpg"
-        atmosphereIntensity={0.0}
         isPlaying={!isPaused}
         onClick={(e) => {
           e.stopPropagation();
@@ -192,14 +192,9 @@ export function SolarSystemEngine({
       />
 
       {/* 7. Venus */}
-      <CinematicPlanet
-        id="venus"
+      <CinematicVenus
         position={positions.venus}
         radius={1.8}
-        axialTilt={(177.3 * Math.PI) / 180}
-        texturePath="/assets/planets/venus/venus_surface.jpg"
-        atmosphereColor="#ffd180"
-        atmosphereIntensity={0.16}
         isPlaying={!isPaused}
         onClick={(e) => {
           e.stopPropagation();
@@ -219,14 +214,9 @@ export function SolarSystemEngine({
       />
 
       {/* 9. Mars */}
-      <CinematicPlanet
-        id="mars"
+      <CinematicMars
         position={positions.mars}
         radius={1.3}
-        axialTilt={(25.19 * Math.PI) / 180}
-        texturePath="/assets/planets/mars/mars.jpg"
-        atmosphereColor="#d97543"
-        atmosphereIntensity={0.06}
         isPlaying={!isPaused}
         onClick={(e) => {
           e.stopPropagation();
@@ -269,15 +259,9 @@ export function SolarSystemEngine({
       />
 
       {/* 13. Uranus & Ring System */}
-      <CinematicPlanet
-        id="uranus"
+      <CinematicUranus
         position={positions.uranus}
         radius={2.8}
-        axialTilt={(97.77 * Math.PI) / 180}
-        texturePath="/assets/planets/uranus/uranus.jpg"
-        atmosphereColor="#a6e3e9"
-        atmosphereIntensity={0.10}
-        hasRings={true}
         isPlaying={!isPaused}
         onClick={(e) => {
           e.stopPropagation();
@@ -286,14 +270,9 @@ export function SolarSystemEngine({
       />
 
       {/* 14. Neptune */}
-      <CinematicPlanet
-        id="neptune"
+      <CinematicNeptune
         position={positions.neptune}
         radius={2.7}
-        axialTilt={(28.32 * Math.PI) / 180}
-        texturePath="/assets/planets/neptune/neptune.jpg"
-        atmosphereColor="#3b69ff"
-        atmosphereIntensity={0.12}
         isPlaying={!isPaused}
         onClick={(e) => {
           e.stopPropagation();

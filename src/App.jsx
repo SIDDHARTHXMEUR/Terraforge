@@ -27,6 +27,7 @@ export default function App() {
   const [timeMultiplier, setTimeMultiplier] = useState(1.0);
   const [showOrbits, setShowOrbits] = useState(true);
   const [showLabels, setShowLabels] = useState(true);
+  const [uiVisible, setUiVisible] = useState(true);
   const [isUserInteracting, setIsUserInteracting] = useState(false);
 
   // Check URL query parameters for Earth visual benchmark
@@ -47,6 +48,14 @@ export default function App() {
         setShowOrbits((v) => !v);
       } else if (e.key === 'l' || e.key === 'L') {
         setShowLabels((v) => !v);
+      } else if (e.key === 'h' || e.key === 'H') {
+        setUiVisible((v) => !v);
+      } else if (e.key === 'f' || e.key === 'F') {
+        if (!document.fullscreenElement) {
+          document.documentElement.requestFullscreen().catch(() => {});
+        } else {
+          document.exitFullscreen().catch(() => {});
+        }
       } else if (e.key === 'r' || e.key === 'R') {
         setSelectedBody('overview');
       } else if (KEY_TO_BODY[e.key]) {
@@ -97,6 +106,7 @@ export default function App() {
       {/* 1. Interactive 3D WebGL Solar System Canvas */}
       <Canvas
         className="w-full h-full cursor-grab active:cursor-grabbing bg-black"
+        style={{ width: '100vw', height: '100vh', position: 'absolute', inset: 0 }}
         gl={{
           antialias: true,
           alpha: false,
@@ -144,6 +154,8 @@ export default function App() {
         setShowOrbits={setShowOrbits}
         showLabels={showLabels}
         setShowLabels={setShowLabels}
+        uiVisible={uiVisible}
+        setUiVisible={setUiVisible}
         onResetCamera={handleResetCamera}
       />
     </div>

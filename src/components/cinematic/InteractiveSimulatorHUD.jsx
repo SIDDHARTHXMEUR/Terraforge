@@ -41,9 +41,10 @@ export function InteractiveSimulatorHUD({
   setShowOrbits,
   showLabels = true,
   setShowLabels,
+  uiVisible = true,
+  setUiVisible,
   onResetCamera
 }) {
-  const [uiVisible, setUiVisible] = useState(true);
   const [isTelemetryOpen, setIsTelemetryOpen] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isIdle, setIsIdle] = useState(false);
@@ -338,13 +339,14 @@ export function InteractiveSimulatorHUD({
         </div>
 
         {/* Minimal Editorial Shortcuts Footer */}
-        <div className="text-[9px] font-mono text-white/30 tracking-[0.18em] mt-2 hidden sm:flex items-center space-x-4">
+        <div className="text-[9px] font-mono text-white/30 tracking-[0.18em] mt-2 hidden sm:flex items-center space-x-3">
           <span><kbd className="px-1 py-0.2 rounded bg-white/[0.08] text-white/60">SPACE</kbd> PAUSE</span>
           <span><kbd className="px-1 py-0.2 rounded bg-white/[0.08] text-white/60">O</kbd> ORBITS</span>
           <span><kbd className="px-1 py-0.2 rounded bg-white/[0.08] text-white/60">L</kbd> LABELS</span>
-          <span><kbd className="px-1 py-0.2 rounded bg-white/[0.08] text-white/60">R</kbd> RESET</span>
-          <span><kbd className="px-1 py-0.2 rounded bg-white/[0.08] text-white/60">ESC</kbd> OVERVIEW</span>
-          <span><kbd className="px-1 py-0.2 rounded bg-white/[0.08] text-white/60">1-9</kbd> SELECT BODY</span>
+          <span><kbd className="px-1 py-0.2 rounded bg-white/[0.08] text-white/60">H</kbd> HIDE UI</span>
+          <span><kbd className="px-1 py-0.2 rounded bg-white/[0.08] text-white/60">F</kbd> FULLSCREEN</span>
+          <span><kbd className="px-1 py-0.2 rounded bg-white/[0.08] text-white/60">R / ESC</kbd> OVERVIEW</span>
+          <span><kbd className="px-1 py-0.2 rounded bg-white/[0.08] text-white/60">1-9</kbd> CELESTIAL TARGETS</span>
         </div>
       </footer>
     </div>
