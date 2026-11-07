@@ -11,6 +11,9 @@ import * as THREE from 'three';
 // -----------------------------------------------------------------------------
 const VenusCloudDeckShader = {
   vertexShader: `
+    #include <common>
+    #include <logdepthbuf_pars_vertex>
+
     varying vec2 vUv;
     varying vec3 vNormal;
     varying vec3 vWorldNormal;
@@ -23,9 +26,13 @@ const VenusCloudDeckShader = {
       vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
       vViewPosition = -mvPosition.xyz;
       gl_Position = projectionMatrix * mvPosition;
+
+      #include <logdepthbuf_vertex>
     }
   `,
   fragmentShader: `
+    #include <logdepthbuf_pars_fragment>
+
     varying vec2 vUv;
     varying vec3 vNormal;
     varying vec3 vWorldNormal;
@@ -37,6 +44,8 @@ const VenusCloudDeckShader = {
     uniform float uTime;
 
     void main() {
+      #include <logdepthbuf_fragment>
+
       vec3 normal = normalize(vNormal);
       vec3 worldNormal = normalize(vWorldNormal);
       vec3 viewDir = normalize(vViewPosition);
@@ -74,34 +83,51 @@ const VenusCloudDeckShader = {
 
 const VenusAtmosphereHaloShader = {
   vertexShader: `
+    #include <common>
+    #include <logdepthbuf_pars_vertex>
+
     varying vec3 vNormal;
+    varying vec3 vWorldNormal;
     varying vec3 vViewPosition;
 
     void main() {
       vNormal = normalize(normalMatrix * normal);
+      vWorldNormal = normalize((modelMatrix * vec4(normal, 0.0)).xyz);
       vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
       vViewPosition = -mvPosition.xyz;
       gl_Position = projectionMatrix * mvPosition;
+
+      #include <logdepthbuf_vertex>
     }
   `,
   fragmentShader: `
+    #include <logdepthbuf_pars_fragment>
+
     varying vec3 vNormal;
+    varying vec3 vWorldNormal;
     varying vec3 vViewPosition;
     uniform vec3 uSunDirection;
 
     void main() {
+      #include <logdepthbuf_fragment>
+
       vec3 normal = normalize(vNormal);
+      vec3 worldNormal = normalize(vWorldNormal);
       vec3 viewDir = normalize(vViewPosition);
       vec3 sunDir = normalize(uSunDirection);
 
       float rim = 1.0 - clamp(abs(dot(normal, viewDir)), 0.0, 1.0);
       float glow = pow(rim, 3.4);
 
+      // Multiple scattering extends around limb, but strongly forward-focused
+      float sunDot = dot(worldNormal, sunDir);
+      float sunFactor = smoothstep(-0.35, 0.30, sunDot);
+
       float sunAlignment = max(0.0, dot(-normal, sunDir));
       float forwardScatter = pow(sunAlignment, 2.0) * 0.8 + 0.2;
 
       vec3 atmoColor = vec3(1.0, 0.84, 0.52);
-      gl_FragColor = vec4(atmoColor * glow * 1.6 * forwardScatter, glow * 0.45);
+      gl_FragColor = vec4(atmoColor * glow * 1.6 * forwardScatter * sunFactor, glow * 0.45 * sunFactor);
     }
   `
 };
@@ -149,12 +175,15 @@ export function CinematicVenus({
 
   return (
     <group position={position} rotation={[0, 0, axialTilt]} onClick={onClick}>
-      {/* 1. Supercritical Dense Cloud Deck */}
+      {/* 1. Supercritical Dense Cloud Deck - Solid & Opaque */}
       <mesh ref={bodyRef} castShadow receiveShadow>
         <sphereGeometry args={[radius, 128, 128]} />
         <shaderMaterial
           ref={deckShaderRef}
           args={[VenusCloudDeckShader]}
+          transparent={false}
+          depthWrite={true}
+          depthTest={true}
           uniforms={{
             uSurfaceMap: { value: surfaceMap },
             uAtmosphereMap: { value: atmosphereMap },
@@ -165,7 +194,7 @@ export function CinematicVenus({
       </mesh>
 
       {/* 2. Thick Golden Atmospheric Halo */}
-      <mesh scale={1.04}>
+      <mesh scale={1.04} renderOrder={10}>
         <sphereGeometry args={[radius, 64, 64]} />
         <shaderMaterial
           ref={haloShaderRef}
@@ -177,6 +206,7 @@ export function CinematicVenus({
           blending={THREE.AdditiveBlending}
           side={THREE.BackSide}
           depthWrite={false}
+          depthTest={true}
         />
       </mesh>
     </group>

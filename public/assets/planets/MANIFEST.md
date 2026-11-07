@@ -9,6 +9,9 @@
 | Body | Map Role | File Path | Resolution | Color Space | Source & Mission Data | License | Verification Notes |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
 | **Sol (Sun)** | Photosphere Albedo | `public/assets/planets/sun/sun.jpg` | 2048 × 1024 | sRGB | NASA Solar Dynamics Observatory (SDO) / HMI Continuum | Public Domain | Seamless at 0°/360°, zero polar pinch |
+| **Sol (Sun)** | SDO HMI Visible Continuum | `public/assets/planets/sun/sdo_hmi_continuum_2k.jpg` | 2048 × 2048 | sRGB | NASA SDO/HMI Intensitygram Continuum (Live) | Public Domain | Real photospheric sunspots, active regions, limb darkening |
+| **Sol (Sun)** | SDO AIA 304 Å Chromosphere | `public/assets/planets/sun/sdo_aia_304_2k.jpg` | 2048 × 2048 | sRGB | NASA SDO/AIA 304 Å (He II 50,000 K) | Public Domain | H-alpha/He II chromospheric limb prominences |
+| **Sol (Sun)** | SDO AIA 171 Å Coronal Loops | `public/assets/planets/sun/sdo_aia_171_2k.jpg` | 2048 × 2048 | sRGB | NASA SDO/AIA 171 Å (Fe IX 1,000,000 K) | Public Domain | Magnetic coronal loop streamers and plumes |
 | **Sol (Sun)** | Convective Granulation | `public/assets/planets/sun/sun_granulation.jpg` | 2048 × 1024 | sRGB | NASA SDO Convective Cell High-Pass Composite | Public Domain | Seamless repeating wrap, high-frequency plasma |
 | **Mercury** | Basalt Regolith Albedo & Relief | `public/assets/planets/mercury/mercury.jpg` | 2048 × 1024 | sRGB | NASA MESSENGER MDIS Global Mosaic | Public Domain | Caloris Basin intact, harsh shadow relief |
 | **Venus** | Cloud Deck Atmosphere | `public/assets/planets/venus/venus_atmosphere.jpg` | 2048 × 1024 | sRGB | NASA Pioneer Venus / Akatsuki Ultraviolet Composite | Public Domain | Seamless equirectangular, sulfuric cloud swirls |

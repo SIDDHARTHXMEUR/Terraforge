@@ -23,6 +23,7 @@ const KEY_TO_BODY = {
 
 export default function App() {
   const [selectedBody, setSelectedBody] = useState('overview');
+  const [viewMode, setViewMode] = useState('cinematic'); // 'cinematic' or 'scientific'
   const [isPaused, setIsPaused] = useState(false);
   const [timeMultiplier, setTimeMultiplier] = useState(1.0);
   const [showOrbits, setShowOrbits] = useState(true);
@@ -127,6 +128,7 @@ export default function App() {
         <Suspense fallback={null}>
           <SolarSystemEngine
             selectedBody={selectedBody}
+            viewMode={viewMode}
             timeMultiplier={timeMultiplier}
             isPaused={isPaused}
             showOrbits={showOrbits}
@@ -146,6 +148,8 @@ export default function App() {
       <InteractiveSimulatorHUD
         selectedBody={selectedBody}
         onSelectBody={setSelectedBody}
+        viewMode={viewMode}
+        setViewMode={setViewMode}
         isPaused={isPaused}
         setIsPaused={setIsPaused}
         timeMultiplier={timeMultiplier}

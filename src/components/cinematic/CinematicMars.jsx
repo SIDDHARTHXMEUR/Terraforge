@@ -11,6 +11,9 @@ import * as THREE from 'three';
 // -----------------------------------------------------------------------------
 const MarsSurfaceShader = {
   vertexShader: `
+    #include <common>
+    #include <logdepthbuf_pars_vertex>
+
     varying vec2 vUv;
     varying vec3 vNormal;
     varying vec3 vWorldNormal;
@@ -23,9 +26,13 @@ const MarsSurfaceShader = {
       vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
       vViewPosition = -mvPosition.xyz;
       gl_Position = projectionMatrix * mvPosition;
+
+      #include <logdepthbuf_vertex>
     }
   `,
   fragmentShader: `
+    #include <logdepthbuf_pars_fragment>
+
     varying vec2 vUv;
     varying vec3 vNormal;
     varying vec3 vWorldNormal;
@@ -35,6 +42,8 @@ const MarsSurfaceShader = {
     uniform vec3 uSunDirection;
 
     void main() {
+      #include <logdepthbuf_fragment>
+
       vec3 normal = normalize(vNormal);
       vec3 worldNormal = normalize(vWorldNormal);
       vec3 viewDir = normalize(vViewPosition);
@@ -68,8 +77,8 @@ const MarsSurfaceShader = {
       float limb = pow(rim, 3.8) * (diffuse * 0.7 + 0.3);
       vec3 limbColor = vec3(0.92, 0.52, 0.32) * limb * 0.75;
 
-      // Starlight ambient fill on nightside
-      vec3 nightSide = albedo * 0.005;
+      // Starlight ambient fill on nightside - solid opaque, never transparent
+      vec3 nightSide = albedo * 0.007;
 
       gl_FragColor = vec4(surfaceDay + limbColor + nightSide, 1.0);
     }
@@ -78,27 +87,45 @@ const MarsSurfaceShader = {
 
 const MarsAtmosphereHaloShader = {
   vertexShader: `
+    #include <common>
+    #include <logdepthbuf_pars_vertex>
+
     varying vec3 vNormal;
+    varying vec3 vWorldNormal;
     varying vec3 vViewPosition;
     void main() {
       vNormal = normalize(normalMatrix * normal);
+      vWorldNormal = normalize((modelMatrix * vec4(normal, 0.0)).xyz);
       vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
       vViewPosition = -mvPosition.xyz;
       gl_Position = projectionMatrix * mvPosition;
+
+      #include <logdepthbuf_vertex>
     }
   `,
   fragmentShader: `
+    #include <logdepthbuf_pars_fragment>
+
     varying vec3 vNormal;
+    varying vec3 vWorldNormal;
     varying vec3 vViewPosition;
+    uniform vec3 uSunDirection;
+
     void main() {
+      #include <logdepthbuf_fragment>
+
       vec3 normal = normalize(vNormal);
+      vec3 worldNormal = normalize(vWorldNormal);
       vec3 viewDir = normalize(vViewPosition);
 
       float rim = 1.0 - clamp(abs(dot(normal, viewDir)), 0.0, 1.0);
       float glow = pow(rim, 4.2);
 
+      // Only glow on sunlit limb, fading out on nightside
+      float sunFactor = smoothstep(-0.2, 0.35, dot(worldNormal, normalize(uSunDirection)));
+
       vec3 dustHaze = vec3(0.88, 0.45, 0.25);
-      gl_FragColor = vec4(dustHaze * glow * 1.2, glow * 0.18);
+      gl_FragColor = vec4(dustHaze * glow * 1.2 * sunFactor, glow * 0.18 * sunFactor);
     }
   `
 };
@@ -139,6 +166,9 @@ export function CinematicMars({
         <shaderMaterial
           ref={shaderRef}
           args={[MarsSurfaceShader]}
+          transparent={false}
+          depthWrite={true}
+          depthTest={true}
           uniforms={{
             uAlbedo: { value: albedoMap },
             uSunDirection: { value: computedSunDir }
@@ -147,7 +177,7 @@ export function CinematicMars({
       </mesh>
 
       {/* Thin Martian Dust Atmosphere Limb */}
-      <mesh scale={1.028}>
+      <mesh scale={1.028} renderOrder={10}>
         <sphereGeometry args={[radius, 64, 64]} />
         <shaderMaterial
           args={[MarsAtmosphereHaloShader]}
@@ -155,6 +185,10 @@ export function CinematicMars({
           blending={THREE.AdditiveBlending}
           side={THREE.BackSide}
           depthWrite={false}
+          depthTest={true}
+          uniforms={{
+            uSunDirection: { value: computedSunDir }
+          }}
         />
       </mesh>
     </group>

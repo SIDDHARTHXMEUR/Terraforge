@@ -12,6 +12,9 @@ const MOON_INCLINATION = (5.14 * Math.PI) / 180;
 // land/ocean specular glint, cloud shadow projection, and night city illumination.
 const EarthSurfaceShader = {
   vertexShader: `
+    #include <common>
+    #include <logdepthbuf_pars_vertex>
+
     varying vec2 vUv;
     varying vec3 vNormal;
     varying vec3 vWorldNormal;
@@ -24,9 +27,13 @@ const EarthSurfaceShader = {
       vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
       vViewPosition = -mvPosition.xyz;
       gl_Position = projectionMatrix * mvPosition;
+
+      #include <logdepthbuf_vertex>
     }
   `,
   fragmentShader: `
+    #include <logdepthbuf_pars_fragment>
+
     varying vec2 vUv;
     varying vec3 vNormal;
     varying vec3 vWorldNormal;
@@ -41,6 +48,8 @@ const EarthSurfaceShader = {
     uniform float uTime;
 
     void main() {
+      #include <logdepthbuf_fragment>
+
       vec3 viewDir = normalize(vViewPosition);
       vec3 normal = normalize(vNormal);
       vec3 worldNormal = normalize(vWorldNormal);
@@ -91,9 +100,11 @@ const EarthSurfaceShader = {
 };
 
 // 2. Dynamic Weather Clouds GLSL Shader
-// Soft illuminated clouds on day side with self-shadowing, fading to darkness on night side.
 const EarthCloudsShader = {
   vertexShader: `
+    #include <common>
+    #include <logdepthbuf_pars_vertex>
+
     varying vec2 vUv;
     varying vec3 vNormal;
     varying vec3 vWorldNormal;
@@ -103,9 +114,13 @@ const EarthCloudsShader = {
       vNormal = normalize(normalMatrix * normal);
       vWorldNormal = normalize((modelMatrix * vec4(normal, 0.0)).xyz);
       gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+
+      #include <logdepthbuf_vertex>
     }
   `,
   fragmentShader: `
+    #include <logdepthbuf_pars_fragment>
+
     varying vec2 vUv;
     varying vec3 vNormal;
     varying vec3 vWorldNormal;
@@ -114,6 +129,8 @@ const EarthCloudsShader = {
     uniform vec3 uSunDirection;
 
     void main() {
+      #include <logdepthbuf_fragment>
+
       vec4 cloudTex = texture2D(uCloudsMap, vUv);
       if (cloudTex.r < 0.04) discard;
 
@@ -135,29 +152,46 @@ const EarthCloudsShader = {
 // 3. Smooth Atmospheric Outer Rayleigh Limb Halo Shader
 const EarthAtmosphereHaloShader = {
   vertexShader: `
+    #include <common>
+    #include <logdepthbuf_pars_vertex>
+
     varying vec3 vNormal;
+    varying vec3 vWorldNormal;
     varying vec3 vViewPosition;
 
     void main() {
       vNormal = normalize(normalMatrix * normal);
+      vWorldNormal = normalize((modelMatrix * vec4(normal, 0.0)).xyz);
       vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
       vViewPosition = -mvPosition.xyz;
       gl_Position = projectionMatrix * mvPosition;
+
+      #include <logdepthbuf_vertex>
     }
   `,
   fragmentShader: `
+    #include <logdepthbuf_pars_fragment>
+
     varying vec3 vNormal;
+    varying vec3 vWorldNormal;
     varying vec3 vViewPosition;
+    uniform vec3 uSunDirection;
 
     void main() {
+      #include <logdepthbuf_fragment>
+
       vec3 normal = normalize(vNormal);
+      vec3 worldNormal = normalize(vWorldNormal);
       vec3 viewDir = normalize(vViewPosition);
 
       float rim = 1.0 - clamp(abs(dot(normal, viewDir)), 0.0, 1.0);
       float glow = pow(rim, 3.6);
 
+      // Only glow on sunlit limb
+      float sunFactor = smoothstep(-0.2, 0.35, dot(worldNormal, normalize(uSunDirection)));
+
       vec3 atmoColor = mix(vec3(0.15, 0.45, 1.0), vec3(0.4, 0.75, 1.0), rim);
-      gl_FragColor = vec4(atmoColor * glow * 1.5, glow * 0.8);
+      gl_FragColor = vec4(atmoColor * glow * 1.5 * sunFactor, glow * 0.8 * sunFactor);
     }
   `
 };
@@ -187,6 +221,7 @@ export function CinematicEarth({
   const moonOrbitAngleRef = useRef(0);
   const surfaceShaderRef = useRef();
   const cloudsShaderRef = useRef();
+  const haloShaderRef = useRef();
 
   // Compute accurate sunlight vector arriving at Earth
   const computedSunDir = useMemo(() => {
@@ -205,6 +240,13 @@ export function CinematicEarth({
 
     if (surfaceShaderRef.current) {
       surfaceShaderRef.current.uniforms.uTime.value = elapsed;
+      surfaceShaderRef.current.uniforms.uSunDirection.value = computedSunDir;
+    }
+    if (cloudsShaderRef.current) {
+      cloudsShaderRef.current.uniforms.uSunDirection.value = computedSunDir;
+    }
+    if (haloShaderRef.current) {
+      haloShaderRef.current.uniforms.uSunDirection.value = computedSunDir;
     }
 
     if (isPlaying) {
@@ -238,12 +280,15 @@ export function CinematicEarth({
     <group position={position} onClick={onClick}>
       {/* Earth tilted group with 23.44° astronomical axial tilt on Z */}
       <group ref={earthGroupRef} rotation={[0, 0, axialTilt]}>
-        {/* 1. Main Planet Surface */}
+        {/* 1. Main Planet Surface - Solid & Opaque */}
         <mesh ref={earthBodyRef} castShadow receiveShadow>
           <sphereGeometry args={[radius, 128, 128]} />
           <shaderMaterial
             ref={surfaceShaderRef}
             args={[EarthSurfaceShader]}
+            transparent={false}
+            depthWrite={true}
+            depthTest={true}
             uniforms={{
               uAlbedo: { value: albedoMap },
               uLandmask: { value: landmaskMap },
@@ -257,7 +302,7 @@ export function CinematicEarth({
         </mesh>
 
         {/* 2. Realistic Dynamic Cloud Layer with Terminator Shading */}
-        <mesh ref={cloudsRef} scale={1.018}>
+        <mesh ref={cloudsRef} scale={1.018} renderOrder={5}>
           <sphereGeometry args={[radius, 128, 128]} />
           <shaderMaterial
             ref={cloudsShaderRef}
@@ -269,18 +314,24 @@ export function CinematicEarth({
             transparent={true}
             blending={THREE.NormalBlending}
             depthWrite={false}
+            depthTest={true}
           />
         </mesh>
 
         {/* 3. Smooth Atmospheric Outer Rayleigh Limb Halo */}
-        <mesh scale={1.045}>
+        <mesh scale={1.045} renderOrder={10}>
           <sphereGeometry args={[radius, 64, 64]} />
           <shaderMaterial
+            ref={haloShaderRef}
             args={[EarthAtmosphereHaloShader]}
             transparent={true}
             blending={THREE.AdditiveBlending}
             side={THREE.BackSide}
             depthWrite={false}
+            depthTest={true}
+            uniforms={{
+              uSunDirection: { value: computedSunDir }
+            }}
           />
         </mesh>
       </group>

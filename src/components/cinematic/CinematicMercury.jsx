@@ -11,6 +11,9 @@ import * as THREE from 'three';
 // -----------------------------------------------------------------------------
 const MercurySurfaceShader = {
   vertexShader: `
+    #include <common>
+    #include <logdepthbuf_pars_vertex>
+
     varying vec2 vUv;
     varying vec3 vNormal;
     varying vec3 vWorldNormal;
@@ -23,9 +26,13 @@ const MercurySurfaceShader = {
       vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
       vViewPosition = -mvPosition.xyz;
       gl_Position = projectionMatrix * mvPosition;
+
+      #include <logdepthbuf_vertex>
     }
   `,
   fragmentShader: `
+    #include <logdepthbuf_pars_fragment>
+
     varying vec2 vUv;
     varying vec3 vNormal;
     varying vec3 vWorldNormal;
@@ -48,6 +55,8 @@ const MercurySurfaceShader = {
     }
 
     void main() {
+      #include <logdepthbuf_fragment>
+
       vec3 normal = normalize(vNormal);
       vec3 worldNormal = normalize(vWorldNormal);
       vec3 viewDir = normalize(vViewPosition);
@@ -62,8 +71,6 @@ const MercurySurfaceShader = {
 
       // 1. Airless Lommel-Seeliger Scattering Law:
       // I = cos(i) / (cos(i) + cos(e))
-      // Unlike Lambertian, Lommel-Seeliger accurately reproduces the flat,
-      // un-darkened disc of airless regolith bodies (Moon, Mercury).
       float cosI = max(0.0, dot(worldNormal, sunDir));
       float cosE = max(0.0, dot(normal, viewDir));
 
@@ -82,7 +89,7 @@ const MercurySurfaceShader = {
       // Dark basaltic regolith color grading (calibrated to preserve crater detail under harsh solar flux)
       vec3 surfaceColor = adjustedAlbedo * illumination * 1.25;
 
-      // Deep space ambient fill on unlit side (starlight only, 0.008)
+      // Deep space ambient fill on unlit side (starlight only, 0.006) - 100% solid & opaque
       vec3 nightSide = albedo * 0.006;
 
       gl_FragColor = vec4(surfaceColor + nightSide, 1.0);
@@ -127,6 +134,9 @@ export function CinematicMercury({
         <shaderMaterial
           ref={shaderRef}
           args={[MercurySurfaceShader]}
+          transparent={false}
+          depthWrite={true}
+          depthTest={true}
           uniforms={{
             uAlbedo: { value: albedoMap },
             uSunDirection: { value: computedSunDir }
@@ -136,4 +146,3 @@ export function CinematicMercury({
     </group>
   );
 }
-

@@ -11,6 +11,9 @@ const SATURN_AXIAL_TILT = (26.73 * Math.PI) / 180;
 // -----------------------------------------------------------------------------
 const SaturnSurfaceShader = {
   vertexShader: `
+    #include <common>
+    #include <logdepthbuf_pars_vertex>
+
     varying vec2 vUv;
     varying vec3 vNormal;
     varying vec3 vWorldNormal;
@@ -28,9 +31,13 @@ const SaturnSurfaceShader = {
       vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
       vViewPosition = -mvPosition.xyz;
       gl_Position = projectionMatrix * mvPosition;
+
+      #include <logdepthbuf_vertex>
     }
   `,
   fragmentShader: `
+    #include <logdepthbuf_pars_fragment>
+
     varying vec2 vUv;
     varying vec3 vNormal;
     varying vec3 vWorldNormal;
@@ -43,6 +50,8 @@ const SaturnSurfaceShader = {
     uniform float uRadius;
 
     void main() {
+      #include <logdepthbuf_fragment>
+
       vec3 normal = normalize(vNormal);
       vec3 worldNormal = normalize(vWorldNormal);
       vec3 viewDir = normalize(vViewPosition);
@@ -65,8 +74,6 @@ const SaturnSurfaceShader = {
       // Check if light ray towards Sun intersects Saturn's ring plane (y = 0)
       // -----------------------------------------------------------------------
       float shadowFactor = 1.0;
-      // Ray from vLocalPosition towards sunDir: P(t) = vLocalPosition + t * sunDirLocal
-      // Ring plane is y = 0, so t = -vLocalPosition.y / sunDir.y
       if (abs(sunDir.y) > 0.001) {
         float t = -vLocalPosition.y / sunDir.y;
         if (t > 0.0) {
@@ -105,6 +112,9 @@ const SaturnSurfaceShader = {
 // -----------------------------------------------------------------------------
 const SaturnRingsShader = {
   vertexShader: `
+    #include <common>
+    #include <logdepthbuf_pars_vertex>
+
     varying vec2 vUv;
     varying vec3 vWorldPosition;
     varying vec3 vViewPosition;
@@ -118,9 +128,13 @@ const SaturnRingsShader = {
       vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
       vViewPosition = -mvPosition.xyz;
       gl_Position = projectionMatrix * mvPosition;
+
+      #include <logdepthbuf_vertex>
     }
   `,
   fragmentShader: `
+    #include <logdepthbuf_pars_fragment>
+
     varying vec2 vUv;
     varying vec3 vWorldPosition;
     varying vec3 vViewPosition;
@@ -132,6 +146,8 @@ const SaturnRingsShader = {
     uniform float uPlanetRadius;
 
     void main() {
+      #include <logdepthbuf_fragment>
+
       // Sample radial ring texture
       vec4 ringTex = texture2D(uRingMap, vUv);
 
@@ -234,7 +250,7 @@ export function CinematicSaturn({
 
   return (
     <group position={position} rotation={[0, 0, SATURN_AXIAL_TILT]} onClick={onClick}>
-      {/* 1. Saturn Oblate Gas Giant Atmosphere Body (f = 0.098 flattening) */}
+      {/* 1. Saturn Oblate Gas Giant Atmosphere Body (f = 0.098 flattening) - Solid & Opaque */}
       <mesh
         ref={saturnBodyRef}
         scale={[1.0, 0.902, 1.0]}
@@ -245,6 +261,9 @@ export function CinematicSaturn({
         <shaderMaterial
           ref={surfaceShaderRef}
           args={[SaturnSurfaceShader]}
+          transparent={false}
+          depthWrite={true}
+          depthTest={true}
           uniforms={{
             uAlbedo: { value: saturnMap },
             uSunDirection: { value: computedSunDir },
@@ -257,6 +276,7 @@ export function CinematicSaturn({
       <mesh
         geometry={ringGeometry}
         rotation={[-Math.PI / 2, 0, 0]}
+        renderOrder={5}
         castShadow
         receiveShadow
       >
@@ -272,6 +292,7 @@ export function CinematicSaturn({
           transparent={true}
           side={THREE.DoubleSide}
           depthWrite={false}
+          depthTest={true}
         />
       </mesh>
     </group>

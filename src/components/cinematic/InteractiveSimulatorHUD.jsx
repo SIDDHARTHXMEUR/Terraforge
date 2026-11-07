@@ -32,6 +32,8 @@ const SPEED_PRESETS = [1, 5, 25, 100, 500];
 export function InteractiveSimulatorHUD({
   selectedBody = 'overview',
   onSelectBody,
+  viewMode = 'cinematic',
+  setViewMode,
   isPaused = false,
   setIsPaused,
   timeMultiplier = 1.0,
@@ -135,22 +137,53 @@ export function InteractiveSimulatorHUD({
           })}
         </nav>
 
-        {/* View Mode Icons */}
-        <div className="hidden sm:flex items-center space-x-3 text-white/40">
-          <button
-            onClick={() => setUiVisible((v) => !v)}
-            className="hover:text-white transition-colors cursor-pointer"
-            title="Toggle UI (H)"
-          >
-            {uiVisible ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-          </button>
-          <button
-            onClick={toggleFullscreen}
-            className="hover:text-white transition-colors cursor-pointer"
-            title="Fullscreen (F)"
-          >
-            {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
-          </button>
+        {/* View Mode Icons & CINEMATIC / SCIENTIFIC Toggle */}
+        <div className="hidden sm:flex items-center space-x-4">
+          <div className="flex items-center space-x-1 border border-white/20 rounded-full px-1.5 py-0.5 text-[9px] font-mono tracking-widest bg-black/40 backdrop-blur-md">
+            <button
+              onClick={() => {
+                if (setViewMode) setViewMode('cinematic');
+                if (selectedBody !== 'overview') onSelectBody('overview');
+              }}
+              className={`px-2.5 py-0.5 rounded-full transition-colors cursor-pointer ${
+                viewMode === 'cinematic'
+                  ? 'bg-white text-black font-semibold'
+                  : 'text-white/50 hover:text-white'
+              }`}
+            >
+              CINEMATIC
+            </button>
+            <button
+              onClick={() => {
+                if (setViewMode) setViewMode('scientific');
+                if (selectedBody !== 'overview') onSelectBody('overview');
+              }}
+              className={`px-2.5 py-0.5 rounded-full transition-colors cursor-pointer ${
+                viewMode === 'scientific'
+                  ? 'bg-white text-black font-semibold'
+                  : 'text-white/50 hover:text-white'
+              }`}
+            >
+              SCIENTIFIC
+            </button>
+          </div>
+
+          <div className="flex items-center space-x-3 text-white/40">
+            <button
+              onClick={() => setUiVisible((v) => !v)}
+              className="hover:text-white transition-colors cursor-pointer"
+              title="Toggle UI (H)"
+            >
+              {uiVisible ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+            </button>
+            <button
+              onClick={toggleFullscreen}
+              className="hover:text-white transition-colors cursor-pointer"
+              title="Fullscreen (F)"
+            >
+              {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+            </button>
+          </div>
         </div>
       </header>
 

@@ -43,6 +43,7 @@ const ORBIT_SPEEDS = {
 
 export function SolarSystemEngine({
   selectedBody = 'overview',
+  viewMode = 'cinematic',
   timeMultiplier = 1.0,
   isPaused = false,
   showOrbits = true,
@@ -156,12 +157,18 @@ export function SolarSystemEngine({
       {/* 2. Interactive Orbit & Follow Camera */}
       <InteractiveSolarCamera
         selectedBody={selectedBody}
+        viewMode={viewMode}
         bodyPositions={positions}
         isUserInteracting={isUserInteracting}
       />
 
       {/* 3. Subtle Orbital Guides */}
-      <OrbitGuides radii={ORBIT_RADII} visible={showOrbits} selectedBody={selectedBody} />
+      <OrbitGuides
+        radii={ORBIT_RADII}
+        visible={showOrbits}
+        selectedBody={selectedBody}
+        bodyPositions={positions}
+      />
 
       {/* 4. Planetary Billboard Text Labels */}
       <CelestialLabels

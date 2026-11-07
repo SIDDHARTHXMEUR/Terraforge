@@ -11,6 +11,9 @@ import * as THREE from 'three';
 // -----------------------------------------------------------------------------
 const UranusAtmosphereShader = {
   vertexShader: `
+    #include <common>
+    #include <logdepthbuf_pars_vertex>
+
     varying vec2 vUv;
     varying vec3 vNormal;
     varying vec3 vWorldNormal;
@@ -23,9 +26,13 @@ const UranusAtmosphereShader = {
       vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
       vViewPosition = -mvPosition.xyz;
       gl_Position = projectionMatrix * mvPosition;
+
+      #include <logdepthbuf_vertex>
     }
   `,
   fragmentShader: `
+    #include <logdepthbuf_pars_fragment>
+
     varying vec2 vUv;
     varying vec3 vNormal;
     varying vec3 vWorldNormal;
@@ -35,6 +42,8 @@ const UranusAtmosphereShader = {
     uniform vec3 uSunDirection;
 
     void main() {
+      #include <logdepthbuf_fragment>
+
       vec3 normal = normalize(vNormal);
       vec3 worldNormal = normalize(vWorldNormal);
       vec3 viewDir = normalize(vViewPosition);
@@ -67,25 +76,44 @@ const UranusAtmosphereShader = {
 
 const UranusHaloShader = {
   vertexShader: `
+    #include <common>
+    #include <logdepthbuf_pars_vertex>
+
     varying vec3 vNormal;
+    varying vec3 vWorldNormal;
     varying vec3 vViewPosition;
     void main() {
       vNormal = normalize(normalMatrix * normal);
+      vWorldNormal = normalize((modelMatrix * vec4(normal, 0.0)).xyz);
       vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
       vViewPosition = -mvPosition.xyz;
       gl_Position = projectionMatrix * mvPosition;
+
+      #include <logdepthbuf_vertex>
     }
   `,
   fragmentShader: `
+    #include <logdepthbuf_pars_fragment>
+
     varying vec3 vNormal;
+    varying vec3 vWorldNormal;
     varying vec3 vViewPosition;
+    uniform vec3 uSunDirection;
+
     void main() {
+      #include <logdepthbuf_fragment>
+
       vec3 normal = normalize(vNormal);
+      vec3 worldNormal = normalize(vWorldNormal);
       vec3 viewDir = normalize(vViewPosition);
+
       float rim = 1.0 - clamp(abs(dot(normal, viewDir)), 0.0, 1.0);
       float glow = pow(rim, 3.6);
+
+      float sunFactor = smoothstep(-0.25, 0.30, dot(worldNormal, normalize(uSunDirection)));
+
       vec3 cyanHalo = vec3(0.58, 0.88, 0.96);
-      gl_FragColor = vec4(cyanHalo * glow * 1.4, glow * 0.32);
+      gl_FragColor = vec4(cyanHalo * glow * 1.4 * sunFactor, glow * 0.32 * sunFactor);
     }
   `
 };
@@ -93,6 +121,9 @@ const UranusHaloShader = {
 // Dedicated Uranus Ring Shader with Planet-on-Ring Shadow Projection
 const UranusRingShader = {
   vertexShader: `
+    #include <common>
+    #include <logdepthbuf_pars_vertex>
+
     varying vec2 vUv;
     varying vec3 vWorldPosition;
     varying vec3 vViewPosition;
@@ -104,9 +135,13 @@ const UranusRingShader = {
       vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
       vViewPosition = -mvPosition.xyz;
       gl_Position = projectionMatrix * mvPosition;
+
+      #include <logdepthbuf_vertex>
     }
   `,
   fragmentShader: `
+    #include <logdepthbuf_pars_fragment>
+
     varying vec2 vUv;
     varying vec3 vWorldPosition;
     varying vec3 vViewPosition;
@@ -116,6 +151,8 @@ const UranusRingShader = {
     uniform float uPlanetRadius;
 
     void main() {
+      #include <logdepthbuf_fragment>
+
       // Radial coordinate in ring geometry (Uv range 0 to 1)
       float r = length(vUv - vec2(0.5)) * 2.0;
       if (r < 0.60 || r > 0.98) discard;
@@ -152,6 +189,7 @@ export function CinematicUranus({
   const albedoMap = useTexture('/assets/planets/uranus/uranus.jpg');
   const bodyRef = useRef();
   const shaderRef = useRef();
+  const haloShaderRef = useRef();
   const ringShaderRef = useRef();
 
   const planetCenterVec = useMemo(() => new THREE.Vector3(...position), [position]);
@@ -179,6 +217,9 @@ export function CinematicUranus({
     if (shaderRef.current) {
       shaderRef.current.uniforms.uSunDirection.value = computedSunDir;
     }
+    if (haloShaderRef.current) {
+      haloShaderRef.current.uniforms.uSunDirection.value = computedSunDir;
+    }
     if (ringShaderRef.current) {
       ringShaderRef.current.uniforms.uSunDirection.value = computedSunDir;
       ringShaderRef.current.uniforms.uPlanetCenter.value.set(...position);
@@ -187,12 +228,15 @@ export function CinematicUranus({
 
   return (
     <group position={position} rotation={[0, 0, axialTilt]} onClick={onClick}>
-      {/* 1. Uranus Methane Ice Giant Body */}
+      {/* 1. Uranus Methane Ice Giant Body - Solid & Opaque */}
       <mesh ref={bodyRef} castShadow receiveShadow>
         <sphereGeometry args={[radius, 128, 128]} />
         <shaderMaterial
           ref={shaderRef}
           args={[UranusAtmosphereShader]}
+          transparent={false}
+          depthWrite={true}
+          depthTest={true}
           uniforms={{
             uAlbedo: { value: albedoMap },
             uSunDirection: { value: computedSunDir }
@@ -201,14 +245,19 @@ export function CinematicUranus({
       </mesh>
 
       {/* 2. Soft Cyan Atmospheric Rayleigh Limb Halo */}
-      <mesh scale={1.036}>
+      <mesh scale={1.036} renderOrder={10}>
         <sphereGeometry args={[radius, 64, 64]} />
         <shaderMaterial
+          ref={haloShaderRef}
           args={[UranusHaloShader]}
           transparent={true}
           blending={THREE.AdditiveBlending}
           side={THREE.BackSide}
           depthWrite={false}
+          depthTest={true}
+          uniforms={{
+            uSunDirection: { value: computedSunDir }
+          }}
         />
       </mesh>
 
@@ -216,6 +265,7 @@ export function CinematicUranus({
       <mesh
         geometry={ringGeometry}
         rotation={[-Math.PI / 2, 0, 0]}
+        renderOrder={5}
         castShadow
         receiveShadow
       >
@@ -230,6 +280,7 @@ export function CinematicUranus({
           transparent={true}
           side={THREE.DoubleSide}
           depthWrite={false}
+          depthTest={true}
         />
       </mesh>
     </group>

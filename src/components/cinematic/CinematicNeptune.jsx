@@ -11,6 +11,9 @@ import * as THREE from 'three';
 // -----------------------------------------------------------------------------
 const NeptuneAtmosphereShader = {
   vertexShader: `
+    #include <common>
+    #include <logdepthbuf_pars_vertex>
+
     varying vec2 vUv;
     varying vec3 vNormal;
     varying vec3 vWorldNormal;
@@ -23,9 +26,13 @@ const NeptuneAtmosphereShader = {
       vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
       vViewPosition = -mvPosition.xyz;
       gl_Position = projectionMatrix * mvPosition;
+
+      #include <logdepthbuf_vertex>
     }
   `,
   fragmentShader: `
+    #include <logdepthbuf_pars_fragment>
+
     varying vec2 vUv;
     varying vec3 vNormal;
     varying vec3 vWorldNormal;
@@ -36,6 +43,8 @@ const NeptuneAtmosphereShader = {
     uniform float uTime;
 
     void main() {
+      #include <logdepthbuf_fragment>
+
       vec3 normal = normalize(vNormal);
       vec3 worldNormal = normalize(vWorldNormal);
       vec3 viewDir = normalize(vViewPosition);
@@ -80,25 +89,44 @@ const NeptuneAtmosphereShader = {
 
 const NeptuneHaloShader = {
   vertexShader: `
+    #include <common>
+    #include <logdepthbuf_pars_vertex>
+
     varying vec3 vNormal;
+    varying vec3 vWorldNormal;
     varying vec3 vViewPosition;
     void main() {
       vNormal = normalize(normalMatrix * normal);
+      vWorldNormal = normalize((modelMatrix * vec4(normal, 0.0)).xyz);
       vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
       vViewPosition = -mvPosition.xyz;
       gl_Position = projectionMatrix * mvPosition;
+
+      #include <logdepthbuf_vertex>
     }
   `,
   fragmentShader: `
+    #include <logdepthbuf_pars_fragment>
+
     varying vec3 vNormal;
+    varying vec3 vWorldNormal;
     varying vec3 vViewPosition;
+    uniform vec3 uSunDirection;
+
     void main() {
+      #include <logdepthbuf_fragment>
+
       vec3 normal = normalize(vNormal);
+      vec3 worldNormal = normalize(vWorldNormal);
       vec3 viewDir = normalize(vViewPosition);
       float rim = 1.0 - clamp(abs(dot(normal, viewDir)), 0.0, 1.0);
       float glow = pow(rim, 3.6);
+
+      // Only glow on sunlit limb
+      float sunFactor = smoothstep(-0.2, 0.35, dot(worldNormal, normalize(uSunDirection)));
+
       vec3 deepAzure = vec3(0.22, 0.48, 1.0);
-      gl_FragColor = vec4(deepAzure * glow * 1.5, glow * 0.35);
+      gl_FragColor = vec4(deepAzure * glow * 1.5 * sunFactor, glow * 0.35 * sunFactor);
     }
   `
 };
@@ -113,6 +141,7 @@ export function CinematicNeptune({
   const albedoMap = useTexture('/assets/planets/neptune/neptune.jpg');
   const bodyRef = useRef();
   const shaderRef = useRef();
+  const haloShaderRef = useRef();
 
   const computedSunDir = useMemo(() => {
     const pos = new THREE.Vector3(...position);
@@ -129,6 +158,9 @@ export function CinematicNeptune({
       shaderRef.current.uniforms.uTime.value = elapsed;
       shaderRef.current.uniforms.uSunDirection.value = computedSunDir;
     }
+    if (haloShaderRef.current) {
+      haloShaderRef.current.uniforms.uSunDirection.value = computedSunDir;
+    }
 
     if (isPlaying && bodyRef.current) {
       // 16.11-hour Jovian-speed rotation
@@ -138,12 +170,15 @@ export function CinematicNeptune({
 
   return (
     <group position={position} rotation={[0, 0, axialTilt]} onClick={onClick}>
-      {/* 1. Neptune Supersonic Storm Atmosphere Body */}
+      {/* 1. Neptune Supersonic Storm Atmosphere Body - Solid & Opaque */}
       <mesh ref={bodyRef} castShadow receiveShadow>
         <sphereGeometry args={[radius, 128, 128]} />
         <shaderMaterial
           ref={shaderRef}
           args={[NeptuneAtmosphereShader]}
+          transparent={false}
+          depthWrite={true}
+          depthTest={true}
           uniforms={{
             uAlbedo: { value: albedoMap },
             uSunDirection: { value: computedSunDir },
@@ -153,14 +188,19 @@ export function CinematicNeptune({
       </mesh>
 
       {/* 2. Rich Deep Azure Atmospheric Rayleigh Limb Halo */}
-      <mesh scale={1.036}>
+      <mesh scale={1.036} renderOrder={10}>
         <sphereGeometry args={[radius, 64, 64]} />
         <shaderMaterial
+          ref={haloShaderRef}
           args={[NeptuneHaloShader]}
           transparent={true}
           blending={THREE.AdditiveBlending}
           side={THREE.BackSide}
           depthWrite={false}
+          depthTest={true}
+          uniforms={{
+            uSunDirection: { value: computedSunDir }
+          }}
         />
       </mesh>
     </group>
