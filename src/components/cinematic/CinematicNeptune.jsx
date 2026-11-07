@@ -56,9 +56,9 @@ const NeptuneAtmosphereShader = {
       vec3 deepNeptuneBlue = vec3(0.06, 0.18, 0.58);
       vec3 baseColor = mix(texColor, deepNeptuneBlue, 0.50);
 
-      // 1. Zonal Atmospheric Wind Bands & Methane Depth
-      float bandPattern = sin(vUv.y * 42.0) * 0.04 + sin(vUv.y * 84.0) * 0.02 + sin(vUv.y * 14.0) * 0.05;
-      baseColor += vec3(0.03, 0.08, 0.18) * bandPattern;
+      // 1. Zonal Atmospheric Wind Bands
+      float bandPattern = sin(vUv.y * 36.0) * 0.035 + sin(vUv.y * 72.0) * 0.015;
+      baseColor += vec3(0.02, 0.05, 0.12) * bandPattern;
 
       // 2. The Great Dark Spot (Voyager 2 anticyclonic storm at -20° latitude)
       vec2 spotCenter = vec2(0.55 + sin(uTime * 0.005) * 0.05, 0.38);
@@ -66,10 +66,9 @@ const NeptuneAtmosphereShader = {
       float darkSpot = smoothstep(0.03, 0.10, spotDist);
       baseColor *= mix(0.70, 1.0, darkSpot);
 
-      // 3. Deep Atmospheric Methane Haze Layer (zero blocky smears)
-      vec3 methaneHaze = vec3(0.12, 0.40, 0.88);
-      float hazeDepth = pow(1.0 - max(0.0, dot(normal, viewDir)), 3.2) * 0.40;
-      baseColor = mix(baseColor, methaneHaze, hazeDepth);
+      // 3. Subtle Methane Atmosphere Shading (White block smears removed)
+      float subtleBanding = sin(vUv.y * 14.0 + uTime * 0.01) * 0.015;
+      baseColor += vec3(0.04, 0.08, 0.16) * subtleBanding;
 
       // Day / Night illumination
       float sunDot = dot(worldNormal, sunDir);
@@ -110,14 +109,7 @@ export function CinematicNeptune({
 
     if (shaderRef.current) {
       shaderRef.current.uniforms.uTime.value = elapsed;
-      const worldPos = new THREE.Vector3();
-      if (bodyRef.current) {
-        bodyRef.current.getWorldPosition(worldPos);
-      }
-      const sunDir = worldPos.lengthSq() > 0.1
-        ? new THREE.Vector3(0, 0, 0).sub(worldPos).normalize()
-        : new THREE.Vector3(1, 0, 0);
-      shaderRef.current.uniforms.uSunDirection.value.copy(sunDir);
+      shaderRef.current.uniforms.uSunDirection.value = computedSunDir;
     }
 
     if (isPlaying && bodyRef.current) {

@@ -1,5 +1,5 @@
-import React, { useRef, useMemo, useEffect } from 'react';
-import { useFrame, useThree } from '@react-three/fiber';
+import React, { useRef, useMemo } from 'react';
+import { useFrame } from '@react-three/fiber';
 import { useTexture } from '@react-three/drei';
 import * as THREE from 'three';
 
@@ -179,17 +179,13 @@ const SaturnRingsShader = {
         }
       }
 
-      // Backlit forward-scattering (Cassini high phase angle translucent glow)
+      // Backlit forward-scattering (Cassini phase angle translucent glow - clamped, zero blowout)
       vec3 viewDir = normalize(vViewPosition);
-      float forwardFactor = pow(max(0.0, dot(viewDir, toSun)), 4.0);
-      vec3 forwardGlow = vec3(0.95, 0.88, 0.70) * forwardFactor * 0.55;
+      float forwardFactor = pow(max(0.0, dot(viewDir, toSun)), 6.0);
+      vec3 forwardGlow = vec3(0.95, 0.88, 0.70) * forwardFactor * 0.40;
 
-      // Ring illumination: double-sided scattering with transparency and controlled tone-mapped glow
-      vec3 diffuseRings = ringTex.rgb * vec3(0.96, 0.90, 0.80);
-      vec3 ringColor = (diffuseRings + forwardGlow) * shadow * 1.15;
-
-      // Tone mapping clamp to prevent blow-out to flat white in crescent view
-      ringColor = ringColor / (1.0 + ringColor * 0.45);
+      // Ring illumination: double-sided scattering with transparency and soft forward glow
+      vec3 ringColor = clamp((ringTex.rgb * vec3(0.95, 0.90, 0.80) + forwardGlow) * shadow * 1.15, 0.0, 1.25);
       float alpha = ringTex.a * 0.92;
 
       if (alpha < 0.02) discard;
@@ -201,34 +197,42 @@ const SaturnRingsShader = {
 
 export function CinematicSaturn({
   position = [0, 0, 0],
-  radius = 15.0,
+  radius = 11.5,
   isPlaying = true,
   onClick
 }) {
-  const [saturnMap, ringMap, titanMap] = useTexture([
+  const [saturnMap, ringMap] = useTexture([
     '/assets/planets/saturn/saturn.jpg',
-    '/assets/planets/saturn/saturn_ring.png',
-    '/assets/planets/moons/titan.jpg'
+    '/assets/planets/saturn/saturn_ring.png'
   ]);
+
+  // Anti-moiré: generate mipmaps and enable 16x anisotropic filtering on rings
+  React.useEffect(() => {
+    if (ringMap) {
+      ringMap.generateMipmaps = true;
+      ringMap.minFilter = THREE.LinearMipmapLinearFilter;
+      ringMap.magFilter = THREE.LinearFilter;
+      ringMap.anisotropy = 16;
+      ringMap.needsUpdate = true;
+    }
+    if (saturnMap) {
+      saturnMap.generateMipmaps = true;
+      saturnMap.anisotropy = 16;
+      saturnMap.needsUpdate = true;
+    }
+  }, [ringMap, saturnMap]);
 
   const saturnBodyRef = useRef();
   const surfaceShaderRef = useRef();
   const ringShaderRef = useRef();
-  const titanRef = useRef();
-  const titanAngleRef = useRef(1.4);
-  const { gl } = useThree();
 
-  // Configure high-fidelity anisotropic filtering & mipmaps to prevent moiré aliasing
-  useEffect(() => {
-    if (ringMap && gl) {
-      ringMap.minFilter = THREE.LinearMipmapLinearFilter;
-      ringMap.magFilter = THREE.LinearFilter;
-      ringMap.generateMipmaps = true;
-      const maxAniso = gl.capabilities ? gl.capabilities.getMaxAnisotropy() : 8;
-      ringMap.anisotropy = maxAniso;
-      ringMap.needsUpdate = true;
+  const computedSunDir = useMemo(() => {
+    const pos = new THREE.Vector3(...position);
+    if (pos.lengthSq() > 1.0) {
+      return new THREE.Vector3(0, 0, 0).sub(pos).normalize();
     }
-  }, [ringMap, gl]);
+    return new THREE.Vector3(1, 0.35, 1).normalize();
+  }, [position]);
 
   // High-density custom Ring Geometry with radial 1D UV mapping
   const ringGeometry = useMemo(() => {
@@ -255,38 +259,15 @@ export function CinematicSaturn({
   const planetCenterVec = useMemo(() => new THREE.Vector3(...position), [position]);
 
   useFrame((_, delta) => {
-    if (isPlaying) {
-      if (saturnBodyRef.current) {
-        saturnBodyRef.current.rotation.y += delta * 0.16;
-      }
-      titanAngleRef.current += delta * 0.085;
+    if (isPlaying && saturnBodyRef.current) {
+      saturnBodyRef.current.rotation.y += delta * 0.16;
     }
-
-    // Titan Orbit (15.94 days)
-    if (titanRef.current) {
-      const titanDist = radius * 4.2;
-      titanRef.current.position.set(
-        Math.cos(titanAngleRef.current) * titanDist,
-        Math.sin(titanAngleRef.current) * titanDist * 0.12,
-        Math.sin(titanAngleRef.current) * titanDist
-      );
-      titanRef.current.rotation.y = -titanAngleRef.current;
-    }
-
-    const worldPos = new THREE.Vector3();
-    if (saturnBodyRef.current) {
-      saturnBodyRef.current.getWorldPosition(worldPos);
-    }
-    const sunDir = worldPos.lengthSq() > 0.1
-      ? new THREE.Vector3(0, 0, 0).sub(worldPos).normalize()
-      : new THREE.Vector3(1, 0, 0);
-
     if (surfaceShaderRef.current) {
-      surfaceShaderRef.current.uniforms.uSunDirection.value.copy(sunDir);
+      surfaceShaderRef.current.uniforms.uSunDirection.value = computedSunDir;
     }
     if (ringShaderRef.current) {
-      ringShaderRef.current.uniforms.uSunDirection.value.copy(sunDir);
-      ringShaderRef.current.uniforms.uPlanetCenter.value.copy(worldPos);
+      ringShaderRef.current.uniforms.uSunDirection.value = computedSunDir;
+      ringShaderRef.current.uniforms.uPlanetCenter.value.set(...position);
     }
   });
 
@@ -308,7 +289,7 @@ export function CinematicSaturn({
           depthTest={true}
           uniforms={{
             uAlbedo: { value: saturnMap },
-            uSunDirection: { value: new THREE.Vector3(1, 0, 0) },
+            uSunDirection: { value: computedSunDir },
             uRadius: { value: radius }
           }}
         />
@@ -327,7 +308,7 @@ export function CinematicSaturn({
           args={[SaturnRingsShader]}
           uniforms={{
             uRingMap: { value: ringMap },
-            uSunDirection: { value: new THREE.Vector3(1, 0, 0) },
+            uSunDirection: { value: computedSunDir },
             uPlanetCenter: { value: planetCenterVec },
             uPlanetRadius: { value: radius }
           }}
@@ -335,17 +316,6 @@ export function CinematicSaturn({
           side={THREE.DoubleSide}
           depthWrite={false}
           depthTest={true}
-        />
-      </mesh>
-
-      {/* 3. Titan - Massive Dense Nitrogen Atmosphere Moon */}
-      <mesh ref={titanRef} castShadow receiveShadow>
-        <sphereGeometry args={[radius * 0.088, 32, 32]} />
-        <meshStandardMaterial
-          map={titanMap}
-          roughness={0.7}
-          metalness={0.05}
-          color="#dca266"
         />
       </mesh>
     </group>

@@ -93,19 +93,6 @@ const BODY_VIEW_CONFIGS = {
     elevAngle: 18,
     minDist: 11.0,
     maxDist: 500
-  },
-  pluto: {
-    distance: 9.2,
-    terminatorAngle: 36,
-    elevAngle: 18,
-    minDist: 3.5,
-    maxDist: 180
-  },
-  lineup: {
-    offset: [20, 22, 220],
-    target: [20, 0, 0],
-    minDist: 30,
-    maxDist: 900
   }
 };
 
@@ -444,7 +431,6 @@ export function InteractiveSolarCamera({
   // -------------------------------------------------------------------------
   // MAIN FRAME LOOP
   // -------------------------------------------------------------------------
-  // Priority 1 ensures camera frame updates strictly AFTER orbital body positions
   useFrame((_, delta) => {
     if (!enabled || !controlsRef.current) return;
     if (typeof window !== 'undefined') {
@@ -553,10 +539,9 @@ export function InteractiveSolarCamera({
     // B. SMOOTH TRANSITION PHASE (Switching Planets or Modes)
     // -----------------------------------------------------------------------
     if (isTransitioningRef.current) {
-      transitionProgressRef.current += delta * 1.25;
+      transitionProgressRef.current += delta * 1.35;
       const t = Math.min(1.0, transitionProgressRef.current);
-      // Hermite smoothstep cubic ease: zero overshoot, zero velocity discontinuity
-      const ease = t * t * (3.0 - 2.0 * t);
+      const ease = 1 - Math.pow(1 - t, 5);
 
       const targetCamOffset = getCinematicBodyCamOffset(selectedBody, currentBodyVec, cfg, viewMode);
       const destinationCamPos = new THREE.Vector3().addVectors(currentBodyVec, targetCamOffset);
@@ -571,7 +556,7 @@ export function InteractiveSolarCamera({
         camera.position.copy(destinationCamPos);
         controls.target.copy(destinationTarget);
         controls.update();
-        controls.enableDamping = isOverview; // Only overview uses damping; moving planets use rigid tracking
+        controls.enableDamping = true;
         isTransitioningRef.current = false;
         previousTargetPosRef.current.copy(destinationTarget);
       }
@@ -582,7 +567,6 @@ export function InteractiveSolarCamera({
     // C. CONTINUOUS TRACKING PHASE
     // -----------------------------------------------------------------------
     if (!isOverview) {
-      // Disable competing damping during active tracking of orbiting planets to eliminate shake
       controls.enableDamping = false;
       const activeCamOffset = getCinematicBodyCamOffset(selectedBody, currentBodyVec, cfg, viewMode);
       const currentTarget = getCinematicBodyCamTarget(selectedBody, currentBodyVec, cfg, activeCamOffset);
@@ -607,7 +591,7 @@ export function InteractiveSolarCamera({
     }
 
     controls.update();
-  }, 1);
+  });
 
   const activeKey =
     !selectedBody || selectedBody === 'overview'
@@ -628,10 +612,6 @@ export function InteractiveSolarCamera({
       maxDistance={cfg.maxDist || 1800}
       rotateSpeed={0.6}
       zoomSpeed={0.8}
-      touches={{
-        ONE: THREE.TOUCH.ROTATE,
-        TWO: THREE.TOUCH.DOLLY_PAN
-      }}
     />
   );
 }

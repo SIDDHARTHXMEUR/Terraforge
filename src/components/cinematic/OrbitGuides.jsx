@@ -123,10 +123,10 @@ function OrbitLine({
   const lineShaderRef = useRef();
   const ribbonShaderRef = useRef();
 
-  // 1. Centerline line loop geometry (256 segments)
+  // 1. Centerline line loop geometry (512 segments for razor-sharp smoothness)
   const lineGeometry = useMemo(() => {
     const points = [];
-    const segments = 256;
+    const segments = 512;
     for (let i = 0; i <= segments; i++) {
       const theta = (i / segments) * Math.PI * 2;
       points.push(new THREE.Vector3(Math.cos(theta) * radius, 0, Math.sin(theta) * radius));
@@ -134,10 +134,10 @@ function OrbitLine({
     return new THREE.BufferGeometry().setFromPoints(points);
   }, [radius]);
 
-  // 2. Physical 3D ring ribbon geometry (width = 1.5 to 4.5 display units for solid distant visibility)
+  // 2. Physical 3D ring ribbon geometry (thin constant-width, 512 segments)
   const ribbonGeometry = useMemo(() => {
-    const halfW = Math.max(0.75, radius * 0.007);
-    return new THREE.RingGeometry(radius - halfW, radius + halfW, 256);
+    const halfW = Math.max(0.22, radius * 0.003);
+    return new THREE.RingGeometry(radius - halfW, radius + halfW, 512);
   }, [radius]);
 
   const colorVec = useMemo(() => new THREE.Color(color), [color]);
@@ -251,16 +251,16 @@ export function OrbitGuides({
 
   return (
     <group ref={groupRef}>
-      <OrbitLine radius={radii.mercury} color={ORBIT_COLORS.mercury} baseOpacity={0.92} ribbonOpacity={0.62} fadeAlphaRef={fadeAlphaRef} targetPos={currentTargetPos} targetRadius={currentTargetRadius} />
-      <OrbitLine radius={radii.venus} color={ORBIT_COLORS.venus} baseOpacity={0.92} ribbonOpacity={0.62} fadeAlphaRef={fadeAlphaRef} targetPos={currentTargetPos} targetRadius={currentTargetRadius} />
-      <OrbitLine radius={radii.earth} color={ORBIT_COLORS.earth} baseOpacity={0.95} ribbonOpacity={0.68} fadeAlphaRef={fadeAlphaRef} targetPos={currentTargetPos} targetRadius={currentTargetRadius} />
-      <OrbitLine radius={radii.mars} color={ORBIT_COLORS.mars} baseOpacity={0.92} ribbonOpacity={0.62} fadeAlphaRef={fadeAlphaRef} targetPos={currentTargetPos} targetRadius={currentTargetRadius} />
-      <OrbitLine radius={radii.asteroidsInner} color={ORBIT_COLORS.asteroids} baseOpacity={0.70} ribbonOpacity={0.35} fadeAlphaRef={fadeAlphaRef} targetPos={currentTargetPos} targetRadius={currentTargetRadius} />
-      <OrbitLine radius={radii.asteroidsOuter} color={ORBIT_COLORS.asteroids} baseOpacity={0.70} ribbonOpacity={0.35} fadeAlphaRef={fadeAlphaRef} targetPos={currentTargetPos} targetRadius={currentTargetRadius} />
-      <OrbitLine radius={radii.jupiter} color={ORBIT_COLORS.jupiter} baseOpacity={0.92} ribbonOpacity={0.62} fadeAlphaRef={fadeAlphaRef} targetPos={currentTargetPos} targetRadius={currentTargetRadius} />
-      <OrbitLine radius={radii.saturn} color={ORBIT_COLORS.saturn} baseOpacity={0.92} ribbonOpacity={0.62} fadeAlphaRef={fadeAlphaRef} targetPos={currentTargetPos} targetRadius={currentTargetRadius} />
-      <OrbitLine radius={radii.uranus} color={ORBIT_COLORS.uranus} baseOpacity={0.88} ribbonOpacity={0.58} fadeAlphaRef={fadeAlphaRef} targetPos={currentTargetPos} targetRadius={currentTargetRadius} />
-      <OrbitLine radius={radii.neptune} color={ORBIT_COLORS.neptune} baseOpacity={0.88} ribbonOpacity={0.58} fadeAlphaRef={fadeAlphaRef} targetPos={currentTargetPos} targetRadius={currentTargetRadius} />
+      <OrbitLine radius={radii.mercury} color={ORBIT_COLORS.mercury} baseOpacity={0.88} ribbonOpacity={0.48} fadeAlphaRef={fadeAlphaRef} targetPos={currentTargetPos} targetRadius={currentTargetRadius} />
+      <OrbitLine radius={radii.venus} color={ORBIT_COLORS.venus} baseOpacity={0.88} ribbonOpacity={0.48} fadeAlphaRef={fadeAlphaRef} targetPos={currentTargetPos} targetRadius={currentTargetRadius} />
+      <OrbitLine radius={radii.earth} color={ORBIT_COLORS.earth} baseOpacity={0.92} ribbonOpacity={0.52} fadeAlphaRef={fadeAlphaRef} targetPos={currentTargetPos} targetRadius={currentTargetRadius} />
+      <OrbitLine radius={radii.mars} color={ORBIT_COLORS.mars} baseOpacity={0.88} ribbonOpacity={0.48} fadeAlphaRef={fadeAlphaRef} targetPos={currentTargetPos} targetRadius={currentTargetRadius} />
+      <OrbitLine radius={radii.asteroidsInner} color={ORBIT_COLORS.asteroids} baseOpacity={0.65} ribbonOpacity={0.28} fadeAlphaRef={fadeAlphaRef} targetPos={currentTargetPos} targetRadius={currentTargetRadius} />
+      <OrbitLine radius={radii.asteroidsOuter} color={ORBIT_COLORS.asteroids} baseOpacity={0.65} ribbonOpacity={0.28} fadeAlphaRef={fadeAlphaRef} targetPos={currentTargetPos} targetRadius={currentTargetRadius} />
+      <OrbitLine radius={radii.jupiter} color={ORBIT_COLORS.jupiter} baseOpacity={0.88} ribbonOpacity={0.48} fadeAlphaRef={fadeAlphaRef} targetPos={currentTargetPos} targetRadius={currentTargetRadius} />
+      <OrbitLine radius={radii.saturn} color={ORBIT_COLORS.saturn} baseOpacity={0.88} ribbonOpacity={0.48} fadeAlphaRef={fadeAlphaRef} targetPos={currentTargetPos} targetRadius={currentTargetRadius} />
+      <OrbitLine radius={radii.uranus} color={ORBIT_COLORS.uranus} baseOpacity={0.85} ribbonOpacity={0.45} fadeAlphaRef={fadeAlphaRef} targetPos={currentTargetPos} targetRadius={currentTargetRadius} />
+      <OrbitLine radius={radii.neptune} color={ORBIT_COLORS.neptune} baseOpacity={0.85} ribbonOpacity={0.45} fadeAlphaRef={fadeAlphaRef} targetPos={currentTargetPos} targetRadius={currentTargetRadius} />
     </group>
   );
 }
