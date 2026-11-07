@@ -126,6 +126,7 @@ const EarthCloudsShader = {
 
     uniform sampler2D uCloudsMap;
     uniform vec3 uSunDirection;
+    uniform float uCloudAlpha;
 
     void main() {
       #include <logdepthbuf_fragment>
@@ -141,12 +142,15 @@ const EarthCloudsShader = {
 
       // Lit clouds on daylight side, dark translucent clouds on night side
       vec3 cloudColor = vec3(1.0, 1.0, 1.0) * (dayFactor * 0.95 + 0.05);
-      float alpha = cloudTex.r * (dayFactor * 0.75 + 0.15);
+      float alpha = cloudTex.r * (dayFactor * 0.75 + 0.15) * uCloudAlpha;
 
       gl_FragColor = vec4(cloudColor, alpha * 0.90);
     }
   `
 };
+
+import { EarthSurfaceTileEngine } from './EarthSurfaceTileEngine';
+import { useEarthSurfaceStore } from '../../state/useEarthSurfaceStore';
 
 export function CinematicEarth({
   position = [0, 0, 0],
@@ -174,6 +178,8 @@ export function CinematicEarth({
   const surfaceShaderRef = useRef();
   const cloudsShaderRef = useRef();
 
+  const { isSurfaceMode, altitudeKm } = useEarthSurfaceStore();
+
   const computedSunDir = useMemo(() => {
     if (sunDirection) return sunDirection;
     const earthPos = new THREE.Vector3(...position);
@@ -198,6 +204,16 @@ export function CinematicEarth({
     }
     if (cloudsShaderRef.current) {
       cloudsShaderRef.current.uniforms.uSunDirection.value = sunDir;
+      // Fade clouds opacity when camera descends into surface mode
+      let cloudAlpha = 1.0;
+      if (isSurfaceMode) {
+        cloudAlpha = THREE.MathUtils.clamp((altitudeKm - 30) / (1200 - 30), 0.12, 1.0);
+      }
+      cloudsShaderRef.current.uniforms.uCloudAlpha.value = cloudAlpha;
+    }
+
+    if (typeof window !== 'undefined' && earthBodyRef.current) {
+      window.__earthBodyMesh = earthBodyRef.current;
     }
 
     if (isPlaying) {
@@ -249,6 +265,11 @@ export function CinematicEarth({
               uTime: { value: 0 }
             }}
           />
+          {/* Real Satellite & 3D Tile Surface Engine (Mounted in Earth Local Rotating Frame) */}
+          <EarthSurfaceTileEngine
+            radius={radius}
+            sunDirection={computedSunDir}
+          />
         </mesh>
 
         {/* 2. Realistic Dynamic Cloud Layer with Terminator Shading */}
@@ -259,7 +280,8 @@ export function CinematicEarth({
             args={[EarthCloudsShader]}
             uniforms={{
               uCloudsMap: { value: cloudsMap },
-              uSunDirection: { value: computedSunDir }
+              uSunDirection: { value: computedSunDir },
+              uCloudAlpha: { value: 1.0 }
             }}
             transparent={true}
             blending={THREE.NormalBlending}

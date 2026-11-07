@@ -12,16 +12,17 @@
   "dependencies": {
     "@react-three/drei": "^9.102.0",
     "@react-three/fiber": "^8.16.0",
+    "3d-tiles-renderer": "^0.5.4",
     "lucide-react": "^0.359.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "three": "^0.162.0",
+    "three": "^0.167.1",
     "zustand": "^5.0.16"
   },
   "devDependencies": {
     "@types/react": "^18.2.66",
     "@types/react-dom": "^18.2.22",
-    "@types/three": "^0.162.0",
+    "@types/three": "^0.167.1",
     "@vitejs/plugin-react": "^4.2.1",
     "vite": "^5.1.6"
   }

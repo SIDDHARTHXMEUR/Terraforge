@@ -12,6 +12,7 @@ import {
   ChevronRight
 } from 'lucide-react';
 import { PLANETS_CONFIG } from '../../data/planetsData';
+import { useEarthSurfaceStore, EARTH_LANDMARKS } from '../../state/useEarthSurfaceStore';
 
 const CELESTIAL_LIST = [
   { id: 'overview', name: 'Overview' },
@@ -77,6 +78,15 @@ export function InteractiveSimulatorHUD({
       setIsFullscreen(false);
     }
   };
+
+  const {
+    isSurfaceMode,
+    altitudeKm,
+    focusedLocation,
+    tier2Status,
+    triggerFlyTo,
+    triggerReturnToOrbit
+  } = useEarthSurfaceStore();
 
   const selectedData = PLANETS_CONFIG[selectedBody];
 
@@ -199,50 +209,126 @@ export function InteractiveSimulatorHUD({
             {selectedData.tagline}
           </p>
 
-          {/* 3 to 4 Key Figures in a Quiet Row (No divider lines, no grid, no boxes) */}
-          <div className="flex flex-wrap items-baseline gap-x-8 gap-y-3 text-xs font-mono mb-6">
-            <div>
-              <span className="text-[9px] uppercase tracking-[0.2em] text-white/40 block">RADIUS</span>
-              <span className="text-white/90 text-sm font-light tracking-wider">
-                {selectedData.radiusKm ? `${selectedData.radiusKm.toLocaleString()} KM` : 'N/A'}
-              </span>
-            </div>
-            <div>
-              <span className="text-[9px] uppercase tracking-[0.2em] text-white/40 block">GRAVITY</span>
-              <span className="text-white/90 text-sm font-light tracking-wider">
-                {selectedData.gravity || 'N/A'}
-              </span>
-            </div>
-            <div>
-              <span className="text-[9px] uppercase tracking-[0.2em] text-white/40 block">TEMP</span>
-              <span className="text-white/90 text-sm font-light tracking-wider">
-                {selectedData.meanTempC !== undefined ? `${selectedData.meanTempC}°C` : 'N/A'}
-              </span>
-            </div>
-            <div>
-              <span className="text-[9px] uppercase tracking-[0.2em] text-white/40 block">ORBIT</span>
-              <span className="text-white/90 text-sm font-light tracking-wider">
-                {selectedData.orbitalPeriodDays ? `${selectedData.orbitalPeriodDays} D` : 'CENTER'}
-              </span>
-            </div>
-          </div>
+          {/* Earth Surface Mode Panel or Standard Orbital Key Figures */}
+          {selectedBody === 'earth' && isSurfaceMode ? (
+            <div className="mb-6 space-y-3.5">
+              <div className="flex flex-wrap items-baseline gap-x-8 gap-y-2 text-xs font-mono">
+                <div>
+                  <span className="text-[9px] uppercase tracking-[0.2em] text-cyan-400/80 block">SURFACE ALTITUDE</span>
+                  <span className="text-white/95 text-base font-light tracking-wider">
+                    {altitudeKm < 1 ? `${Math.round(altitudeKm * 1000)} M` : `${altitudeKm.toLocaleString()} KM`}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-[9px] uppercase tracking-[0.2em] text-white/40 block">COORDINATES</span>
+                  <span className="text-white/90 text-sm font-light tracking-wider">
+                    {focusedLocation ? `${focusedLocation.lat.toFixed(2)}°, ${focusedLocation.lon.toFixed(2)}°` : '40.71° N, 74.01° W'}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-[9px] uppercase tracking-[0.2em] text-white/40 block">IMAGERY STACK</span>
+                  <span className="text-white/80 text-xs font-light tracking-wider">
+                    {altitudeKm < 5 ? '10m Optical Satellite' : 'NASA Global True-Color'}
+                  </span>
+                </div>
+              </div>
 
-          {/* Atmosphere Composition as a Small Caption */}
-          {selectedData.atmosphereComposition && (
-            <div className="text-[10px] font-mono tracking-wider text-white/60 mb-6 max-w-md">
-              <span className="text-white/40 uppercase tracking-[0.2em] mr-2">ATMOSPHERE:</span>
-              <span>{selectedData.atmosphereComposition}</span>
+              {/* Landmark Quick Flight Controls */}
+              <div className="flex items-center flex-wrap gap-2 pt-1 text-[10px] font-mono tracking-wider text-white/50">
+                <span className="text-white/30 uppercase mr-1">FLY TO:</span>
+                {EARTH_LANDMARKS.map((lm) => (
+                  <button
+                    key={lm.id}
+                    onClick={() => triggerFlyTo({ lat: lm.lat, lon: lm.lon, altitudeKm: 2.2 })}
+                    className="hover:text-white transition-colors cursor-pointer underline underline-offset-4 decoration-white/20 hover:decoration-white"
+                  >
+                    {lm.name}
+                  </button>
+                ))}
+              </div>
+
+              {/* Quiet note if Tier 2 token is missing, forbidden or exhausted */}
+              {tier2Status === 'unavailable' && (
+                <div className="text-[10px] font-mono tracking-wider text-amber-300/80 pt-0.5">
+                  High-detail city view unavailable
+                </div>
+              )}
+
+              {/* Return to Orbit Plain Text Button */}
+              <div className="pt-2">
+                <button
+                  onClick={triggerReturnToOrbit}
+                  className="flex items-center space-x-2 text-[10px] font-mono uppercase tracking-[0.25em] text-cyan-400 hover:text-cyan-200 transition-colors cursor-pointer"
+                >
+                  <span>RETURN TO ORBIT</span>
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
             </div>
+          ) : (
+            <>
+              {/* 3 to 4 Key Figures in a Quiet Row (No divider lines, no grid, no boxes) */}
+              <div className="flex flex-wrap items-baseline gap-x-8 gap-y-3 text-xs font-mono mb-6">
+                <div>
+                  <span className="text-[9px] uppercase tracking-[0.2em] text-white/40 block">RADIUS</span>
+                  <span className="text-white/90 text-sm font-light tracking-wider">
+                    {selectedData.radiusKm ? `${selectedData.radiusKm.toLocaleString()} KM` : 'N/A'}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-[9px] uppercase tracking-[0.2em] text-white/40 block">GRAVITY</span>
+                  <span className="text-white/90 text-sm font-light tracking-wider">
+                    {selectedData.gravity || 'N/A'}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-[9px] uppercase tracking-[0.2em] text-white/40 block">TEMP</span>
+                  <span className="text-white/90 text-sm font-light tracking-wider">
+                    {selectedData.meanTempC !== undefined ? `${selectedData.meanTempC}°C` : 'N/A'}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-[9px] uppercase tracking-[0.2em] text-white/40 block">ORBIT</span>
+                  <span className="text-white/90 text-sm font-light tracking-wider">
+                    {selectedData.orbitalPeriodDays ? `${selectedData.orbitalPeriodDays} D` : 'CENTER'}
+                  </span>
+                </div>
+              </div>
+
+              {/* Atmosphere Composition as a Small Caption */}
+              {selectedData.atmosphereComposition && (
+                <div className="text-[10px] font-mono tracking-wider text-white/60 mb-6 max-w-md">
+                  <span className="text-white/40 uppercase tracking-[0.2em] mr-2">ATMOSPHERE:</span>
+                  <span>{selectedData.atmosphereComposition}</span>
+                </div>
+              )}
+
+              {/* Surface Zoom Entrypoint from Orbit */}
+              {selectedBody === 'earth' && (
+                <div className="flex items-center flex-wrap gap-2 mb-6 text-[10px] font-mono tracking-wider text-white/50">
+                  <span className="text-cyan-400 uppercase tracking-widest mr-1">SURFACE ZOOM:</span>
+                  {EARTH_LANDMARKS.map((lm) => (
+                    <button
+                      key={lm.id}
+                      onClick={() => triggerFlyTo({ lat: lm.lat, lon: lm.lon, altitudeKm: 2.2 })}
+                      className="hover:text-white transition-colors cursor-pointer underline underline-offset-4 decoration-white/20 hover:decoration-white"
+                    >
+                      {lm.name}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* Return Action */}
+              <button
+                onClick={() => onSelectBody('overview')}
+                className="flex items-center space-x-2 text-[10px] font-mono uppercase tracking-[0.25em] text-white/40 hover:text-white transition-colors cursor-pointer"
+              >
+                <span>RETURN TO OVERVIEW</span>
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+            </>
           )}
-
-          {/* Return Action */}
-          <button
-            onClick={() => onSelectBody('overview')}
-            className="flex items-center space-x-2 text-[10px] font-mono uppercase tracking-[0.25em] text-white/40 hover:text-white transition-colors cursor-pointer"
-          >
-            <span>RETURN TO OVERVIEW</span>
-            <ChevronRight className="w-3.5 h-3.5" />
-          </button>
         </main>
       )}
 
@@ -283,6 +369,13 @@ export function InteractiveSimulatorHUD({
             })}
           </div>
         </div>
+
+        {/* Center Attribution when in Earth Surface Mode */}
+        {selectedBody === 'earth' && isSurfaceMode && (
+          <div className="hidden lg:block text-[9px] font-mono tracking-wider text-white/40">
+            Imagery: NASA GIBS · Sentinel-2 cloudless by EOX · 3D Tiles: Google via Cesium ion
+          </div>
+        )}
 
         {/* View Toggles & Reset */}
         <div className="flex items-center space-x-5 text-[10px] font-mono tracking-wider text-white/40">
