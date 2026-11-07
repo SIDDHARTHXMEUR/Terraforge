@@ -50,7 +50,7 @@ function CelestialLabelItem({
     <group ref={groupRef} position={[position[0], position[1] + yLift, position[2]]}>
       <Html
         center={false}
-        occlude={true}
+        occlude={false}
         position={[0, 0, 0]}
         pointerEvents={isVisibleOverall ? 'auto' : 'none'}
         style={{

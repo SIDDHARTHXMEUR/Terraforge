@@ -56,8 +56,8 @@ export function InteractiveSimulatorHUD({
   useEffect(() => {
     if (isPaused) return;
     const interval = setInterval(() => {
-      setSimDate((prev) => prev + 100 * timeMultiplier);
-    }, 100);
+      setSimDate((prev) => prev + 1000 * timeMultiplier);
+    }, 1000);
     return () => clearInterval(interval);
   }, [isPaused, timeMultiplier]);
 

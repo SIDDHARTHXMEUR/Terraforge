@@ -29,16 +29,21 @@ export function SolarSystemEngine({
   onCompletePrologue
 }) {
   const { gl, scene, camera } = useThree();
+  const hasWarmedUpRef = useRef(false);
 
   // Progressive shader compilation and texture uploads during idle time
-  // Strictly skips execution during flights or the cinematic prologue to prevent hitching
+  // Strictly runs once, then completely stops; skips execution during flights or cinematic prologue
   useEffect(() => {
     if (typeof window !== 'undefined') {
       window.__threeScene = scene;
       window.__threeGl = gl;
     }
 
+    if (hasWarmedUpRef.current) return;
+
     const warmUpIdle = () => {
+      if (hasWarmedUpRef.current) return;
+
       // Nothing loads or compiles during a flight or prologue
       if (window.__isTransitioning || isPrologueActive) {
         if ('requestIdleCallback' in window) {
@@ -69,6 +74,7 @@ export function SolarSystemEngine({
         });
 
         // Progressively pre-compile all scene shaders asynchronously
+        hasWarmedUpRef.current = true;
         if (gl.compileAsync) {
           gl.compileAsync(scene, camera).catch(() => {});
         } else {

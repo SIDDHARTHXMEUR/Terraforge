@@ -1,5 +1,7 @@
 import { create } from 'zustand';
 
+let lastDprChangeTime = 0;
+
 export const useQualityStore = create((set, get) => ({
   preset: 'auto', // 'auto' | 'high' | 'low'
   dpr: typeof window !== 'undefined' && window.devicePixelRatio ? Math.min(1.5, window.devicePixelRatio) : 1.0,
@@ -29,10 +31,17 @@ export const useQualityStore = create((set, get) => ({
 
     if (preset !== 'auto') return;
 
+    // Hysteresis: at most one change per 2s, and none during a flight
+    const now = performance.now();
+    if (now - lastDprChangeTime < 2000) return;
+    if (typeof window !== 'undefined' && window.__isTransitioning) return;
+
     if (currentFps < 32 && effectiveQuality === 'high') {
+      lastDprChangeTime = now;
       // Auto-throttle to low quality
       set({ dpr: 1.0, effectiveQuality: 'low' });
     } else if (currentFps > 54 && effectiveQuality === 'low') {
+      lastDprChangeTime = now;
       // Auto-restore to high quality
       set({ dpr: 1.5, effectiveQuality: 'high' });
     }
