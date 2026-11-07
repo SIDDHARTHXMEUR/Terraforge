@@ -49,9 +49,12 @@ export function OrbitGuides({
     uranus: 208,
     neptune: 250
   },
-  visible = true
+  visible = true,
+  selectedBody = 'overview'
 }) {
   if (!visible) return null;
+  // Fade out orbit lines when viewing the Sun so lines never cross its face
+  if (selectedBody === 'sun') return null;
 
   return (
     <group>

@@ -161,7 +161,7 @@ export function SolarSystemEngine({
       />
 
       {/* 3. Subtle Orbital Guides */}
-      <OrbitGuides radii={ORBIT_RADII} visible={showOrbits} />
+      <OrbitGuides radii={ORBIT_RADII} visible={showOrbits} selectedBody={selectedBody} />
 
       {/* 4. Planetary Billboard Text Labels */}
       <CelestialLabels

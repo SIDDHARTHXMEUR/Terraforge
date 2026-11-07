@@ -11,9 +11,10 @@ const BODY_VIEW_CONFIGS = {
     maxDist: 1800
   },
   sun: {
-    offset: [0, 6, 28],
-    minDist: 14,
-    maxDist: 350
+    offset: [16, 8, 70], // Sun fills ~35% of frame, slightly off-centre with corona fading into black
+    target: [-4, 0, 0],
+    minDist: 18,
+    maxDist: 600
   },
   mercury: {
     distance: 2.5,
@@ -142,8 +143,17 @@ export function InteractiveSolarCamera({
     }
   }, [selectedBody, bodyPositions, camera]);
 
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.__threeCamera = camera;
+    }
+  }, [camera]);
+
   useFrame((_, delta) => {
     if (!controlsRef.current) return;
+    if (typeof window !== 'undefined') {
+      window.__threeControls = controlsRef.current;
+    }
 
     const controls = controlsRef.current;
     const isOverview = !selectedBody || selectedBody === 'overview';
@@ -163,14 +173,15 @@ export function InteractiveSolarCamera({
 
       const targetCamOffset = getCinematicBodyCamOffset(selectedBody, currentBodyVec, cfg);
       const destinationCamPos = new THREE.Vector3().addVectors(currentBodyVec, targetCamOffset);
+      const destinationTarget = cfg.target ? new THREE.Vector3(...cfg.target) : currentBodyVec;
 
       camera.position.lerpVectors(transitionStartCamPosRef.current, destinationCamPos, ease);
-      controls.target.lerpVectors(transitionStartTargetRef.current, currentBodyVec, ease);
+      controls.target.lerpVectors(transitionStartTargetRef.current, destinationTarget, ease);
       controls.update();
 
       if (t >= 1.0) {
         isTransitioningRef.current = false;
-        previousTargetPosRef.current.copy(currentBodyVec);
+        previousTargetPosRef.current.copy(destinationTarget);
       }
       return;
     }
