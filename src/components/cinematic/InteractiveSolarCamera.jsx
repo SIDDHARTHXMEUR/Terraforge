@@ -136,14 +136,16 @@ function getCinematicBodyCamTarget(selectedBody, bodyPos, cfg, camOffset) {
 
   const targetVec = new THREE.Vector3(...bodyPos);
 
-  // Offset camera look-at target to the left so every planet sits in the right third of the frame
-  // on the sunlit crescent side, never covering text, HUD info blocks or navigation
+  // Offset camera look-at target to the left so every planet sits comfortably framed on the right third
+  // on the sunlit crescent side, never covering text, HUD info blocks or navigation, and never leaving the frustum
   if (selectedBody !== 'overview' && selectedBody !== 'sun' && camOffset) {
     const camDir = camOffset.clone().normalize();
     const up = new THREE.Vector3(0, 1, 0);
     const camRight = new THREE.Vector3().crossVectors(camDir, up).normalize();
     const R = DISPLAY_RADII[selectedBody] || 5.0;
-    targetVec.addScaledVector(camRight, -R * 0.72);
+    // Calibrated lateral shift so distant ice giants (Neptune/Uranus) are never pushed outside the frame
+    const lateralShift = selectedBody === 'neptune' ? -R * 0.16 : (selectedBody === 'uranus' ? -R * 0.20 : -R * 0.28);
+    targetVec.addScaledVector(camRight, lateralShift);
   }
 
   return targetVec;
@@ -550,16 +552,33 @@ export function InteractiveSolarCamera({
     // -----------------------------------------------------------------------
     if (isTransitioningRef.current) {
       controls.enabled = false;
-      transitionProgressRef.current += delta * 1.35;
+      transitionProgressRef.current += delta * 1.15;
       const t = Math.min(1.0, transitionProgressRef.current);
-      const ease = 1 - Math.pow(1 - t, 5);
+      const ease = 1 - Math.pow(1 - t, 4);
 
       const targetCamOffset = getCinematicBodyCamOffset(selectedBody, currentBodyVec, cfg, viewMode);
       const destinationCamPos = new THREE.Vector3().addVectors(currentBodyVec, targetCamOffset);
       const destinationTarget = getCinematicBodyCamTarget(selectedBody, currentBodyVec, cfg, targetCamOffset);
 
-      camera.position.lerpVectors(transitionStartCamPosRef.current, destinationCamPos, ease);
-      controls.target.lerpVectors(transitionStartTargetRef.current, destinationTarget, ease);
+      if (!isOverview) {
+        // Sunward orbital arc: the flight trajectory stays on the sunlit hemisphere
+        // so the destination body is ALWAYS sunlit and visible in the viewport throughout final approach
+        const toSun = new THREE.Vector3().sub(currentBodyVec).normalize();
+        const startPos = transitionStartCamPosRef.current;
+        const flightDist = startPos.distanceTo(destinationCamPos);
+        const arcFactor = Math.sin(t * Math.PI) * Math.min(flightDist * 0.22, 110.0);
+
+        const arcPos = new THREE.Vector3().lerpVectors(startPos, destinationCamPos, ease);
+        arcPos.addScaledVector(toSun, arcFactor);
+        arcPos.y += arcFactor * 0.26;
+        camera.position.copy(arcPos);
+      } else {
+        camera.position.lerpVectors(transitionStartCamPosRef.current, destinationCamPos, ease);
+      }
+
+      // Continuous target tracking keeps destination body in view throughout the entire approach
+      const targetEase = 1 - Math.pow(1 - t, 2.8);
+      controls.target.lerpVectors(transitionStartTargetRef.current, destinationTarget, targetEase);
 
       if (t >= 1.0) {
         camera.position.copy(destinationCamPos);

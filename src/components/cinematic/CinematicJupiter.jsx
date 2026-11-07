@@ -86,11 +86,14 @@ const JupiterSurfaceShader = {
         ioShadow = smoothstep(uIoRadius * 0.85, uIoRadius * 1.35, shadowDist);
       }
 
-      // Physical Bounded Minnaert Atmospheric Scattering
-      float cosI = max(0.0, dot(worldNormal, sunDir));
+      // Physical Bounded Minnaert Atmospheric Scattering with soft terminator wrap
+      float cosI = dot(worldNormal, sunDir);
       float cosE = max(0.0, dot(normal, viewDir));
       float limbFalloff = pow(clamp(cosE, 0.0, 1.0), 0.35);
-      float diffuse = pow(cosI, 0.92) * (limbFalloff * 0.75 + 0.25) * ioShadow;
+      float direct = smoothstep(-0.16, 0.32, cosI) * (limbFalloff * 0.70 + 0.30) * ioShadow;
+
+      // Soft ambient interplanetary fill (prevents harsh desaturated grey crescent at deep overview)
+      vec3 ambient = texColor * 0.10 * vec3(0.95, 0.88, 0.80);
 
       // Thin Sunlit-Only Atmospheric Limb Scatter (2-3% of radius, zero halo on nightside)
       float sunDot = dot(worldNormal, sunDir);
@@ -98,7 +101,9 @@ const JupiterSurfaceShader = {
       float sunlitLimb = pow(rim, 5.5) * smoothstep(0.0, 0.35, sunDot);
       vec3 jovianLimb = vec3(0.95, 0.82, 0.55) * sunlitLimb * 0.55;
 
-      vec3 finalColor = texColor * diffuse * 1.15 + jovianLimb;
+      // Color saturation preservation at small display scales
+      vec3 saturatedColor = mix(texColor, texColor * vec3(1.10, 0.96, 0.86), 0.30);
+      vec3 finalColor = saturatedColor * (direct * 1.15) + ambient + jovianLimb;
       gl_FragColor = vec4(finalColor, 1.0);
     }
   `
@@ -122,7 +127,10 @@ export function CinematicJupiter({
     if (jupiterMap) {
       jupiterMap.wrapS = THREE.RepeatWrapping;
       jupiterMap.minFilter = THREE.LinearMipmapLinearFilter;
+      jupiterMap.magFilter = THREE.LinearFilter;
       jupiterMap.generateMipmaps = true;
+      jupiterMap.anisotropy = 16;
+      jupiterMap.needsUpdate = true;
     }
   }, [jupiterMap]);
 

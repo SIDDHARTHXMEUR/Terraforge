@@ -3,17 +3,10 @@ import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { DISPLAY_RADII, DISPLAY_ORBIT_RADII } from '../../data/displayScale';
 
-const ORBIT_COLORS = {
-  mercury: '#a1a1aa',
-  venus: '#facc15',
-  earth: '#38bdf8',
-  mars: '#fb923c',
-  asteroids: '#a8a29e',
-  jupiter: '#fde047',
-  saturn: '#fef08a',
-  uranus: '#67e8f9',
-  neptune: '#818cf8'
-};
+// Subtle, thin, near-monochrome warm-white styling (no rainbow colors)
+const BASE_ORBIT_COLOR = '#FAF8F5';
+const HIGHLIGHT_ORBIT_COLOR = '#FFFFFF';
+
 
 const BODY_RADII = {
   sun: DISPLAY_RADII.sun,
@@ -136,7 +129,7 @@ function OrbitLine({
 
   // 2. Physical 3D ring ribbon geometry (thin constant-width, 512 segments)
   const ribbonGeometry = useMemo(() => {
-    const halfW = Math.max(0.22, radius * 0.003);
+    const halfW = Math.max(0.12, radius * 0.0016);
     return new THREE.RingGeometry(radius - halfW, radius + halfW, 512);
   }, [radius]);
 
@@ -149,12 +142,14 @@ function OrbitLine({
     const effectiveRibbonOpacity = ribbonOpacity * fade;
 
     if (lineShaderRef.current) {
+      lineShaderRef.current.uniforms.uColor.value.set(color);
       lineShaderRef.current.uniforms.uOpacity.value = effectiveLineOpacity;
       lineShaderRef.current.uniforms.uTargetPos.value.set(...targetPos);
       lineShaderRef.current.uniforms.uTargetRadius.value = targetRadius;
     }
 
     if (ribbonShaderRef.current) {
+      ribbonShaderRef.current.uniforms.uColor.value.set(color);
       ribbonShaderRef.current.uniforms.uOpacity.value = effectiveRibbonOpacity;
       ribbonShaderRef.current.uniforms.uTargetPos.value.set(...targetPos);
       ribbonShaderRef.current.uniforms.uTargetRadius.value = targetRadius;
@@ -249,18 +244,27 @@ export function OrbitGuides({
     ? BODY_RADII[selectedBody]
     : 0;
 
+  const getOrbitProps = (bodyKey) => {
+    const isSelected = selectedBody === bodyKey;
+    return {
+      color: isSelected ? HIGHLIGHT_ORBIT_COLOR : BASE_ORBIT_COLOR,
+      baseOpacity: isSelected ? 0.85 : 0.24,
+      ribbonOpacity: isSelected ? 0.52 : 0.16
+    };
+  };
+
   return (
     <group ref={groupRef}>
-      <OrbitLine radius={radii.mercury} color={ORBIT_COLORS.mercury} baseOpacity={0.88} ribbonOpacity={0.48} fadeAlphaRef={fadeAlphaRef} targetPos={currentTargetPos} targetRadius={currentTargetRadius} />
-      <OrbitLine radius={radii.venus} color={ORBIT_COLORS.venus} baseOpacity={0.88} ribbonOpacity={0.48} fadeAlphaRef={fadeAlphaRef} targetPos={currentTargetPos} targetRadius={currentTargetRadius} />
-      <OrbitLine radius={radii.earth} color={ORBIT_COLORS.earth} baseOpacity={0.92} ribbonOpacity={0.52} fadeAlphaRef={fadeAlphaRef} targetPos={currentTargetPos} targetRadius={currentTargetRadius} />
-      <OrbitLine radius={radii.mars} color={ORBIT_COLORS.mars} baseOpacity={0.88} ribbonOpacity={0.48} fadeAlphaRef={fadeAlphaRef} targetPos={currentTargetPos} targetRadius={currentTargetRadius} />
-      <OrbitLine radius={radii.asteroidsInner} color={ORBIT_COLORS.asteroids} baseOpacity={0.65} ribbonOpacity={0.28} fadeAlphaRef={fadeAlphaRef} targetPos={currentTargetPos} targetRadius={currentTargetRadius} />
-      <OrbitLine radius={radii.asteroidsOuter} color={ORBIT_COLORS.asteroids} baseOpacity={0.65} ribbonOpacity={0.28} fadeAlphaRef={fadeAlphaRef} targetPos={currentTargetPos} targetRadius={currentTargetRadius} />
-      <OrbitLine radius={radii.jupiter} color={ORBIT_COLORS.jupiter} baseOpacity={0.88} ribbonOpacity={0.48} fadeAlphaRef={fadeAlphaRef} targetPos={currentTargetPos} targetRadius={currentTargetRadius} />
-      <OrbitLine radius={radii.saturn} color={ORBIT_COLORS.saturn} baseOpacity={0.88} ribbonOpacity={0.48} fadeAlphaRef={fadeAlphaRef} targetPos={currentTargetPos} targetRadius={currentTargetRadius} />
-      <OrbitLine radius={radii.uranus} color={ORBIT_COLORS.uranus} baseOpacity={0.85} ribbonOpacity={0.45} fadeAlphaRef={fadeAlphaRef} targetPos={currentTargetPos} targetRadius={currentTargetRadius} />
-      <OrbitLine radius={radii.neptune} color={ORBIT_COLORS.neptune} baseOpacity={0.85} ribbonOpacity={0.45} fadeAlphaRef={fadeAlphaRef} targetPos={currentTargetPos} targetRadius={currentTargetRadius} />
+      <OrbitLine radius={radii.mercury} {...getOrbitProps('mercury')} fadeAlphaRef={fadeAlphaRef} targetPos={currentTargetPos} targetRadius={currentTargetRadius} />
+      <OrbitLine radius={radii.venus} {...getOrbitProps('venus')} fadeAlphaRef={fadeAlphaRef} targetPos={currentTargetPos} targetRadius={currentTargetRadius} />
+      <OrbitLine radius={radii.earth} {...getOrbitProps('earth')} fadeAlphaRef={fadeAlphaRef} targetPos={currentTargetPos} targetRadius={currentTargetRadius} />
+      <OrbitLine radius={radii.mars} {...getOrbitProps('mars')} fadeAlphaRef={fadeAlphaRef} targetPos={currentTargetPos} targetRadius={currentTargetRadius} />
+      <OrbitLine radius={radii.asteroidsInner} {...getOrbitProps('asteroids')} baseOpacity={0.16} ribbonOpacity={0.10} fadeAlphaRef={fadeAlphaRef} targetPos={currentTargetPos} targetRadius={currentTargetRadius} />
+      <OrbitLine radius={radii.asteroidsOuter} {...getOrbitProps('asteroids')} baseOpacity={0.16} ribbonOpacity={0.10} fadeAlphaRef={fadeAlphaRef} targetPos={currentTargetPos} targetRadius={currentTargetRadius} />
+      <OrbitLine radius={radii.jupiter} {...getOrbitProps('jupiter')} fadeAlphaRef={fadeAlphaRef} targetPos={currentTargetPos} targetRadius={currentTargetRadius} />
+      <OrbitLine radius={radii.saturn} {...getOrbitProps('saturn')} fadeAlphaRef={fadeAlphaRef} targetPos={currentTargetPos} targetRadius={currentTargetRadius} />
+      <OrbitLine radius={radii.uranus} {...getOrbitProps('uranus')} fadeAlphaRef={fadeAlphaRef} targetPos={currentTargetPos} targetRadius={currentTargetRadius} />
+      <OrbitLine radius={radii.neptune} {...getOrbitProps('neptune')} fadeAlphaRef={fadeAlphaRef} targetPos={currentTargetPos} targetRadius={currentTargetRadius} />
     </group>
   );
 }

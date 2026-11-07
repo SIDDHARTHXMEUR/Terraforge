@@ -56,9 +56,10 @@ const NeptuneAtmosphereShader = {
       vec3 deepNeptuneBlue = vec3(0.06, 0.18, 0.58);
       vec3 baseColor = mix(texColor, deepNeptuneBlue, 0.50);
 
-      // 1. Zonal Atmospheric Wind Bands
-      float bandPattern = sin(vUv.y * 36.0) * 0.035 + sin(vUv.y * 72.0) * 0.015;
-      baseColor += vec3(0.02, 0.05, 0.12) * bandPattern;
+      // 1. Multi-harmonic supersonic zonal jet bands (Voyager 2 / HST authentic banding)
+      float lat = (vUv.y - 0.5) * 3.14159265;
+      float jetBands = sin(lat * 16.0 + uTime * 0.015) * 0.028 + sin(lat * 32.0 - uTime * 0.008) * 0.014 + cos(lat * 64.0) * 0.007;
+      baseColor += vec3(0.03, 0.08, 0.20) * jetBands;
 
       // 2. The Great Dark Spot (Voyager 2 anticyclonic storm at -20° latitude)
       vec2 spotCenter = vec2(0.55 + sin(uTime * 0.005) * 0.05, 0.38);
@@ -66,12 +67,18 @@ const NeptuneAtmosphereShader = {
       float darkSpot = smoothstep(0.03, 0.10, spotDist);
       baseColor *= mix(0.70, 1.0, darkSpot);
 
-      // 3. Subtle Methane Atmosphere Shading (White block smears removed)
-      float subtleBanding = sin(vUv.y * 14.0 + uTime * 0.01) * 0.015;
+      // 3. Subtle Methane Atmosphere Shading
+      float subtleBanding = sin(vUv.y * 14.0 + uTime * 0.01) * 0.012;
       baseColor += vec3(0.04, 0.08, 0.16) * subtleBanding;
 
-      // Day / Night illumination
+      // 4. Authentic Methane Rayleigh Haze Optical Depth (volumetric depth at grazing angle)
+      float cosTheta = clamp(dot(normal, viewDir), 0.0, 1.0);
+      float hazeDepth = pow(1.0 - cosTheta, 2.6);
+      vec3 hazeColor = vec3(0.18, 0.55, 0.98);
       float sunDot = dot(worldNormal, sunDir);
+      baseColor = mix(baseColor, hazeColor, hazeDepth * 0.38 * smoothstep(-0.1, 0.35, sunDot));
+
+      // Day / Night illumination with soft terminator wrap
       float diffuse = smoothstep(-0.18, 0.32, sunDot);
 
       // Thin Sunlit-Only Azure Limb Scattering (2-3% of radius, zero halo on nightside)
@@ -79,7 +86,7 @@ const NeptuneAtmosphereShader = {
       float sunlitScatter = pow(rim, 5.5) * smoothstep(0.0, 0.35, sunDot);
       vec3 azureLimb = vec3(0.22, 0.50, 0.95) * sunlitScatter * 0.65;
 
-      vec3 surface = baseColor * (diffuse * 1.08 + 0.02) + azureLimb;
+      vec3 surface = baseColor * (diffuse * 1.08 + 0.03) + azureLimb;
       gl_FragColor = vec4(surface, 1.0);
     }
   `

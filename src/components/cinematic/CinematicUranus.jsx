@@ -55,13 +55,20 @@ const UranusAtmosphereShader = {
       vec3 uranusCyan = vec3(0.50, 0.82, 0.90);
       vec3 baseColor = mix(texColor, uranusCyan, 0.35);
 
-      // Subtle zonal atmospheric bands & polar hood brightening
-      float latBand = sin(vUv.y * 36.0) * 0.028 + sin(vUv.y * 72.0) * 0.012;
-      float polarHood = smoothstep(0.70, 0.95, vUv.y) * 0.08;
-      baseColor += vec3(latBand * 0.5 + polarHood * 0.6, latBand + polarHood, latBand * 0.8 + polarHood);
+      // Subtle multi-harmonic zonal atmospheric banding & polar hood brightening
+      float lat = (vUv.y - 0.5) * 3.14159265;
+      float zonalBands = sin(lat * 14.0) * 0.022 + sin(lat * 28.0) * 0.012 + cos(lat * 56.0) * 0.006;
+      float polarHood = smoothstep(0.65, 0.95, abs(lat) / 1.57) * 0.06;
+      baseColor += vec3(zonalBands * 0.4 + polarHood * 0.5, zonalBands + polarHood * 0.8, zonalBands * 0.7 + polarHood);
 
-      // Day / Night illumination
+      // Authentic Methane Rayleigh Haze Optical Depth (volumetric depth at grazing angle)
+      float cosTheta = clamp(dot(normal, viewDir), 0.0, 1.0);
+      float hazeDepth = pow(1.0 - cosTheta, 2.4);
+      vec3 hazeColor = vec3(0.55, 0.88, 0.98);
       float sunDot = dot(worldNormal, sunDir);
+      baseColor = mix(baseColor, hazeColor, hazeDepth * 0.35 * smoothstep(-0.1, 0.3, sunDot));
+
+      // Day / Night illumination with soft terminator wrap (avoids pitch-black void)
       float diffuse = smoothstep(-0.15, 0.35, sunDot);
 
       // Thin Sunlit-Only Atmospheric Scattering (2-3% of radius, zero halo on nightside)
@@ -69,7 +76,7 @@ const UranusAtmosphereShader = {
       float sunlitLimb = pow(rim, 5.5) * smoothstep(0.0, 0.35, sunDot);
       vec3 limbColor = vec3(0.55, 0.85, 0.95) * sunlitLimb * 0.55;
 
-      vec3 surface = baseColor * (diffuse * 1.05 + 0.02) + limbColor;
+      vec3 surface = baseColor * (diffuse * 1.05 + 0.04) + limbColor;
       gl_FragColor = vec4(surface, 1.0);
     }
   `
