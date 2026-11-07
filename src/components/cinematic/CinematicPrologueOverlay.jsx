@@ -2,57 +2,51 @@ import React, { useState, useEffect, useRef } from 'react';
 
 const MANIFEST_URL = '/prologue/manifest.json';
 
-// Built-in fallback clip metadata in case manifest.json is unreachable
-const DEFAULT_CLIPS = [
+const PROLOGUE_CLIPS = [
   {
     id: 'sun',
     file: 'sun.mp4',
     file720: 'sun_720p.mp4',
-    poster: '/assets/planets/sun/sdo_aia_304_2k.jpg',
     title: 'SOL',
-    credit: 'NASA / SDO AIA 304 Å Telemetry',
+    credit: 'NASA / Goddard Space Flight Center / SDO AIA 304 Å',
     start: 1.0,
-    duration: 2.0
+    end: 3.0
   },
   {
     id: 'earth',
     file: 'earth-night.mp4',
     file720: 'earth-night_720p.mp4',
-    poster: '/assets/planets/earth/earth_albedo.jpg',
     title: 'EARTH',
-    credit: 'NASA Earth Observatory / ISS Expedition Crew',
+    credit: 'NASA Earth Observatory / Suomi NPP VIIRS Day-Night Band',
     start: 3.0,
-    duration: 2.0
+    end: 5.0
   },
   {
     id: 'mars',
     file: 'mars.mp4',
     file720: 'mars_720p.mp4',
-    poster: '/assets/planets/mars/mars.jpg',
     title: 'MARS',
-    credit: 'NASA / JPL-Caltech / MSSS / Mars Global Surveyor',
+    credit: 'NASA / Goddard Space Flight Center / MAVEN IUVS',
     start: 5.0,
-    duration: 2.0
+    end: 7.0
   },
   {
     id: 'jupiter',
     file: 'jupiter.mp4',
     file720: 'jupiter_720p.mp4',
-    poster: '/assets/planets/jupiter/jupiter.jpg',
     title: 'JUPITER',
-    credit: 'NASA / JPL-Caltech / SwRI / MSSS / JunoCam',
+    credit: 'NASA / ESA / Goddard Space Flight Center / Hubble Heritage Team',
     start: 7.0,
-    duration: 2.0
+    end: 9.0
   },
   {
     id: 'saturn',
     file: 'saturn.mp4',
     file720: 'saturn_720p.mp4',
-    poster: '/assets/planets/saturn/saturn.jpg',
     title: 'SATURN',
-    credit: 'NASA / JPL-Caltech / Space Science Institute / Cassini',
+    credit: 'NASA / JPL-Caltech / Goddard Space Flight Center / Cassini CIRS',
     start: 9.0,
-    duration: 2.0
+    end: 11.0
   }
 ];
 
@@ -61,64 +55,81 @@ export function CinematicPrologueOverlay({
   onSkip
 }) {
   const [elapsed, setElapsed] = useState(0);
-  const [clips, setClips] = useState(DEFAULT_CLIPS);
-  const [videoPlayableCount, setVideoPlayableCount] = useState(0);
-  const [usePostersOnly, setUsePostersOnly] = useState(false);
+  const [isFallbackMode, setIsFallbackMode] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    const isSaveData = navigator.connection?.saveData === true;
+    const isReducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
+    const urlParams = new URLSearchParams(window.location.search);
+    return isSaveData || isReducedMotion || urlParams.get('fallback') === '1';
+  });
+  const [videoPlayingMap, setVideoPlayingMap] = useState({});
 
-  const videoRefA = useRef(null);
-  const videoRefB = useRef(null);
-  const currentSlotRef = useRef('A');
-  const lastClipIndexRef = useRef(-1);
+  const videoRefs = useRef({});
+  const probeResolvedRef = useRef(false);
 
-  // Check user environment (saveData or prefers-reduced-motion)
+  // Check user environment (saveData or prefers-reduced-motion or test query)
   useEffect(() => {
     const isSaveData = navigator.connection?.saveData === true;
     const isReducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
-    if (isSaveData || isReducedMotion) {
-      setUsePostersOnly(true);
+    const urlParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+    const isFallbackParam = urlParams?.get('fallback') === '1';
+    if (isSaveData || isReducedMotion || isFallbackParam) {
+      setIsFallbackMode(true);
     }
   }, []);
 
-  // Fetch manifest and probe clip availability
+  // Probe video availability on mount
   useEffect(() => {
     let isMounted = true;
-    fetch(MANIFEST_URL)
-      .then((res) => (res.ok ? res.json() : null))
-      .then(async (data) => {
-        if (!isMounted) return;
-        const list = data?.clips?.length ? data.clips : DEFAULT_CLIPS;
-        setClips(list);
 
-        // Probe availability of clips
-        let playable = 0;
-        const isSmallScreen = window.innerWidth < 1280;
-
-        await Promise.all(
-          list.map(async (c) => {
-            const fileName = isSmallScreen && c.file720 ? c.file720 : c.file;
-            try {
-              const headRes = await fetch(`/prologue/${fileName}`, { method: 'HEAD' });
-              if (headRes.ok) playable++;
-            } catch {
-              // Video file not present on disk
-            }
-          })
-        );
-
-        if (isMounted) {
-          setVideoPlayableCount(playable);
-          // If fewer than 3 clips load, fall back cleanly
-          if (playable < 3) {
-            setUsePostersOnly(true);
-          }
-        }
-      })
-      .catch(() => {
-        if (isMounted) setUsePostersOnly(true);
+    const probeVideo = (url) => {
+      return new Promise((resolve) => {
+        const v = document.createElement('video');
+        v.preload = 'metadata';
+        v.muted = true;
+        const onCanPlay = () => { cleanup(); resolve(true); };
+        const onError = () => { cleanup(); resolve(false); };
+        const cleanup = () => {
+          v.removeEventListener('loadeddata', onCanPlay);
+          v.removeEventListener('canplay', onCanPlay);
+          v.removeEventListener('error', onError);
+          v.src = '';
+        };
+        v.addEventListener('loadeddata', onCanPlay);
+        v.addEventListener('canplay', onCanPlay);
+        v.addEventListener('error', onError);
+        v.src = url;
+        setTimeout(() => { cleanup(); resolve(false); }, 1800);
       });
+    };
+
+    const isSmallScreen = typeof window !== 'undefined' && window.innerWidth < 1280;
+
+    Promise.all(
+      PROLOGUE_CLIPS.slice(0, 3).map((c) => {
+        const fileName = isSmallScreen && c.file720 ? c.file720 : c.file;
+        return probeVideo(`/prologue/${fileName}`);
+      })
+    ).then((results) => {
+      if (!isMounted) return;
+      probeResolvedRef.current = true;
+      const playable = results.filter(Boolean).length;
+      if (playable < 3) {
+        setIsFallbackMode(true);
+      }
+    }).catch(() => {
+      if (isMounted) setIsFallbackMode(true);
+    });
+
+    const timeout = setTimeout(() => {
+      if (isMounted && !probeResolvedRef.current) {
+        setIsFallbackMode(true);
+      }
+    }, 2000);
 
     return () => {
       isMounted = false;
+      clearTimeout(timeout);
     };
   }, []);
 
@@ -141,87 +152,78 @@ export function CinematicPrologueOverlay({
     };
   }, [isActive, onSkip]);
 
-  // Master Clock: 14.5s ceiling (always ends $\le$ 15s)
+  // Master Clock: 14.5s for reel mode, 5.0s for fallback mode
   useEffect(() => {
     if (!isActive) return;
 
     const startTime = performance.now();
+    const maxDuration = isFallbackMode ? 5.0 : 14.5;
+
     const interval = setInterval(() => {
       const sec = (performance.now() - startTime) / 1000;
       setElapsed(sec);
 
-      if (sec >= 14.5) {
+      if (sec >= maxDuration) {
         clearInterval(interval);
         if (onSkip) onSkip();
       }
-    }, 40);
+    }, 33);
 
     return () => clearInterval(interval);
-  }, [isActive, onSkip]);
+  }, [isActive, isFallbackMode, onSkip]);
 
-  // Determine current active beat and clip
-  // Beats:
-  // 0 - 1.0s: Black with 2.39:1 letterbox bars
-  // 1.0 - 3.0s: Sun (Clip 0)
-  // 3.0 - 5.0s: Earth (Clip 1)
-  // 5.0 - 7.0s: Mars (Clip 2)
-  // 7.0 - 9.0s: Jupiter (Clip 3)
-  // 9.0 - 11.0s: Saturn (Clip 4)
-  // 11.0 - 12.5s: Fade to black, TERRAFORGE wordmark
-  // 12.5 - 14.5s: Live overview fades in, letterbox opens
-  let activeClipIndex = -1;
-  let clipLocalTime = 0;
-
-  if (elapsed >= 1.0 && elapsed < 3.0) {
-    activeClipIndex = 0;
-    clipLocalTime = elapsed - 1.0;
-  } else if (elapsed >= 3.0 && elapsed < 5.0) {
-    activeClipIndex = 1;
-    clipLocalTime = elapsed - 3.0;
-  } else if (elapsed >= 5.0 && elapsed < 7.0) {
-    activeClipIndex = 2;
-    clipLocalTime = elapsed - 5.0;
-  } else if (elapsed >= 7.0 && elapsed < 9.0) {
-    activeClipIndex = 3;
-    clipLocalTime = elapsed - 7.0;
-  } else if (elapsed >= 9.0 && elapsed < 11.0) {
-    activeClipIndex = 4;
-    clipLocalTime = elapsed - 9.0;
-  }
-
-  const currentClip = activeClipIndex >= 0 && activeClipIndex < clips.length ? clips[activeClipIndex] : null;
-
-  // Manage cross-dissolve between two stacked video elements
+  // Expose state for telemetry / automated test verification
   useEffect(() => {
-    if (usePostersOnly || !currentClip || activeClipIndex === lastClipIndexRef.current) return;
-    lastClipIndexRef.current = activeClipIndex;
-
-    const isSmallScreen = window.innerWidth < 1280;
-    const fileName = isSmallScreen && currentClip.file720 ? currentClip.file720 : currentClip.file;
-    const nextSlot = currentSlotRef.current === 'A' ? 'B' : 'A';
-    const activeEl = currentSlotRef.current === 'A' ? videoRefA.current : videoRefB.current;
-    const nextEl = nextSlot === 'A' ? videoRefA.current : videoRefB.current;
-
-    if (nextEl) {
-      nextEl.src = `/prologue/${fileName}`;
-      nextEl.currentTime = 0;
-      nextEl.play().catch(() => {
-        // Autoplay policy or missing file: fall back smoothly
-      });
-      nextEl.style.opacity = '1';
+    if (typeof window !== 'undefined') {
+      window.__prologueElapsed = elapsed;
+      window.__prologueIsActive = isActive;
+      window.__prologueFallback = isFallbackMode;
     }
-    if (activeEl) {
-      activeEl.style.opacity = '0';
-    }
-    currentSlotRef.current = nextSlot;
-  }, [activeClipIndex, currentClip, usePostersOnly]);
+  }, [elapsed, isActive, isFallbackMode]);
+
+  // Manage video playback across master clock beats
+  useEffect(() => {
+    if (isFallbackMode) return;
+
+    PROLOGUE_CLIPS.forEach((clip) => {
+      const el = videoRefs.current[clip.id];
+      if (!el) return;
+
+      const isCurrent = elapsed >= clip.start && elapsed < clip.end;
+
+      if (isCurrent) {
+        if (el.paused) {
+          el.play().catch(() => {
+            // Autoplay rejection: fall back immediately
+            setIsFallbackMode(true);
+          });
+        }
+      } else {
+        if (!el.paused && elapsed > clip.end) {
+          el.pause();
+        }
+      }
+    });
+  }, [elapsed, isFallbackMode]);
 
   if (!isActive) return null;
 
-  // Caption alpha and blur transitions (0.3s enter, 0.3s exit)
+  // Active clip identification
+  let activeClip = null;
+  let clipLocalTime = 0;
+  if (!isFallbackMode) {
+    activeClip = PROLOGUE_CLIPS.find((c) => elapsed >= c.start && elapsed < c.end) || null;
+    if (activeClip) {
+      clipLocalTime = elapsed - activeClip.start;
+    }
+  }
+
+  const isCurrentVideoPlaying = activeClip ? !!videoPlayingMap[activeClip.id] : false;
+
+  // Caption alpha and blur transitions (0.35s in, 0.35s out)
   let captionOpacity = 0;
   let captionBlur = 6;
-  if (currentClip) {
+  if (activeClip && isCurrentVideoPlaying && !isFallbackMode) {
     if (clipLocalTime < 0.35) {
       captionOpacity = clipLocalTime / 0.35;
       captionBlur = (1 - captionOpacity) * 6;
@@ -234,24 +236,34 @@ export function CinematicPrologueOverlay({
     }
   }
 
-  // Wordmark Stage (11.0s to 12.5s)
-  const isWordmarkStage = elapsed >= 11.0 && elapsed < 12.8;
-  const wordmarkAlpha = isWordmarkStage
-    ? (elapsed < 11.5
+  // Wordmark Stage
+  // Reel mode: 11.0s to 12.8s. Fallback mode: 1.2s to 4.4s
+  const isWordmarkStage = isFallbackMode
+    ? elapsed >= 1.2 && elapsed < 4.4
+    : elapsed >= 11.0 && elapsed < 12.8;
+
+  const wordmarkAlpha = isFallbackMode
+    ? (elapsed < 2.0
+        ? (elapsed - 1.2) / 0.8
+        : (elapsed > 3.6 ? Math.max(0, (4.4 - elapsed) / 0.8) : 1.0))
+    : (elapsed < 11.5
         ? (elapsed - 11.0) / 0.5
-        : (elapsed > 12.2 ? Math.max(0, (12.8 - elapsed) / 0.6) : 1.0))
-    : 0;
+        : (elapsed > 12.2 ? Math.max(0, (12.8 - elapsed) / 0.6) : 1.0));
 
-  // Letterbox retracts during hand-off (12.5s to 14.5s)
-  const isHandingOff = elapsed >= 12.5;
-  const letterboxHeightVh = isHandingOff
-    ? Math.max(0, (1.0 - (elapsed - 12.5) / 1.8) * 11)
-    : 11; // 2.39:1 aspect ratio bars
+  // Letterbox retracts during live handoff
+  const isHandingOff = isFallbackMode ? elapsed >= 3.5 : elapsed >= 12.5;
+  const letterboxHeightVh = isFallbackMode
+    ? (isHandingOff ? Math.max(0, (1.0 - (elapsed - 3.5) / 1.5) * 13) : 13)
+    : (isHandingOff ? Math.max(0, (1.0 - (elapsed - 12.5) / 1.8) * 13) : 13);
 
-  // Black curtain opacity: starts opaque, fades out between 12.5s and 14.5s
-  const blackCurtainOpacity = isHandingOff
-    ? Math.max(0, 1.0 - (elapsed - 12.5) / 1.5)
-    : 1.0;
+  // Black curtain opacity:
+  // Reel mode: starts opaque, fades out between 12.5s and 14.5s
+  // Fallback mode: stars fade in between 0s and 1.5s
+  const blackCurtainOpacity = isFallbackMode
+    ? Math.max(0, 1.0 - elapsed / 1.5)
+    : (isHandingOff ? Math.max(0, 1.0 - (elapsed - 12.5) / 1.5) : 1.0);
+
+  const isSmallScreen = typeof window !== 'undefined' && window.innerWidth < 1280;
 
   return (
     <div
@@ -262,65 +274,80 @@ export function CinematicPrologueOverlay({
       }}
     >
       {/* 1. Stacked Video Reel Players with CSS Film Grade */}
-      <div
-        className="absolute inset-0 z-10 pointer-events-none"
-        style={{
-          filter: 'contrast(1.12) saturate(0.88)'
-        }}
-      >
-        {/* Slot A */}
-        <video
-          ref={videoRefA}
-          muted
-          playsInline
-          className="absolute inset-0 w-full h-full object-cover transition-opacity duration-700 pointer-events-none opacity-0"
-        />
-        {/* Slot B */}
-        <video
-          ref={videoRefB}
-          muted
-          playsInline
-          className="absolute inset-0 w-full h-full object-cover transition-opacity duration-700 pointer-events-none opacity-0"
-        />
-
-        {/* Poster Image Fallback (When clips are missing, saveData, or reduced motion) */}
-        {usePostersOnly && currentClip && (
-          <div
-            key={currentClip.id}
-            className="absolute inset-0 bg-cover bg-center transition-all duration-1000 ease-out"
-            style={{
-              backgroundImage: `url('${currentClip.poster}')`,
-              transform: `scale(${1.0 + clipLocalTime * 0.025})`,
-              opacity: captionOpacity
-            }}
-          />
-        )}
-
-        {/* Subtle Vignette & Grain */}
-        <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(ellipse_at_center,rgba(0,0,0,0)_50%,rgba(0,0,0,0.65)_100%)]" />
-        <div className="absolute inset-0 pointer-events-none opacity-15 bg-[radial-gradient(rgba(255,255,255,0.1)_1px,transparent_1px)] [background-size:3px_3px]" />
-      </div>
-
-      {/* 2. Captions: Serif Name + Inter Credit Line (Bottom-Left, Above Letterbox) */}
-      {currentClip && (
+      {!isFallbackMode && (
         <div
-          className="absolute bottom-[14vh] left-8 sm:left-14 z-40 pointer-events-none transition-all duration-300"
+          className="absolute inset-0 z-10 pointer-events-none"
           style={{
+            filter: 'contrast(1.12) saturate(0.88)'
+          }}
+        >
+          {PROLOGUE_CLIPS.map((clip) => {
+            const fileName = isSmallScreen && clip.file720 ? clip.file720 : clip.file;
+            const isCurrent = elapsed >= clip.start && elapsed < clip.end;
+
+            // Cross-dissolve opacity (0.4s fade-in, 0.4s fade-out)
+            let videoOpacity = 0;
+            if (isCurrent) {
+              const localT = elapsed - clip.start;
+              if (localT < 0.4) {
+                videoOpacity = localT / 0.4;
+              } else if (localT > 1.6) {
+                videoOpacity = Math.max(0, (2.0 - localT) / 0.4);
+              } else {
+                videoOpacity = 1;
+              }
+            }
+
+            return (
+              <video
+                key={clip.id}
+                ref={(el) => { videoRefs.current[clip.id] = el; }}
+                src={`/prologue/${fileName}`}
+                preload="auto"
+                muted
+                playsInline
+                onPlaying={() => setVideoPlayingMap((m) => ({ ...m, [clip.id]: true }))}
+                onPause={() => setVideoPlayingMap((m) => ({ ...m, [clip.id]: false }))}
+                onError={() => setVideoPlayingMap((m) => ({ ...m, [clip.id]: false }))}
+                onTimeUpdate={(e) => {
+                  if (e.target.currentTime > 0.05 && !videoPlayingMap[clip.id]) {
+                    setVideoPlayingMap((m) => ({ ...m, [clip.id]: true }));
+                  }
+                }}
+                className="absolute inset-0 w-full h-full object-cover transition-opacity duration-300 pointer-events-none"
+                style={{ opacity: videoOpacity }}
+              />
+            );
+          })}
+
+          {/* Subtle Vignette & Grain */}
+          <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(ellipse_at_center,rgba(0,0,0,0)_50%,rgba(0,0,0,0.65)_100%)]" />
+          <div className="absolute inset-0 pointer-events-none opacity-15 bg-[radial-gradient(rgba(255,255,255,0.1)_1px,transparent_1px)] [background-size:3px_3px]" />
+        </div>
+      )}
+
+      {/* 2. Captions: SHOWS ONLY WHILE VIDEO FRAME IS ACTUALLY PLAYING (Zero black captions ever) */}
+      {activeClip && isCurrentVideoPlaying && !isFallbackMode && (
+        <div
+          className="absolute z-40 pointer-events-none transition-all duration-300"
+          style={{
+            bottom: '15vh',
+            left: '3.5rem',
             opacity: captionOpacity,
             filter: `blur(${captionBlur}px)`
           }}
         >
           <h2 className="font-serif text-3xl sm:text-5xl font-light tracking-[0.16em] text-white uppercase drop-shadow-[0_4px_24px_rgba(0,0,0,0.95)]">
-            {currentClip.title}
+            {activeClip.title}
           </h2>
-          <div className="w-6 h-[1px] bg-[#4FD1C5] my-2 opacity-80" />
-          <p className="font-sans text-[11px] sm:text-[12px] font-light tracking-[0.08em] text-white/70">
-            {currentClip.credit}
+          <div className="w-8 h-[1px] bg-[#4FD1C5] my-2 opacity-80" />
+          <p className="font-sans text-[11px] sm:text-[12px] font-light tracking-[0.08em] text-white/80 drop-shadow-[0_2px_12px_rgba(0,0,0,0.9)]">
+            {activeClip.credit}
           </p>
         </div>
       )}
 
-      {/* 3. Wordmark Beat (11.0s to 12.5s) */}
+      {/* 3. Wordmark Beat (League Gothic, Cream, Real-Time Solar System Simulator) */}
       {isWordmarkStage && (
         <div
           className="absolute inset-0 z-30 flex flex-col items-center justify-center text-center pointer-events-none transition-opacity duration-500 px-4"
@@ -332,7 +359,7 @@ export function CinematicPrologueOverlay({
           <h1
             className="font-wordmark text-6xl sm:text-8xl md:text-9xl text-[#FFF8E7] uppercase leading-none drop-shadow-[0_4px_30px_rgba(0,0,0,0.95)]"
             style={{
-              letterSpacing: `${0.08 + (elapsed - 11.0) * 0.04}em`
+              letterSpacing: `${0.08 + (isFallbackMode ? (elapsed - 1.2) * 0.03 : (elapsed - 11.0) * 0.04)}em`
             }}
           >
             TERRAFORGE
