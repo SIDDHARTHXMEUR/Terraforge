@@ -16,19 +16,19 @@
 /**
  * ASTRONOMICAL GROUND TRUTH VS. PRESENTATION DISPLAY VALUES
  *
- * | Body       | True Radius (km) | True Orbit (AU) | Display Radius (units) | Display Orbit (units) | Apparent Diameter at Overview (px @ 1080p) |
- * | :--------- | :--------------- | :-------------- | :--------------------- | :-------------------- | :----------------------------------------- |
- * | **Sun**    | 696,340          | 0.000           | 54.00                  | 0.0                   | ~480 px (Dominating Star)                  |
- * | **Mercury**| 2,439.7          | 0.387           | 2.40                   | 82.0                  | ~26 px (Clear Disc)                        |
- * | **Venus**  | 6,051.8          | 0.723           | 3.30                   | 116.0                 | ~34 px (Clear Disc)                        |
- * | **Earth**  | 6,371.0          | 1.000           | 3.50                   | 156.0                 | ~36 px (Clear Disc)                        |
- * | **Moon**   | 1,737.4          | 0.00257 (Earth) | 0.95                   | 8.5 (from Earth)      | ~10 px (Visibly Small Satellite)           |
- * | **Mars**   | 3,389.5          | 1.524           | 2.70                   | 202.0                 | ~28 px (Clear Disc)                        |
- * | **Ceres**  | 473.0            | 2.767           | 0.65                   | 246.0                 | ~7 px (Small Asteroid)                     |
- * | **Jupiter**| 69,911.0         | 5.204           | 13.50                  | 306.0                 | ~130 px (Massive Gas Giant)                |
- * | **Saturn** | 58,232.0         | 9.582           | 11.50 (Rings: 26.5)    | 394.0                 | ~115 px (Rings: ~255 px)                   |
- * | **Uranus** | 25,362.0         | 19.20           | 6.60                   | 484.0                 | ~64 px (Ice Giant)                         |
- * | **Neptune**| 24,622.0         | 30.05           | 6.30                   | 572.0                 | ~60 px (Ice Giant)                         |
+ * | Body       | True Radius (km) | True Orbit (AU) | Display Radius (units) | Display Orbit (units) | Display/True Scale Ratio | Overview Apparent Diam (@ 1080p) |
+ * | :--------- | :--------------- | :-------------- | :--------------------- | :-------------------- | :----------------------- | :-------------------------------- |
+ * | **Sun**    | 696,340          | 0.000           | 54.00                  | 0.0                   | 7.75e-5                  | ~368 px (Dominating Star >= 120px)|
+ * | **Mercury**| 2,439.7          | 0.387           | 4.80                   | 82.0                  | 1.97e-3                  | ~33 px (Clear Disc >= 25px)       |
+ * | **Venus**  | 6,051.8          | 0.723           | 5.40                   | 116.0                 | 8.92e-4                  | ~37 px (Clear Disc >= 25px)       |
+ * | **Earth**  | 6,371.0          | 1.000           | 5.80                   | 156.0                 | 9.10e-4                  | ~40 px (Clear Disc >= 25px)       |
+ * | **Moon**   | 1,737.4          | 0.00257 (Earth) | 1.50                   | 8.5 (from Earth)      | 8.63e-4                  | ~10 px (Satellite)                |
+ * | **Mars**   | 3,389.5          | 1.524           | 4.80                   | 202.0                 | 1.42e-3                  | ~33 px (Clear Disc >= 25px)       |
+ * | **Ceres**  | 473.0            | 2.767           | 1.10                   | 246.0                 | 2.33e-3                  | ~8 px (Asteroid Belt)             |
+ * | **Jupiter**| 69,911.0         | 5.204           | 18.00                  | 306.0                 | 2.57e-4                  | ~123 px (Gas Giant >= 60px)       |
+ * | **Saturn** | 58,232.0         | 9.582           | 15.00 (Rings: 35.0)    | 394.0                 | 2.58e-4                  | ~102 px (Rings: ~240 px >= 60px)  |
+ * | **Uranus** | 25,362.0         | 19.20           | 9.20                   | 484.0                 | 3.63e-4                  | ~63 px (Ice Giant >= 60px)        |
+ * | **Neptune**| 24,622.0         | 30.05           | 8.80                   | 572.0                 | 3.57e-4                  | ~60 px (Ice Giant >= 60px)        |
  */
 
 export const DISPLAY_RADII = {
