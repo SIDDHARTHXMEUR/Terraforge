@@ -40,6 +40,7 @@ function CelestialLabelItem({
     <group position={[position[0], position[1] + yLift, position[2]]}>
       <Html
         center={false}
+        occlude={true}
         position={[0, 0, 0]}
         pointerEvents="auto"
         style={{
@@ -58,35 +59,34 @@ function CelestialLabelItem({
           }}
           style={{ width: '1px', height: '1px' }}
         >
-          {/* Thin Leader Line: delicate aerospace aesthetic */}
+          {/* Thin Leader Line: on hover only */}
           <svg
-            className="absolute overflow-visible pointer-events-none transition-opacity duration-300"
+            className="absolute overflow-visible pointer-events-none transition-opacity duration-200"
             style={{
               top: 0,
               left: 0,
-              opacity: isVisible ? (isHovered || isSelected ? 0.95 : 0.25) : 0
+              opacity: isHovered ? 0.85 : 0
             }}
           >
             {/* Anchor tick dot at planet position */}
             <circle
               cx="0"
               cy="0"
-              r={isHovered ? 1.5 : 1.0}
-              fill="rgba(255, 255, 255, 0.85)"
+              r={1.2}
+              fill="rgba(255, 255, 255, 0.9)"
             />
             {/* Angled leader line extending outward */}
             <polyline
               points={`0,0 ${offsetX},${offsetY} ${endX},${offsetY}`}
               fill="none"
-              stroke="rgba(255, 255, 255, 0.75)"
-              strokeWidth={isHovered ? '1.0' : '0.65'}
-              strokeDasharray={isHovered ? 'none' : '2 2'}
+              stroke="rgba(255, 255, 255, 0.65)"
+              strokeWidth="0.75"
             />
           </svg>
 
-          {/* Plain, Understated Swiss Editorial Label Text */}
+          {/* Plain, Understated 11px Plain Text Label */}
           <div
-            className={`absolute whitespace-nowrap transition-all duration-300 ${isVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+            className={`absolute whitespace-nowrap transition-all duration-200 ${isVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
             style={{
               left: `${endX + (offsetX > 0 ? 6 : -6)}px`,
               top: `${offsetY}px`,
@@ -94,12 +94,12 @@ function CelestialLabelItem({
             }}
           >
             <span
-              className={`font-mono uppercase transition-all duration-300 block ${
+              className={`font-mono uppercase transition-all duration-200 block text-[11px] tracking-[0.2em] ${
                 isSelected
-                  ? 'text-white text-[10px] tracking-[0.3em] font-medium drop-shadow-[0_0_8px_rgba(255,255,255,0.6)]'
+                  ? 'text-white font-medium'
                   : isHovered
-                  ? 'text-white text-[10px] tracking-[0.25em] font-normal drop-shadow-[0_0_6px_rgba(255,255,255,0.4)]'
-                  : 'text-white/50 hover:text-white/80 text-[9px] tracking-[0.22em] font-light'
+                  ? 'text-white font-normal'
+                  : 'text-white/60 hover:text-white font-normal'
               }`}
             >
               {label}

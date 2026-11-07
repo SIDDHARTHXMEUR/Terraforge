@@ -33,44 +33,44 @@ const BODY_VIEW_CONFIGS = {
   },
   mercury: {
     distance: 10.8,
-    terminatorAngle: 52,
+    terminatorAngle: 24, // Sunlit crescent orientation (fixes black disc)
     elevAngle: 14,
     minDist: 4.8,
     maxDist: 220
   },
   venus: {
     distance: 14.5,
-    terminatorAngle: 54,
+    terminatorAngle: 32, // Sunlit crescent
     elevAngle: 16,
     minDist: 6.2,
     maxDist: 260
   },
   earth: {
     distance: 16.5,
-    terminatorAngle: 36,
+    terminatorAngle: 34,
     elevAngle: 14,
     minDist: 5.2002, // Relaxed minimum distance for continuous Earth surface zoom
     maxDist: 280
   },
   mars: {
     distance: 12.0,
-    terminatorAngle: 42,
+    terminatorAngle: 36,
     elevAngle: 16,
     minDist: 5.2,
     maxDist: 240
   },
   asteroids: {
     distance: 8.5,
-    terminatorAngle: 35,
+    terminatorAngle: 32,
     elevAngle: 16,
     minDist: 2.8,
     maxDist: 150
   },
   jupiter: {
-    distance: 46.0,
-    terminatorAngle: 32,
-    elevAngle: 14,
-    minDist: 21.0,
+    distance: 42.0,
+    terminatorAngle: 28, // Clear sunlit framing
+    elevAngle: 12,
+    minDist: 18.0,
     maxDist: 750
   },
   saturn: {
@@ -136,13 +136,13 @@ function getCinematicBodyCamTarget(selectedBody, bodyPos, cfg, camOffset) {
 
   const targetVec = new THREE.Vector3(...bodyPos);
 
-  // If Earth is selected in cinematic view, offset camera look-at target to the left
-  // so Earth sits majestically in the right third of the frame on the sunlit crescent side
-  if (selectedBody === 'earth' && camOffset) {
+  // Offset camera look-at target to the left so every planet sits in the right third of the frame
+  // on the sunlit crescent side, never covering text, HUD info blocks or navigation
+  if (selectedBody !== 'overview' && selectedBody !== 'sun' && camOffset) {
     const camDir = camOffset.clone().normalize();
     const up = new THREE.Vector3(0, 1, 0);
     const camRight = new THREE.Vector3().crossVectors(camDir, up).normalize();
-    const R = DISPLAY_RADII.earth || 5.2;
+    const R = DISPLAY_RADII[selectedBody] || 5.0;
     targetVec.addScaledVector(camRight, -R * 0.72);
   }
 

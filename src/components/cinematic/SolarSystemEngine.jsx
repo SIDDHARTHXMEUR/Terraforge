@@ -205,120 +205,123 @@ export function SolarSystemEngine({
         }}
       />
 
-      {/* 6. Mercury */}
-      <group ref={mercuryGroupRef} position={positionsRef.current.mercury}>
-        <CinematicMercury
-          position={[0, 0, 0]}
-          radius={DISPLAY_RADII.mercury}
+      {/* Planetary System (Hidden during Sol close-up to prevent floating foreground silhouettes) */}
+      <group visible={selectedBody !== 'sun'}>
+        {/* 6. Mercury */}
+        <group ref={mercuryGroupRef} position={positionsRef.current.mercury}>
+          <CinematicMercury
+            position={[0, 0, 0]}
+            radius={DISPLAY_RADII.mercury}
+            isPlaying={!isPaused}
+            onClick={(e) => {
+              e.stopPropagation();
+              if (onSelectBody) onSelectBody('mercury');
+            }}
+          />
+        </group>
+
+        {/* 7. Venus */}
+        <group ref={venusGroupRef} position={positionsRef.current.venus}>
+          <CinematicVenus
+            position={[0, 0, 0]}
+            radius={DISPLAY_RADII.venus}
+            isPlaying={!isPaused}
+            onClick={(e) => {
+              e.stopPropagation();
+              if (onSelectBody) onSelectBody('venus');
+            }}
+          />
+        </group>
+
+        {/* 8. Earth & The Moon */}
+        <group ref={earthGroupRef} position={positionsRef.current.earth}>
+          <CinematicEarth
+            position={[0, 0, 0]}
+            radius={DISPLAY_RADII.earth}
+            isPlaying={!isPaused}
+            onClick={(e) => {
+              e.stopPropagation();
+              if (onSelectBody) onSelectBody('earth');
+            }}
+          />
+        </group>
+
+        {/* 9. Mars */}
+        <group ref={marsGroupRef} position={positionsRef.current.mars}>
+          <CinematicMars
+            position={[0, 0, 0]}
+            radius={DISPLAY_RADII.mars}
+            isPlaying={!isPaused}
+            onClick={(e) => {
+              e.stopPropagation();
+              if (onSelectBody) onSelectBody('mars');
+            }}
+          />
+        </group>
+
+        {/* 10. Asteroid Belt & Ceres */}
+        <AsteroidBelt
+          innerRadius={DISPLAY_ORBIT_RADII.asteroidsInner}
+          outerRadius={DISPLAY_ORBIT_RADII.asteroidsOuter}
+          count={950}
           isPlaying={!isPaused}
           onClick={(e) => {
             e.stopPropagation();
-            if (onSelectBody) onSelectBody('mercury');
+            if (onSelectBody) onSelectBody('asteroids');
           }}
         />
-      </group>
 
-      {/* 7. Venus */}
-      <group ref={venusGroupRef} position={positionsRef.current.venus}>
-        <CinematicVenus
-          position={[0, 0, 0]}
-          radius={DISPLAY_RADII.venus}
-          isPlaying={!isPaused}
-          onClick={(e) => {
-            e.stopPropagation();
-            if (onSelectBody) onSelectBody('venus');
-          }}
-        />
-      </group>
+        {/* 11. Jupiter & Galilean Moons (Io & Europa) */}
+        <group ref={jupiterGroupRef} position={positionsRef.current.jupiter}>
+          <CinematicJupiter
+            position={[0, 0, 0]}
+            radius={DISPLAY_RADII.jupiter}
+            isPlaying={!isPaused}
+            onClick={(e) => {
+              e.stopPropagation();
+              if (onSelectBody) onSelectBody('jupiter');
+            }}
+          />
+        </group>
 
-      {/* 8. Earth & The Moon */}
-      <group ref={earthGroupRef} position={positionsRef.current.earth}>
-        <CinematicEarth
-          position={[0, 0, 0]}
-          radius={DISPLAY_RADII.earth}
-          isPlaying={!isPaused}
-          onClick={(e) => {
-            e.stopPropagation();
-            if (onSelectBody) onSelectBody('earth');
-          }}
-        />
-      </group>
+        {/* 12. Saturn & Cassini Division Rings */}
+        <group ref={saturnGroupRef} position={positionsRef.current.saturn}>
+          <CinematicSaturn
+            position={[0, 0, 0]}
+            radius={DISPLAY_RADII.saturn}
+            isPlaying={!isPaused}
+            onClick={(e) => {
+              e.stopPropagation();
+              if (onSelectBody) onSelectBody('saturn');
+            }}
+          />
+        </group>
 
-      {/* 9. Mars */}
-      <group ref={marsGroupRef} position={positionsRef.current.mars}>
-        <CinematicMars
-          position={[0, 0, 0]}
-          radius={DISPLAY_RADII.mars}
-          isPlaying={!isPaused}
-          onClick={(e) => {
-            e.stopPropagation();
-            if (onSelectBody) onSelectBody('mars');
-          }}
-        />
-      </group>
+        {/* 13. Uranus & Ring System */}
+        <group ref={uranusGroupRef} position={positionsRef.current.uranus}>
+          <CinematicUranus
+            position={[0, 0, 0]}
+            radius={DISPLAY_RADII.uranus}
+            isPlaying={!isPaused}
+            onClick={(e) => {
+              e.stopPropagation();
+              if (onSelectBody) onSelectBody('uranus');
+            }}
+          />
+        </group>
 
-      {/* 10. Asteroid Belt & Ceres */}
-      <AsteroidBelt
-        innerRadius={DISPLAY_ORBIT_RADII.asteroidsInner}
-        outerRadius={DISPLAY_ORBIT_RADII.asteroidsOuter}
-        count={950}
-        isPlaying={!isPaused}
-        onClick={(e) => {
-          e.stopPropagation();
-          if (onSelectBody) onSelectBody('asteroids');
-        }}
-      />
-
-      {/* 11. Jupiter & Galilean Moons (Io & Europa) */}
-      <group ref={jupiterGroupRef} position={positionsRef.current.jupiter}>
-        <CinematicJupiter
-          position={[0, 0, 0]}
-          radius={DISPLAY_RADII.jupiter}
-          isPlaying={!isPaused}
-          onClick={(e) => {
-            e.stopPropagation();
-            if (onSelectBody) onSelectBody('jupiter');
-          }}
-        />
-      </group>
-
-      {/* 12. Saturn & Cassini Division Rings */}
-      <group ref={saturnGroupRef} position={positionsRef.current.saturn}>
-        <CinematicSaturn
-          position={[0, 0, 0]}
-          radius={DISPLAY_RADII.saturn}
-          isPlaying={!isPaused}
-          onClick={(e) => {
-            e.stopPropagation();
-            if (onSelectBody) onSelectBody('saturn');
-          }}
-        />
-      </group>
-
-      {/* 13. Uranus & Ring System */}
-      <group ref={uranusGroupRef} position={positionsRef.current.uranus}>
-        <CinematicUranus
-          position={[0, 0, 0]}
-          radius={DISPLAY_RADII.uranus}
-          isPlaying={!isPaused}
-          onClick={(e) => {
-            e.stopPropagation();
-            if (onSelectBody) onSelectBody('uranus');
-          }}
-        />
-      </group>
-
-      {/* 14. Neptune */}
-      <group ref={neptuneGroupRef} position={positionsRef.current.neptune}>
-        <CinematicNeptune
-          position={[0, 0, 0]}
-          radius={DISPLAY_RADII.neptune}
-          isPlaying={!isPaused}
-          onClick={(e) => {
-            e.stopPropagation();
-            if (onSelectBody) onSelectBody('neptune');
-          }}
-        />
+        {/* 14. Neptune */}
+        <group ref={neptuneGroupRef} position={positionsRef.current.neptune}>
+          <CinematicNeptune
+            position={[0, 0, 0]}
+            radius={DISPLAY_RADII.neptune}
+            isPlaying={!isPaused}
+            onClick={(e) => {
+              e.stopPropagation();
+              if (onSelectBody) onSelectBody('neptune');
+            }}
+          />
+        </group>
       </group>
     </>
   );
