@@ -53,24 +53,29 @@ const NeptuneAtmosphereShader = {
       vec3 texColor = texture2D(uAlbedo, vUv).rgb;
 
       // Authentic Deep Cobalt-Blue Neptune Palette
-      vec3 deepNeptuneBlue = vec3(0.08, 0.22, 0.65);
-      vec3 baseColor = mix(texColor, deepNeptuneBlue, 0.55);
+      vec3 deepNeptuneBlue = vec3(0.06, 0.18, 0.58);
+      vec3 baseColor = mix(texColor, deepNeptuneBlue, 0.50);
 
-      // 1. High-Altitude Methane Cirrus Cloud Streaks ("The Scooter")
-      vec2 cirrusUv1 = vec2(vUv.x * 6.0 + uTime * 0.025, vUv.y * 42.0);
-      float cirrusNoise = sin(cirrusUv1.x) * cos(cirrusUv1.y);
-      float latWisp = smoothstep(0.2, 0.8, abs(vUv.y - 0.5));
-      float cirrusMask = smoothstep(0.82, 0.98, cirrusNoise) * latWisp;
+      // 1. Zonal Atmospheric Wind Bands
+      float bandPattern = sin(vUv.y * 36.0) * 0.035 + sin(vUv.y * 72.0) * 0.015;
+      baseColor += vec3(0.02, 0.05, 0.12) * bandPattern;
 
-      // 2. The Great Dark Spot
+      // 2. The Great Dark Spot (Voyager 2 anticyclonic storm at -20° latitude)
       vec2 spotCenter = vec2(0.55 + sin(uTime * 0.005) * 0.05, 0.38);
-      float spotDist = length((vUv - spotCenter) * vec2(1.8, 1.0));
-      float darkSpot = smoothstep(0.04, 0.12, spotDist);
-      baseColor *= mix(0.72, 1.0, darkSpot);
+      float spotDist = length((vUv - spotCenter) * vec2(2.2, 1.0));
+      float darkSpot = smoothstep(0.03, 0.10, spotDist);
+      baseColor *= mix(0.70, 1.0, darkSpot);
+
+      // 3. Delicate High-Altitude Methane Cirrus ("The Scooter" and companion cloud streaks)
+      // Elongated wispy cirrus streaks parallel to supersonic equatorial jet streams
+      float cirrusLat = abs(vUv.y - 0.34);
+      float cirrusStreak1 = smoothstep(0.035, 0.005, cirrusLat) * smoothstep(0.4, 0.9, sin(vUv.x * 24.0 + uTime * 0.08));
+      float cirrusStreak2 = smoothstep(0.025, 0.005, abs(vUv.y - 0.52)) * smoothstep(0.5, 0.95, cos(vUv.x * 18.0 - uTime * 0.06));
+      float delicateCirrus = clamp(cirrusStreak1 + cirrusStreak2 * 0.7, 0.0, 1.0);
 
       // Add delicate white methane ice cirrus
-      vec3 whiteCirrus = vec3(0.88, 0.94, 1.0);
-      baseColor = mix(baseColor, whiteCirrus, cirrusMask * 0.55);
+      vec3 whiteCirrus = vec3(0.92, 0.96, 1.0);
+      baseColor = mix(baseColor, whiteCirrus, delicateCirrus * 0.65);
 
       // Day / Night illumination
       float sunDot = dot(worldNormal, sunDir);
@@ -89,7 +94,7 @@ const NeptuneAtmosphereShader = {
 
 export function CinematicNeptune({
   position = [0, 0, 0],
-  radius = 2.7,
+  radius = 6.3,
   axialTilt = (28.32 * Math.PI) / 180,
   isPlaying = true,
   onClick

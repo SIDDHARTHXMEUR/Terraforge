@@ -200,25 +200,24 @@ const PhotosphereShader = {
 };
 
 // =============================================================================
-// Limb Prominences & Spicules Shader (Wispy curved arches protruding into space)
-// Additive billboard quad right at the solar limb (R = 1.0 to 1.08 R_sun)
+// Clean Monotonic SDO 304 Å Coronal Glow
+// Additive blending, depthWrite=false, hermite radial falloff reaching exactly zero
+// before the quad boundary. NO black fill, NO hard rim, NO outer outline rings.
 // =============================================================================
-const ProminenceShader = {
+const SunCoronaShader = {
   vertexShader: `
     #include <common>
     #include <logdepthbuf_pars_vertex>
 
-    varying vec2 vCoord;
-    uniform float uRadius;
+    varying vec2 vOffset;
 
     void main() {
-      // Standard camera-facing billboard centered at model position
+      // Standard camera-facing billboard anchored at Sun position
       vec4 mvPosition = modelViewMatrix * vec4(0.0, 0.0, 0.0, 1.0);
       mvPosition.xy += position.xy;
       gl_Position = projectionMatrix * mvPosition;
 
-      // Coordinate normalized to solar radius (limb is length(vCoord) == 1.0)
-      vCoord = position.xy / uRadius;
+      vOffset = position.xy;
 
       #include <logdepthbuf_vertex>
     }
@@ -226,167 +225,54 @@ const ProminenceShader = {
   fragmentShader: `
     #include <logdepthbuf_pars_fragment>
 
-    varying vec2 vCoord;
-    uniform float uTime;
-
-    // Simplex Noise Math
-    vec4 permute(vec4 x){return mod(((x*34.0)+1.0)*x, 289.0);}
-    vec4 taylorInvSqrt(vec4 r){return 1.79284291400159 - 0.85373472095314 * r;}
-    float snoise(vec3 v){
-      const vec2 C = vec2(1.0/6.0, 1.0/3.0);
-      const vec4 D = vec4(0.0, 0.5, 1.0, 2.0);
-      vec3 i  = floor(v + dot(v, C.yyy));
-      vec3 x0 = v - i + dot(i, C.xxx);
-      vec3 g = step(x0.yzx, x0.xyz);
-      vec3 l = 1.0 - g;
-      vec3 i1 = min(g.xyz, l.zxy);
-      vec3 i2 = max(g.xyz, l.zxy);
-      vec3 x1 = x0 - i1 + 1.0 * C.xxx;
-      vec3 x2 = x0 - i2 + 2.0 * C.xxx;
-      vec3 x3 = x0 - 1.0 + 3.0 * C.xxx;
-      i = mod(i, 289.0);
-      vec4 p = permute(permute(permute(
-                i.z + vec4(0.0, i1.z, i2.z, 1.0))
-              + i.y + vec4(0.0, i1.y, i2.y, 1.0))
-              + i.x + vec4(0.0, i1.x, i2.x, 1.0));
-      float n_ = 0.142857142857;
-      vec3 ns = n_ * D.wyz - D.xzx;
-      vec4 j = p - 49.0 * floor(p * ns.z * ns.z);
-      vec4 x_ = floor(j * ns.z);
-      vec4 y_ = floor(j - 7.0 * x_);
-      vec4 x = x_ *ns.x + ns.yyyy;
-      vec4 y = y_ *ns.x + ns.yyyy;
-      vec4 h = 1.0 - abs(x) - abs(y);
-      vec4 b0 = vec4(x.xy, y.xy);
-      vec4 b1 = vec4(x.zw, y.zw);
-      vec4 s0 = floor(b0)*2.0 + 1.0;
-      vec4 s1 = floor(b1)*2.0 + 1.0;
-      vec4 sh = -step(h, vec4(0.0));
-      vec4 a0 = b0.xzyw + s0.xzyw*sh.xxyy;
-      vec4 a1 = b1.xzyw + s1.xzyw*sh.zzww;
-      vec3 p0 = vec3(a0.xy, h.x);
-      vec3 p1 = vec3(a0.zw, h.y);
-      vec3 p2 = vec3(a1.xy, h.z);
-      vec3 p3 = vec3(a1.zw, h.w);
-      vec4 norm = taylorInvSqrt(vec4(dot(p0,p0), dot(p1,p1), dot(p2, p2), dot(p3,p3)));
-      p0 *= norm.x; p1 *= norm.y; p2 *= norm.z; p3 *= norm.w;
-      vec4 m = max(0.6 - vec4(dot(x0,x0), dot(x1,x1), dot(x2,x2), dot(x3,x3)), 0.0);
-      m = m * m;
-      return 42.0 * dot(m*m, vec4(dot(p0,x0), dot(p1,x1), dot(p2,x2), dot(p3,x3)));
-    }
-
-    void main() {
-      #include <logdepthbuf_fragment>
-
-      float r = length(vCoord);
-
-      // Only evaluate in limb prominence zone (strictly between 0.998 and 1.10 radii)
-      if (r < 0.998 || r > 1.10) discard;
-
-      float theta = atan(vCoord.y, vCoord.x);
-
-      // Loop 1: North-East limb (theta ~ 0.85 rad / 48°)
-      float arch1 = sin(clamp((theta - 0.70) / 0.42, 0.0, 3.14159));
-      float loop1H = 1.0 + arch1 * 0.045;
-      float loop1 = exp(-abs(r - loop1H) * 45.0) * arch1;
-
-      // Loop 2: South-East limb (theta ~ -0.95 rad / -54°)
-      float arch2 = sin(clamp((theta + 1.10) / 0.45, 0.0, 3.14159));
-      float loop2H = 1.0 + arch2 * 0.055;
-      float loop2 = exp(-abs(r - loop2H) * 40.0) * arch2;
-
-      // Loop 3: North-West limb (theta ~ 2.45 rad / 140°)
-      float arch3 = sin(clamp((theta - 2.30) / 0.38, 0.0, 3.14159));
-      float loop3H = 1.0 + arch3 * 0.040;
-      float loop3 = exp(-abs(r - loop3H) * 50.0) * arch3;
-
-      // Loop 4: West equatorial ejection loop (theta ~ 3.10 rad)
-      float arch4 = sin(clamp((abs(theta) - 2.85) / 0.40, 0.0, 3.14159));
-      float loop4H = 1.0 + arch4 * 0.060;
-      float loop4 = exp(-abs(r - loop4H) * 38.0) * arch4;
-
-      // High-frequency chromospheric spicule forest along entire perimeter
-      float spiculeNoise = snoise(vec3(cos(theta) * 40.0, sin(theta) * 40.0, uTime * 0.15));
-      float spicules = max(0.0, spiculeNoise) * smoothstep(1.04, 0.998, r) * 0.65;
-
-      float totalProminence = (loop1 + loop2 + loop3 + loop4) * 1.4 + spicules;
-      if (totalProminence < 0.01) discard;
-
-      // Chromosphere fiery orange-red emission
-      vec3 prominenceColor = vec3(1.0, 0.42, 0.06);
-      vec3 whiteCore = vec3(1.0, 0.90, 0.70);
-      vec3 finalColor = mix(prominenceColor, whiteCore, smoothstep(0.4, 1.2, totalProminence));
-
-      float alpha = clamp(totalProminence * 0.95, 0.0, 1.0);
-      gl_FragColor = vec4(finalColor * alpha, alpha);
-    }
-  `
-};
-
-// =============================================================================
-// Smooth Monotonic SDO Corona Shader (Zero Outline Rings, Zero Halos, Zero Box Edges)
-// Additive exponential falloff fading strictly to 0.0 at outer radius
-// =============================================================================
-const CoronaShader = {
-  vertexShader: `
-    #include <common>
-    #include <logdepthbuf_pars_vertex>
-
-    varying vec2 vCoord;
+    varying vec2 vOffset;
     uniform float uRadius;
-
-    void main() {
-      // Standard camera-facing billboard centered at model position
-      vec4 mvPosition = modelViewMatrix * vec4(0.0, 0.0, 0.0, 1.0);
-      mvPosition.xy += position.xy;
-      gl_Position = projectionMatrix * mvPosition;
-
-      // Coordinate normalized to solar radius (limb is length(vCoord) == 1.0)
-      vCoord = position.xy / uRadius;
-
-      #include <logdepthbuf_vertex>
-    }
-  `,
-  fragmentShader: `
-    #include <logdepthbuf_pars_fragment>
-
-    varying vec2 vCoord;
     uniform float uTime;
 
     void main() {
       #include <logdepthbuf_fragment>
 
-      float r = length(vCoord);
+      float dist = length(vOffset);
 
-      // Discard inside the photosphere disc or beyond 3.2 radii
-      if (r < 0.998 || r > 3.2) discard;
+      // 1. Strictly discard inside the solid photosphere disc (dist <= uRadius)
+      // The solid 3D sphere renders the actual solar surface.
+      // Zero black fill, zero dark disc, zero occlusion!
+      if (dist <= uRadius) discard;
 
-      // Smooth monotonic exponential radial falloff matching SDO 304 Å glow
-      // Exactly zero at r = 3.2 with zero derivative (hermite cubic)
-      float edgeFade = 1.0 - smoothstep(1.0, 3.2, r);
-      float radialFalloff = exp(-(r - 1.0) * 2.2) * 0.75 * edgeFade;
+      // 2. Maximum outer glow radius: 1.65 * uRadius
+      // Quad size is 3.5 * uRadius (half-size 1.75 * uRadius), so 1.65 is strictly inside the quad.
+      float maxDist = uRadius * 1.65;
+      if (dist >= maxDist) discard;
 
-      if (radialFalloff < 0.002) discard;
+      // 3. Normalized radial distance outside the limb: 0.0 at limb, 1.0 at maxDist
+      float t = (dist - uRadius) / (maxDist - uRadius);
 
-      // Rich SDO orange-red corona hue
-      vec3 deepCoronaRed = vec3(0.95, 0.28, 0.03);
-      vec3 brightCoronaGold = vec3(1.0, 0.65, 0.18);
-      vec3 coronaColor = mix(deepCoronaRed, brightCoronaGold, exp(-(r - 1.0) * 4.0));
+      // 4. Smooth monotonic exponential radial falloff
+      // Hermite cubic factor (1 - t)^2 * (1 + 2t) guarantees EXACTLY zero brightness
+      // and ZERO derivative at maxDist (zero edge clipping)!
+      float hermite = (1.0 - t) * (1.0 - t) * (1.0 + 2.0 * t);
+      float falloff = exp(-t * 3.8) * hermite;
 
-      gl_FragColor = vec4(coronaColor * radialFalloff, radialFalloff);
+      if (falloff <= 0.001) discard;
+
+      // 5. Rich SDO AIA 304 Å chromospheric orange-red hue
+      vec3 goldLimb = vec3(1.0, 0.65, 0.16);
+      vec3 crimsonPlume = vec3(0.92, 0.24, 0.03);
+      vec3 col = mix(crimsonPlume, goldLimb, pow(1.0 - t, 2.0));
+
+      gl_FragColor = vec4(col * falloff * 0.95, falloff);
     }
   `
 };
 
 export function CinematicSun({
-  radius = 14.0,
+  radius = 54.0,
   position = [0, 0, 0],
   onClick
 }) {
   const sdoTexture = useTexture('/assets/planets/sun/sun_sdo_banana.jpg');
   const sunMeshRef = useRef();
   const photoShaderRef = useRef();
-  const promShaderRef = useRef();
   const coronaShaderRef = useRef();
 
   const { camera } = useThree();
@@ -402,23 +288,19 @@ export function CinematicSun({
     if (photoShaderRef.current) {
       photoShaderRef.current.uniforms.uTime.value = elapsed;
     }
-    if (promShaderRef.current) {
-      promShaderRef.current.uniforms.uTime.value = elapsed;
-    }
     if (coronaShaderRef.current) {
       coronaShaderRef.current.uniforms.uTime.value = elapsed;
     }
 
     // Auto-exposure: stop down smoothly as camera approaches massive solar disc
     const camDist = camera.position.distanceTo(new THREE.Vector3(...position));
-    const normalizedDist = Math.max(0.0, Math.min(1.0, (camDist - radius * 1.5) / 120.0));
+    const normalizedDist = Math.max(0.0, Math.min(1.0, (camDist - radius * 1.3) / (radius * 6.0)));
     const targetExposure = 0.50 + normalizedDist * 0.65;
     state.gl.toneMappingExposure = targetExposure;
   });
 
-  // Geometries
-  const prominenceBillboardGeo = useMemo(() => new THREE.PlaneGeometry(radius * 2.5, radius * 2.5), [radius]);
-  const coronaBillboardGeo = useMemo(() => new THREE.PlaneGeometry(radius * 8.0, radius * 8.0), [radius]);
+  // Camera-facing billboard quad for corona (3.5 * radius so maxDist 1.65 is strictly inside)
+  const coronaBillboardGeo = useMemo(() => new THREE.PlaneGeometry(radius * 3.5, radius * 3.5), [radius]);
 
   return (
     <group position={position} onClick={onClick}>
@@ -443,33 +325,14 @@ export function CinematicSun({
         />
       </mesh>
 
-      {/* 2. Wispy Limb Prominences & Spicule Arches (Protruding beyond disc) */}
+      {/* 2. Clean Additive SDO 304 Å Coronal Glow (Zero black fill, zero hard rim, zero box edge) */}
       <mesh
-        geometry={prominenceBillboardGeo}
+        geometry={coronaBillboardGeo}
         renderOrder={2}
       >
         <shaderMaterial
-          ref={promShaderRef}
-          args={[ProminenceShader]}
-          transparent={true}
-          blending={THREE.AdditiveBlending}
-          depthWrite={false}
-          depthTest={true}
-          uniforms={{
-            uTime: { value: 0 },
-            uRadius: { value: radius }
-          }}
-        />
-      </mesh>
-
-      {/* 3. Smooth Monotonic SDO 304 Å Coronal Glow (Zero outline rings, zero halos) */}
-      <mesh
-        geometry={coronaBillboardGeo}
-        renderOrder={3}
-      >
-        <shaderMaterial
           ref={coronaShaderRef}
-          args={[CoronaShader]}
+          args={[SunCoronaShader]}
           transparent={true}
           blending={THREE.AdditiveBlending}
           depthWrite={false}

@@ -1,6 +1,7 @@
-import React, { useMemo, useRef } from 'react';
+import React, { useMemo, useRef, useState, useEffect } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
+import { DISPLAY_RADII, DISPLAY_ORBIT_RADII } from '../../data/displayScale';
 
 const ORBIT_COLORS = {
   mercury: '#9ca3af',
@@ -15,15 +16,15 @@ const ORBIT_COLORS = {
 };
 
 const BODY_RADII = {
-  mercury: 1.0,
-  venus: 1.8,
-  earth: 2.0,
-  mars: 1.3,
-  asteroids: 1.0,
-  jupiter: 5.5,
-  saturn: 4.2,
-  uranus: 2.8,
-  neptune: 2.7
+  mercury: DISPLAY_RADII.mercury,
+  venus: DISPLAY_RADII.venus,
+  earth: DISPLAY_RADII.earth,
+  mars: DISPLAY_RADII.mars,
+  asteroids: DISPLAY_RADII.ceres,
+  jupiter: DISPLAY_RADII.jupiter,
+  saturn: DISPLAY_RADII.saturn,
+  uranus: DISPLAY_RADII.uranus,
+  neptune: DISPLAY_RADII.neptune
 };
 
 const OrbitLineShader = {
@@ -114,25 +115,22 @@ function OrbitLine({
 }
 
 export function OrbitGuides({
-  radii = {
-    mercury: 24,
-    venus: 36,
-    earth: 50,
-    mars: 66,
-    asteroidsInner: 78,
-    asteroidsOuter: 94,
-    jupiter: 122,
-    saturn: 165,
-    uranus: 208,
-    neptune: 250
-  },
+  radii = DISPLAY_ORBIT_RADII,
   visible = true,
   selectedBody = 'overview',
   bodyPositions = {}
 }) {
-  if (!visible) return null;
-  // Fade out orbit lines when viewing the Sun so lines never cross its face
-  if (selectedBody === 'sun') return null;
+  const [fadeAlpha, setFadeAlpha] = useState(0.0);
+
+  useFrame((_, delta) => {
+    if (visible && selectedBody !== 'sun') {
+      setFadeAlpha((a) => Math.min(1.0, a + delta * 0.8));
+    } else {
+      setFadeAlpha((a) => Math.max(0.0, a - delta * 2.0));
+    }
+  });
+
+  if (fadeAlpha <= 0.001) return null;
 
   const currentTargetPos = (selectedBody && selectedBody !== 'overview' && bodyPositions[selectedBody])
     ? bodyPositions[selectedBody]
@@ -143,16 +141,16 @@ export function OrbitGuides({
 
   return (
     <group>
-      <OrbitLine radius={radii.mercury} color={ORBIT_COLORS.mercury} opacity={0.28} targetPos={currentTargetPos} targetRadius={currentTargetRadius} />
-      <OrbitLine radius={radii.venus} color={ORBIT_COLORS.venus} opacity={0.26} targetPos={currentTargetPos} targetRadius={currentTargetRadius} />
-      <OrbitLine radius={radii.earth} color={ORBIT_COLORS.earth} opacity={0.32} targetPos={currentTargetPos} targetRadius={currentTargetRadius} />
-      <OrbitLine radius={radii.mars} color={ORBIT_COLORS.mars} opacity={0.28} targetPos={currentTargetPos} targetRadius={currentTargetRadius} />
-      <OrbitLine radius={radii.asteroidsInner} color={ORBIT_COLORS.asteroids} opacity={0.16} targetPos={currentTargetPos} targetRadius={currentTargetRadius} />
-      <OrbitLine radius={radii.asteroidsOuter} color={ORBIT_COLORS.asteroids} opacity={0.16} targetPos={currentTargetPos} targetRadius={currentTargetRadius} />
-      <OrbitLine radius={radii.jupiter} color={ORBIT_COLORS.jupiter} opacity={0.28} targetPos={currentTargetPos} targetRadius={currentTargetRadius} />
-      <OrbitLine radius={radii.saturn} color={ORBIT_COLORS.saturn} opacity={0.28} targetPos={currentTargetPos} targetRadius={currentTargetRadius} />
-      <OrbitLine radius={radii.uranus} color={ORBIT_COLORS.uranus} opacity={0.24} targetPos={currentTargetPos} targetRadius={currentTargetRadius} />
-      <OrbitLine radius={radii.neptune} color={ORBIT_COLORS.neptune} opacity={0.24} targetPos={currentTargetPos} targetRadius={currentTargetRadius} />
+      <OrbitLine radius={radii.mercury} color={ORBIT_COLORS.mercury} opacity={0.28 * fadeAlpha} targetPos={currentTargetPos} targetRadius={currentTargetRadius} />
+      <OrbitLine radius={radii.venus} color={ORBIT_COLORS.venus} opacity={0.26 * fadeAlpha} targetPos={currentTargetPos} targetRadius={currentTargetRadius} />
+      <OrbitLine radius={radii.earth} color={ORBIT_COLORS.earth} opacity={0.32 * fadeAlpha} targetPos={currentTargetPos} targetRadius={currentTargetRadius} />
+      <OrbitLine radius={radii.mars} color={ORBIT_COLORS.mars} opacity={0.28 * fadeAlpha} targetPos={currentTargetPos} targetRadius={currentTargetRadius} />
+      <OrbitLine radius={radii.asteroidsInner} color={ORBIT_COLORS.asteroids} opacity={0.16 * fadeAlpha} targetPos={currentTargetPos} targetRadius={currentTargetRadius} />
+      <OrbitLine radius={radii.asteroidsOuter} color={ORBIT_COLORS.asteroids} opacity={0.16 * fadeAlpha} targetPos={currentTargetPos} targetRadius={currentTargetRadius} />
+      <OrbitLine radius={radii.jupiter} color={ORBIT_COLORS.jupiter} opacity={0.28 * fadeAlpha} targetPos={currentTargetPos} targetRadius={currentTargetRadius} />
+      <OrbitLine radius={radii.saturn} color={ORBIT_COLORS.saturn} opacity={0.28 * fadeAlpha} targetPos={currentTargetPos} targetRadius={currentTargetRadius} />
+      <OrbitLine radius={radii.uranus} color={ORBIT_COLORS.uranus} opacity={0.24 * fadeAlpha} targetPos={currentTargetPos} targetRadius={currentTargetRadius} />
+      <OrbitLine radius={radii.neptune} color={ORBIT_COLORS.neptune} opacity={0.24 * fadeAlpha} targetPos={currentTargetPos} targetRadius={currentTargetRadius} />
     </group>
   );
 }

@@ -150,7 +150,7 @@ const EarthCloudsShader = {
 
 export function CinematicEarth({
   position = [0, 0, 0],
-  radius = 2.0,
+  radius = 3.5,
   isPlaying = true,
   axialTilt = EARTH_AXIAL_TILT,
   sunDirection,
@@ -186,12 +186,18 @@ export function CinematicEarth({
   useFrame((state, delta) => {
     const elapsed = state.clock.getElapsedTime();
 
+    // Dynamically update sunlight direction from current orbital position
+    const earthPos = new THREE.Vector3(...position);
+    const sunDir = earthPos.lengthSq() > 1.0
+      ? new THREE.Vector3(0, 0, 0).sub(earthPos).normalize()
+      : new THREE.Vector3(1, 0.45, 1).normalize();
+
     if (surfaceShaderRef.current) {
       surfaceShaderRef.current.uniforms.uTime.value = elapsed;
-      surfaceShaderRef.current.uniforms.uSunDirection.value = computedSunDir;
+      surfaceShaderRef.current.uniforms.uSunDirection.value = sunDir;
     }
     if (cloudsShaderRef.current) {
-      cloudsShaderRef.current.uniforms.uSunDirection.value = computedSunDir;
+      cloudsShaderRef.current.uniforms.uSunDirection.value = sunDir;
     }
 
     if (isPlaying) {
@@ -208,7 +214,7 @@ export function CinematicEarth({
     }
 
     // Moon Position & Tidal Locking
-    const moonDist = radius * 5.8;
+    const moonDist = radius * 3.8;
     const mAngle = moonOrbitAngleRef.current;
     if (moonRef.current) {
       moonRef.current.position.set(

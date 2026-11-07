@@ -9,9 +9,10 @@ import * as THREE from 'three';
 // Keplerian angular velocity (v ~ 1/sqrt(r)), and individual tumbling spin.
 
 export function AsteroidBelt({
-  innerRadius = 78,
-  outerRadius = 94,
+  innerRadius = 232,
+  outerRadius = 260,
   count = 1200,
+  ceresRadius = 0.65,
   isPlaying = true,
   onClick
 }) {
@@ -143,7 +144,7 @@ export function AsteroidBelt({
 
       {/* 2. Dwarf Planet Ceres (Largest body in asteroid belt, 940 km diameter) */}
       <mesh ref={ceresRef} castShadow receiveShadow>
-        <sphereGeometry args={[0.42, 64, 64]} />
+        <sphereGeometry args={[ceresRadius, 64, 64]} />
         <meshStandardMaterial
           map={ceresMap}
           roughness={0.92}

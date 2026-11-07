@@ -85,7 +85,7 @@ const MarsSurfaceShader = {
 
 export function CinematicMars({
   position = [0, 0, 0],
-  radius = 1.3,
+  radius = 2.7,
   axialTilt = (25.19 * Math.PI) / 180,
   isPlaying = true,
   onClick

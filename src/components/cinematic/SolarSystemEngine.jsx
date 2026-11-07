@@ -15,32 +15,7 @@ import { InteractiveSolarCamera } from './InteractiveSolarCamera';
 import { OrbitGuides } from './OrbitGuides';
 import { CelestialLabels } from './CelestialLabels';
 import { CinematicPrologueDirector } from './CinematicPrologueDirector';
-
-// Calibrated Astronomical Scale & Relative Speeds
-const ORBIT_RADII = {
-  mercury: 24,
-  venus: 36,
-  earth: 50,
-  mars: 66,
-  asteroidsInner: 78,
-  asteroidsOuter: 94,
-  jupiter: 122,
-  saturn: 165,
-  uranus: 208,
-  neptune: 250
-};
-
-const ORBIT_SPEEDS = {
-  mercury: 4.15,
-  venus: 1.62,
-  earth: 1.00,
-  mars: 0.53,
-  asteroids: 0.35,
-  jupiter: 0.22,
-  saturn: 0.14,
-  uranus: 0.08,
-  neptune: 0.05
-};
+import { DISPLAY_RADII, DISPLAY_ORBIT_RADII, ORBIT_SPEEDS } from '../../data/displayScale';
 
 export function SolarSystemEngine({
   selectedBody = 'overview',
@@ -71,15 +46,15 @@ export function SolarSystemEngine({
   const [positions, setPositions] = useState(() => ({
     sun: [0, 0, 0],
     overview: [0, 0, 0],
-    mercury: [Math.cos(0.4) * ORBIT_RADII.mercury, 0, Math.sin(0.4) * ORBIT_RADII.mercury],
-    venus: [Math.cos(1.8) * ORBIT_RADII.venus, 0, Math.sin(1.8) * ORBIT_RADII.venus],
-    earth: [Math.cos(3.2) * ORBIT_RADII.earth, 0, Math.sin(3.2) * ORBIT_RADII.earth],
-    mars: [Math.cos(4.6) * ORBIT_RADII.mars, 0, Math.sin(4.6) * ORBIT_RADII.mars],
-    asteroids: [Math.cos(1.2) * 86, 0, Math.sin(1.2) * 86],
-    jupiter: [Math.cos(0.9) * ORBIT_RADII.jupiter, 0, Math.sin(0.9) * ORBIT_RADII.jupiter],
-    saturn: [Math.cos(2.5) * ORBIT_RADII.saturn, 0, Math.sin(2.5) * ORBIT_RADII.saturn],
-    uranus: [Math.cos(5.1) * ORBIT_RADII.uranus, 0, Math.sin(5.1) * ORBIT_RADII.uranus],
-    neptune: [Math.cos(3.8) * ORBIT_RADII.neptune, 0, Math.sin(3.8) * ORBIT_RADII.neptune]
+    mercury: [Math.cos(0.4) * DISPLAY_ORBIT_RADII.mercury, 0, Math.sin(0.4) * DISPLAY_ORBIT_RADII.mercury],
+    venus: [Math.cos(1.8) * DISPLAY_ORBIT_RADII.venus, 0, Math.sin(1.8) * DISPLAY_ORBIT_RADII.venus],
+    earth: [Math.cos(3.2) * DISPLAY_ORBIT_RADII.earth, 0, Math.sin(3.2) * DISPLAY_ORBIT_RADII.earth],
+    mars: [Math.cos(4.6) * DISPLAY_ORBIT_RADII.mars, 0, Math.sin(4.6) * DISPLAY_ORBIT_RADII.mars],
+    asteroids: [Math.cos(1.2) * DISPLAY_ORBIT_RADII.ceres, 0.4, Math.sin(1.2) * DISPLAY_ORBIT_RADII.ceres],
+    jupiter: [Math.cos(0.9) * DISPLAY_ORBIT_RADII.jupiter, 0, Math.sin(0.9) * DISPLAY_ORBIT_RADII.jupiter],
+    saturn: [Math.cos(2.5) * DISPLAY_ORBIT_RADII.saturn, 0, Math.sin(2.5) * DISPLAY_ORBIT_RADII.saturn],
+    uranus: [Math.cos(5.1) * DISPLAY_ORBIT_RADII.uranus, 0, Math.sin(5.1) * DISPLAY_ORBIT_RADII.uranus],
+    neptune: [Math.cos(3.8) * DISPLAY_ORBIT_RADII.neptune, 0, Math.sin(3.8) * DISPLAY_ORBIT_RADII.neptune]
   }));
 
   // Orbital revolution frame loop
@@ -99,30 +74,30 @@ export function SolarSystemEngine({
     anglesRef.current.uranus += advance * ORBIT_SPEEDS.uranus;
     anglesRef.current.neptune += advance * ORBIT_SPEEDS.neptune;
 
-    const ceresR = (ORBIT_RADII.asteroidsInner + ORBIT_RADII.asteroidsOuter) * 0.5;
+    const ceresR = DISPLAY_ORBIT_RADII.ceres;
 
     setPositions({
       sun: [0, 0, 0],
       overview: [0, 0, 0],
       mercury: [
-        Math.cos(anglesRef.current.mercury) * ORBIT_RADII.mercury,
+        Math.cos(anglesRef.current.mercury) * DISPLAY_ORBIT_RADII.mercury,
         0,
-        Math.sin(anglesRef.current.mercury) * ORBIT_RADII.mercury
+        Math.sin(anglesRef.current.mercury) * DISPLAY_ORBIT_RADII.mercury
       ],
       venus: [
-        Math.cos(anglesRef.current.venus) * ORBIT_RADII.venus,
+        Math.cos(anglesRef.current.venus) * DISPLAY_ORBIT_RADII.venus,
         0,
-        Math.sin(anglesRef.current.venus) * ORBIT_RADII.venus
+        Math.sin(anglesRef.current.venus) * DISPLAY_ORBIT_RADII.venus
       ],
       earth: [
-        Math.cos(anglesRef.current.earth) * ORBIT_RADII.earth,
+        Math.cos(anglesRef.current.earth) * DISPLAY_ORBIT_RADII.earth,
         0,
-        Math.sin(anglesRef.current.earth) * ORBIT_RADII.earth
+        Math.sin(anglesRef.current.earth) * DISPLAY_ORBIT_RADII.earth
       ],
       mars: [
-        Math.cos(anglesRef.current.mars) * ORBIT_RADII.mars,
+        Math.cos(anglesRef.current.mars) * DISPLAY_ORBIT_RADII.mars,
         0,
-        Math.sin(anglesRef.current.mars) * ORBIT_RADII.mars
+        Math.sin(anglesRef.current.mars) * DISPLAY_ORBIT_RADII.mars
       ],
       asteroids: [
         Math.cos(anglesRef.current.asteroids) * ceresR,
@@ -130,24 +105,24 @@ export function SolarSystemEngine({
         Math.sin(anglesRef.current.asteroids) * ceresR
       ],
       jupiter: [
-        Math.cos(anglesRef.current.jupiter) * ORBIT_RADII.jupiter,
+        Math.cos(anglesRef.current.jupiter) * DISPLAY_ORBIT_RADII.jupiter,
         0,
-        Math.sin(anglesRef.current.jupiter) * ORBIT_RADII.jupiter
+        Math.sin(anglesRef.current.jupiter) * DISPLAY_ORBIT_RADII.jupiter
       ],
       saturn: [
-        Math.cos(anglesRef.current.saturn) * ORBIT_RADII.saturn,
+        Math.cos(anglesRef.current.saturn) * DISPLAY_ORBIT_RADII.saturn,
         0,
-        Math.sin(anglesRef.current.saturn) * ORBIT_RADII.saturn
+        Math.sin(anglesRef.current.saturn) * DISPLAY_ORBIT_RADII.saturn
       ],
       uranus: [
-        Math.cos(anglesRef.current.uranus) * ORBIT_RADII.uranus,
+        Math.cos(anglesRef.current.uranus) * DISPLAY_ORBIT_RADII.uranus,
         0,
-        Math.sin(anglesRef.current.uranus) * ORBIT_RADII.uranus
+        Math.sin(anglesRef.current.uranus) * DISPLAY_ORBIT_RADII.uranus
       ],
       neptune: [
-        Math.cos(anglesRef.current.neptune) * ORBIT_RADII.neptune,
+        Math.cos(anglesRef.current.neptune) * DISPLAY_ORBIT_RADII.neptune,
         0,
-        Math.sin(anglesRef.current.neptune) * ORBIT_RADII.neptune
+        Math.sin(anglesRef.current.neptune) * DISPLAY_ORBIT_RADII.neptune
       ]
     });
   });
@@ -177,7 +152,7 @@ export function SolarSystemEngine({
 
       {/* 3. Subtle Orbital Guides */}
       <OrbitGuides
-        radii={ORBIT_RADII}
+        radii={DISPLAY_ORBIT_RADII}
         visible={showOrbits}
         selectedBody={selectedBody}
         bodyPositions={positions}
@@ -193,7 +168,7 @@ export function SolarSystemEngine({
 
       {/* 5. The Central Thermonuclear Sun */}
       <CinematicSun
-        radius={12.0}
+        radius={DISPLAY_RADII.sun}
         onClick={(e) => {
           e.stopPropagation();
           if (onSelectBody) onSelectBody('sun');
@@ -203,7 +178,7 @@ export function SolarSystemEngine({
       {/* 6. Mercury */}
       <CinematicMercury
         position={positions.mercury}
-        radius={1.0}
+        radius={DISPLAY_RADII.mercury}
         isPlaying={!isPaused}
         onClick={(e) => {
           e.stopPropagation();
@@ -214,7 +189,7 @@ export function SolarSystemEngine({
       {/* 7. Venus */}
       <CinematicVenus
         position={positions.venus}
-        radius={1.8}
+        radius={DISPLAY_RADII.venus}
         isPlaying={!isPaused}
         onClick={(e) => {
           e.stopPropagation();
@@ -225,7 +200,7 @@ export function SolarSystemEngine({
       {/* 8. Earth & The Moon */}
       <CinematicEarth
         position={positions.earth}
-        radius={2.0}
+        radius={DISPLAY_RADII.earth}
         isPlaying={!isPaused}
         onClick={(e) => {
           e.stopPropagation();
@@ -236,7 +211,7 @@ export function SolarSystemEngine({
       {/* 9. Mars */}
       <CinematicMars
         position={positions.mars}
-        radius={1.3}
+        radius={DISPLAY_RADII.mars}
         isPlaying={!isPaused}
         onClick={(e) => {
           e.stopPropagation();
@@ -246,8 +221,8 @@ export function SolarSystemEngine({
 
       {/* 10. Asteroid Belt & Ceres */}
       <AsteroidBelt
-        innerRadius={ORBIT_RADII.asteroidsInner}
-        outerRadius={ORBIT_RADII.asteroidsOuter}
+        innerRadius={DISPLAY_ORBIT_RADII.asteroidsInner}
+        outerRadius={DISPLAY_ORBIT_RADII.asteroidsOuter}
         count={950}
         isPlaying={!isPaused}
         onClick={(e) => {
@@ -259,7 +234,7 @@ export function SolarSystemEngine({
       {/* 11. Jupiter & Galilean Moons (Io & Europa) */}
       <CinematicJupiter
         position={positions.jupiter}
-        radius={5.5}
+        radius={DISPLAY_RADII.jupiter}
         isPlaying={!isPaused}
         onClick={(e) => {
           e.stopPropagation();
@@ -270,7 +245,7 @@ export function SolarSystemEngine({
       {/* 12. Saturn & Cassini Division Rings */}
       <CinematicSaturn
         position={positions.saturn}
-        radius={4.2}
+        radius={DISPLAY_RADII.saturn}
         isPlaying={!isPaused}
         onClick={(e) => {
           e.stopPropagation();
@@ -281,7 +256,7 @@ export function SolarSystemEngine({
       {/* 13. Uranus & Ring System */}
       <CinematicUranus
         position={positions.uranus}
-        radius={2.8}
+        radius={DISPLAY_RADII.uranus}
         isPlaying={!isPaused}
         onClick={(e) => {
           e.stopPropagation();
@@ -292,7 +267,7 @@ export function SolarSystemEngine({
       {/* 14. Neptune */}
       <CinematicNeptune
         position={positions.neptune}
-        radius={2.7}
+        radius={DISPLAY_RADII.neptune}
         isPlaying={!isPaused}
         onClick={(e) => {
           e.stopPropagation();

@@ -96,12 +96,19 @@ const SaturnSurfaceShader = {
       float sunDot = dot(worldNormal, sunDir);
       float dayFactor = smoothstep(-0.15, 0.25, sunDot);
 
-      // Atmospheric Limb Glow
+      // Atmospheric Limb Glow - strictly sunlit, zero rim on nightside!
       float rim = 1.0 - max(0.0, dot(normal, viewDir));
-      float limbScatter = pow(rim, 3.6) * (dayFactor * 0.7 + 0.3);
-      vec3 atmoLimb = vec3(0.98, 0.86, 0.58) * limbScatter * 1.4;
+      float sunlitLimb = smoothstep(0.0, 0.30, sunDot);
+      float limbScatter = pow(rim, 4.0) * sunlitLimb;
+      vec3 atmoLimb = vec3(0.98, 0.88, 0.62) * limbScatter * 1.25;
 
-      vec3 finalColor = baseCloud * diffuse * shadowFactor * 1.15 + atmoLimb;
+      // Ringshine & Starlight fill on nightside:
+      // Rings sit in equatorial plane (y=0) out to ~2.8 R. The atmosphere receives reflected light from the rings.
+      float ringProximity = clamp(1.0 - abs(vLocalPosition.y) / uRadius, 0.0, 1.0);
+      vec3 ringshine = vec3(0.92, 0.84, 0.68) * ringProximity * 0.095 * (1.0 - dayFactor);
+      vec3 nightAmbient = baseCloud * 0.032 + ringshine;
+
+      vec3 finalColor = baseCloud * diffuse * shadowFactor * 1.20 + atmoLimb + nightAmbient;
       gl_FragColor = vec4(finalColor, 1.0);
     }
   `
@@ -190,7 +197,7 @@ const SaturnRingsShader = {
 
 export function CinematicSaturn({
   position = [0, 0, 0],
-  radius = 4.0,
+  radius = 11.5,
   isPlaying = true,
   onClick
 }) {

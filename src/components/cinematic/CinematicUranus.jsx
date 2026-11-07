@@ -52,12 +52,13 @@ const UranusAtmosphereShader = {
       vec3 texColor = texture2D(uAlbedo, vUv).rgb;
 
       // Authentic Voyager 2 / Hubble cyan-aquamarine methane coloration
-      vec3 uranusCyan = vec3(0.52, 0.84, 0.92);
+      vec3 uranusCyan = vec3(0.50, 0.82, 0.90);
       vec3 baseColor = mix(texColor, uranusCyan, 0.35);
 
-      // Subtle zonal atmospheric bands
-      float latBand = sin(vUv.y * 38.0) * 0.025;
-      baseColor += vec3(latBand * 0.5, latBand, latBand * 0.8);
+      // Subtle zonal atmospheric bands & polar hood brightening
+      float latBand = sin(vUv.y * 36.0) * 0.028 + sin(vUv.y * 72.0) * 0.012;
+      float polarHood = smoothstep(0.70, 0.95, vUv.y) * 0.08;
+      baseColor += vec3(latBand * 0.5 + polarHood * 0.6, latBand + polarHood, latBand * 0.8 + polarHood);
 
       // Day / Night illumination
       float sunDot = dot(worldNormal, sunDir);
@@ -135,7 +136,7 @@ const UranusRingShader = {
 
 export function CinematicUranus({
   position = [0, 0, 0],
-  radius = 2.8,
+  radius = 6.6,
   axialTilt = (97.77 * Math.PI) / 180, // Sideways rolling tilt
   isPlaying = true,
   onClick
@@ -156,9 +157,9 @@ export function CinematicUranus({
   }, [position]);
 
   const ringGeometry = useMemo(() => {
-    const innerRadius = radius * 1.55;
-    const outerRadius = radius * 2.25;
-    return new THREE.RingGeometry(innerRadius, outerRadius, 128);
+    const innerRadius = radius * 1.35;
+    const outerRadius = radius * 2.05;
+    return new THREE.RingGeometry(innerRadius, outerRadius, 192);
   }, [radius]);
 
   useFrame((_, delta) => {

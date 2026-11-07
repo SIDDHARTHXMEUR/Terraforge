@@ -99,7 +99,7 @@ const MercurySurfaceShader = {
 
 export function CinematicMercury({
   position = [0, 0, 0],
-  radius = 1.0,
+  radius = 2.4,
   axialTilt = (0.03 * Math.PI) / 180,
   isPlaying = true,
   onClick

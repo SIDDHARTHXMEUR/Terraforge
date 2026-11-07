@@ -106,7 +106,7 @@ const JupiterSurfaceShader = {
 
 export function CinematicJupiter({
   position = [0, 0, 0],
-  radius = 5.2,
+  radius = 13.5,
   isPlaying = true,
   onClick
 }) {

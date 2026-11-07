@@ -1,17 +1,21 @@
 import React, { useState } from 'react';
 import { Html } from '@react-three/drei';
+import { DISPLAY_RADII } from '../../data/displayScale';
 
+// Calibrated aerospace editorial label offsets designed to prevent text collisions
+// Alternating quad-direction vectors ensure inner planets (Mercury, Venus, Earth, Mars, Ceres)
+// never collide even during orbital conjunctions.
 const CELESTIAL_BODIES = [
-  { id: 'sun', label: 'SOL', offset: [50, -40], yLift: 12.0 },
-  { id: 'mercury', label: 'MERCURY', offset: [36, -26], yLift: 1.5 },
-  { id: 'venus', label: 'VENUS', offset: [40, -30], yLift: 2.2 },
-  { id: 'earth', label: 'EARTH', offset: [42, -32], yLift: 2.5 },
-  { id: 'mars', label: 'MARS', offset: [38, -28], yLift: 1.8 },
-  { id: 'asteroids', label: 'CERES', offset: [45, -35], yLift: 1.0, hoverOnly: true },
-  { id: 'jupiter', label: 'JUPITER', offset: [55, -45], yLift: 6.0 },
-  { id: 'saturn', label: 'SATURN', offset: [60, -50], yLift: 5.0 },
-  { id: 'uranus', label: 'URANUS', offset: [44, -34], yLift: 3.5 },
-  { id: 'neptune', label: 'NEPTUNE', offset: [44, -34], yLift: 3.5 }
+  { id: 'sun', label: 'SOL', offset: [65, -55], yLift: DISPLAY_RADII.sun * 1.05 },
+  { id: 'mercury', label: 'MERCURY', offset: [40, -25], yLift: DISPLAY_RADII.mercury * 1.25 },
+  { id: 'venus', label: 'VENUS', offset: [45, 30], yLift: DISPLAY_RADII.venus * 1.25 },
+  { id: 'earth', label: 'EARTH', offset: [52, -48], yLift: DISPLAY_RADII.earth * 1.25 },
+  { id: 'mars', label: 'MARS', offset: [-50, -35], yLift: DISPLAY_RADII.mars * 1.25 },
+  { id: 'asteroids', label: 'CERES', offset: [-45, 30], yLift: DISPLAY_RADII.ceres * 1.5, hoverOnly: true },
+  { id: 'jupiter', label: 'JUPITER', offset: [65, -55], yLift: DISPLAY_RADII.jupiter * 1.15 },
+  { id: 'saturn', label: 'SATURN', offset: [-65, -55], yLift: DISPLAY_RADII.saturn * 1.15 },
+  { id: 'uranus', label: 'URANUS', offset: [50, 40], yLift: DISPLAY_RADII.uranus * 1.20 },
+  { id: 'neptune', label: 'NEPTUNE', offset: [-50, 40], yLift: DISPLAY_RADII.neptune * 1.20 }
 ];
 
 function CelestialLabelItem({

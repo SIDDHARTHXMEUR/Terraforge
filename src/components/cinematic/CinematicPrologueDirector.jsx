@@ -48,81 +48,106 @@ export function CinematicPrologueDirector({
     timeRef.current += delta;
     const t = timeRef.current;
 
-    // Saturn real-time position and orbital vectors
+    // Saturn real-time position
     const satPos = bodyPositions.saturn || [-132, 0, 98];
     const satVec = new THREE.Vector3(...satPos);
 
-    // Vector from Saturn toward Sun at (0, 0, 0)
+    // Dynamic solar orientation vectors relative to Saturn
     const toSun = new THREE.Vector3(0, 0, 0).sub(satVec).normalize();
-    const awayFromSun = toSun.clone().negate();
     const up = new THREE.Vector3(0, 1, 0);
     const tangent = new THREE.Vector3().crossVectors(up, toSun).normalize();
 
     if (t < 7.0) {
       // -----------------------------------------------------------------------
-      // STAGE 1 (0 - 7s): The Gigantic Dark Limb of Saturn
-      // Tight & low over the night limb: Saturn blocks the Sun, with razor-thin
-      // sunlit crescent sliver along curvature and backlit rings in deep space
+      // STAGE 1 (0 - 7s): The Sunlit Crescent & Terminator of Saturn
+      // Camera is positioned along the terminator framing the sunlit crescent,
+      // atmospheric banding, crisp ring shadows on the globe, and ring-lit nightside.
       // -----------------------------------------------------------------------
       const p = t / 7.0;
       const ease = p * p * (3.0 - 2.0 * p);
 
-      const startCam = satVec.clone()
-        .addScaledVector(awayFromSun, 7.8)
-        .addScaledVector(tangent, 1.2)
-        .add(new THREE.Vector3(0, 1.5, 0));
+      const angleStart = (68.0 * Math.PI) / 180;
+      const angleEnd   = (56.0 * Math.PI) / 180;
 
-      const endCam = satVec.clone()
-        .addScaledVector(awayFromSun, 6.5)
-        .addScaledVector(tangent, 2.6)
-        .add(new THREE.Vector3(0, 2.2, 0));
+      const dirStart = new THREE.Vector3()
+        .addScaledVector(toSun, Math.cos(angleStart))
+        .addScaledVector(tangent, Math.sin(angleStart))
+        .normalize();
+
+      const dirEnd = new THREE.Vector3()
+        .addScaledVector(toSun, Math.cos(angleEnd))
+        .addScaledVector(tangent, Math.sin(angleEnd))
+        .normalize();
+
+      const startCam = new THREE.Vector3().copy(satVec)
+        .addScaledVector(dirStart, 25.5)
+        .addScaledVector(up, 4.5);
+
+      const endCam = new THREE.Vector3().copy(satVec)
+        .addScaledVector(dirEnd, 28.0)
+        .addScaledVector(up, 7.2);
 
       camera.position.lerpVectors(startCam, endCam, ease);
-      camera.lookAt(satVec.clone().addScaledVector(toSun, 2.0).add(new THREE.Vector3(0, 0.4, 0)));
+
+      const startTgt = new THREE.Vector3().copy(satVec).addScaledVector(toSun, 3.2);
+      const endTgt   = new THREE.Vector3().copy(satVec).addScaledVector(toSun, 2.0);
+      camera.lookAt(new THREE.Vector3().lerpVectors(startTgt, endTgt, ease));
     } else if (t < 15.0) {
       // -----------------------------------------------------------------------
-      // STAGE 2 (7 - 15s): The Solar Dawn — Blazing SDO Sun Rises Over Saturn
-      // Forward dolly & elevation past Saturn's limb: Sun crests the horizon!
+      // STAGE 2 (7 - 15s): The Solar Dawn — Thermonuclear Sun Rises Over Saturn
+      // Camera dollys around the limb as the brilliant Sun crests over the horizon.
       // -----------------------------------------------------------------------
       const p = (t - 7.0) / 8.0;
       const ease = p * p * (3.0 - 2.0 * p);
 
-      const startCam = satVec.clone()
-        .addScaledVector(awayFromSun, 6.5)
-        .addScaledVector(tangent, 2.6)
-        .add(new THREE.Vector3(0, 2.2, 0));
+      const angleEnd = (56.0 * Math.PI) / 180;
+      const dirStage1End = new THREE.Vector3()
+        .addScaledVector(toSun, Math.cos(angleEnd))
+        .addScaledVector(tangent, Math.sin(angleEnd))
+        .normalize();
 
-      const endCam = satVec.clone()
-        .addScaledVector(awayFromSun, 3.5)
-        .addScaledVector(tangent, 7.8)
-        .add(new THREE.Vector3(0, 5.5, 0));
+      const startCam = new THREE.Vector3().copy(satVec)
+        .addScaledVector(dirStage1End, 28.0)
+        .addScaledVector(up, 7.2);
+
+      const dawnDir = new THREE.Vector3()
+        .addScaledVector(toSun, Math.cos((24.0 * Math.PI) / 180))
+        .addScaledVector(tangent, Math.sin((24.0 * Math.PI) / 180))
+        .normalize();
+
+      const endCam = new THREE.Vector3().copy(satVec)
+        .addScaledVector(dawnDir, 52.0)
+        .addScaledVector(up, 22.0);
 
       camera.position.lerpVectors(startCam, endCam, ease);
 
-      const startTgt = satVec.clone().addScaledVector(toSun, 2.0).add(new THREE.Vector3(0, 0.4, 0));
+      const startTgt = new THREE.Vector3().copy(satVec).addScaledVector(toSun, 2.0);
       const endTgt   = new THREE.Vector3(0, 0, 0); // Sun at origin
-      const curTgt = new THREE.Vector3().lerpVectors(startTgt, endTgt, ease);
-      camera.lookAt(curTgt);
+      camera.lookAt(new THREE.Vector3().lerpVectors(startTgt, endTgt, ease));
     } else if (t < 21.5) {
       // -----------------------------------------------------------------------
       // STAGE 3 (15 - 21.5s): Ring Plane Parallax Sweep
-      // Camera sweeps along Saturn's ring plane with crisp shadows
+      // Camera sweeps across Saturn's ring plane with immense depth and scale
       // -----------------------------------------------------------------------
       const p = (t - 15.0) / 6.5;
       const ease = 1 - Math.pow(1 - p, 3);
 
-      const startCam = satVec.clone()
-        .addScaledVector(awayFromSun, 3.5)
-        .addScaledVector(tangent, 7.8)
-        .add(new THREE.Vector3(0, 5.5, 0));
+      const dawnDir = new THREE.Vector3()
+        .addScaledVector(toSun, Math.cos((24.0 * Math.PI) / 180))
+        .addScaledVector(tangent, Math.sin((24.0 * Math.PI) / 180))
+        .normalize();
 
-      const endCam = satVec.clone()
-        .addScaledVector(awayFromSun, -6.0)
-        .addScaledVector(tangent, 18.0)
-        .add(new THREE.Vector3(0, 9.5, 0));
+      const startCam = new THREE.Vector3().copy(satVec)
+        .addScaledVector(dawnDir, 52.0)
+        .addScaledVector(up, 22.0);
+
+      const endCam = new THREE.Vector3().copy(satVec)
+        .addScaledVector(toSun, -80.0)
+        .addScaledVector(tangent, -70.0)
+        .addScaledVector(up, 42.0);
 
       camera.position.lerpVectors(startCam, endCam, ease);
-      camera.lookAt(satVec.clone().add(new THREE.Vector3(0, 0.5, 0)));
+      camera.lookAt(new THREE.Vector3().copy(satVec).multiplyScalar(0.4));
     } else if (t < 26.0) {
       // -----------------------------------------------------------------------
       // STAGE 4 (21.5 - 26s): Final Deceleration into Cinematic Solar Overview
@@ -130,19 +155,18 @@ export function CinematicPrologueDirector({
       const p = (t - 21.5) / 4.5;
       const ease = 1 - Math.pow(1 - p, 5);
 
-      const startCam = satVec.clone()
-        .addScaledVector(awayFromSun, -12.0)
-        .addScaledVector(tangent, 38.0)
-        .add(new THREE.Vector3(0, 16.0, 0));
+      const startCam = new THREE.Vector3().copy(satVec)
+        .addScaledVector(toSun, -80.0)
+        .addScaledVector(tangent, -70.0)
+        .addScaledVector(up, 42.0);
 
-      const endCam = new THREE.Vector3(-145, 22, 130);
+      const endCam = new THREE.Vector3(-320, 110, 310);
 
       camera.position.lerpVectors(startCam, endCam, ease);
 
-      const startTgt = new THREE.Vector3(satVec.x * 0.4, 0, satVec.z * 0.4);
-      const endTgt   = new THREE.Vector3(-42, 0, 32);
-      const curTgt = new THREE.Vector3().lerpVectors(startTgt, endTgt, ease);
-      camera.lookAt(curTgt);
+      const startTgt = new THREE.Vector3().copy(satVec).multiplyScalar(0.4);
+      const endTgt   = new THREE.Vector3(-65, 0, 48);
+      camera.lookAt(new THREE.Vector3().lerpVectors(startTgt, endTgt, ease));
     } else {
       // Handover to interactive controls
       if (!isTerminatedRef.current) {
@@ -154,3 +178,4 @@ export function CinematicPrologueDirector({
 
   return null;
 }
+

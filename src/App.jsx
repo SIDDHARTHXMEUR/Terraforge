@@ -122,7 +122,7 @@ export default function App() {
           fov: 45,
           near: 0.1,
           far: 25000,
-          position: [0, 140, 220]
+          position: [-320, 110, 310]
         }}
         onPointerDown={() => setIsUserInteracting(true)}
         onPointerUp={() => setIsUserInteracting(false)}

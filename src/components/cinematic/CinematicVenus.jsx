@@ -81,7 +81,7 @@ const VenusCloudDeckShader = {
 
 export function CinematicVenus({
   position = [0, 0, 0],
-  radius = 1.8,
+  radius = 3.3,
   axialTilt = (177.3 * Math.PI) / 180, // Retrograde axial tilt
   isPlaying = true,
   onClick

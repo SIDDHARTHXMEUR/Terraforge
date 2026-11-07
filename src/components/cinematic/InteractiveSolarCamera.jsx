@@ -5,91 +5,91 @@ import * as THREE from 'three';
 
 const BODY_VIEW_CONFIGS = {
   cinematic_overview: {
-    offset: [-145, 22, 130], // Sun cropped upper-left, Saturn crescent in foreground, diagonal depth
-    target: [-42, 0, 32],
-    minDist: 10,
-    maxDist: 1800
+    offset: [-320, 110, 310], // Sun cropped upper-left, gas giants in foreground, majestic diagonal depth
+    target: [-65, 0, 48],
+    minDist: 50,
+    maxDist: 3500
   },
   scientific_overview: {
-    offset: [0, 360, 0.01], // Top-down heliocentric Keplerian orbital diagram
+    offset: [0, 850, 0.01], // Top-down heliocentric Keplerian orbital diagram
     target: [0, 0, 0],
-    minDist: 30,
-    maxDist: 2500
+    minDist: 100,
+    maxDist: 4000
   },
   overview: {
-    offset: [-145, 22, 130],
-    target: [-42, 0, 32],
-    minDist: 10,
-    maxDist: 1800
+    offset: [-320, 110, 310],
+    target: [-65, 0, 48],
+    minDist: 50,
+    maxDist: 3500
   },
   sun: {
-    offset: [16, 8, 70], // Sun fills ~35% of frame, slightly off-centre with corona fading into black
-    target: [-4, 0, 0],
-    minDist: 18,
-    maxDist: 600
+    offset: [35, 18, 140], // Sun fills ~35% of frame, slightly off-centre with corona fading smoothly into black
+    target: [-10, 0, 0],
+    minDist: 70,
+    maxDist: 1500
   },
   mercury: {
-    distance: 2.5,
-    terminatorAngle: 54, // dramatic crescent raking light
-    elevAngle: 12,
-    minDist: 1.25,
-    maxDist: 80
+    distance: 6.8,
+    terminatorAngle: 52, // dramatic crescent raking light
+    elevAngle: 14,
+    minDist: 3.5,
+    maxDist: 180
   },
   venus: {
-    distance: 4.2,
-    terminatorAngle: 56, // dramatic crescent with golden rim
-    elevAngle: 14,
-    minDist: 2.25,
-    maxDist: 120
+    distance: 9.6,
+    terminatorAngle: 54, // dramatic crescent with creamy limb
+    elevAngle: 16,
+    minDist: 4.8,
+    maxDist: 220
   },
   earth: {
-    distance: 4.8,
-    terminatorAngle: -28, // sunlit blue marble + ocean glint + day/night terminator
+    distance: 10.5,
+    terminatorAngle: 22, // Frames sunlit hemisphere (oceans, continents, clouds, terminator on edge)
     elevAngle: 18,
-    minDist: 2.45,
-    maxDist: 140
+    minDist: 5.2,
+    maxDist: 250
   },
   mars: {
-    distance: 3.1,
-    terminatorAngle: 44, // raking relief over Olympus Mons
-    elevAngle: 15,
-    minDist: 1.60,
-    maxDist: 100
+    distance: 7.8,
+    terminatorAngle: 42, // raking relief over Olympus Mons
+    elevAngle: 16,
+    minDist: 3.8,
+    maxDist: 200
   },
   asteroids: {
-    distance: 4.2,
+    distance: 4.5,
     terminatorAngle: 35,
     elevAngle: 16,
-    minDist: 1.20,
-    maxDist: 120
+    minDist: 1.8,
+    maxDist: 150
   },
   jupiter: {
-    distance: 13.8,
+    distance: 38.0,
     terminatorAngle: 32, // monumental scale & atmospheric bands
-    elevAngle: 12,
-    minDist: 6.65,
-    maxDist: 250
+    elevAngle: 14,
+    minDist: 18.0,
+    maxDist: 650
   },
   saturn: {
-    distance: 13.5,
-    terminatorAngle: 48, // sunlit ring plane with backlit forward-scatter
+    distance: 38.0,
+    terminatorAngle: 46, // sunlit ring plane with backlit forward-scatter & ringshine
     elevAngle: 22,
-    minDist: 5.20,
-    maxDist: 250
+    minDist: 18.0,
+    maxDist: 750
   },
   uranus: {
-    distance: 7.2,
+    distance: 19.5,
     terminatorAngle: 36, // displays vertical ice rings
     elevAngle: 24,
-    minDist: 3.45,
-    maxDist: 160
+    minDist: 9.5,
+    maxDist: 450
   },
   neptune: {
-    distance: 7.0,
+    distance: 18.5,
     terminatorAngle: 34, // cobalt storm envelope & cirrus
-    elevAngle: 16,
-    minDist: 3.35,
-    maxDist: 160
+    elevAngle: 18,
+    minDist: 9.0,
+    maxDist: 450
   }
 };
 
@@ -99,7 +99,7 @@ function getCinematicBodyCamOffset(selectedBody, bodyPos, cfg, viewMode = 'cinem
     if (selectedBody === 'overview' && viewMode === 'scientific') {
       return new THREE.Vector3(...BODY_VIEW_CONFIGS.scientific_overview.offset);
     }
-    return new THREE.Vector3(...(cfg.offset || [-145, 22, 130]));
+    return new THREE.Vector3(...(cfg.offset || [-320, 110, 310]));
   }
 
   const toSun = new THREE.Vector3().sub(bodyPos);
@@ -204,11 +204,16 @@ export function InteractiveSolarCamera({
       const destinationCamPos = new THREE.Vector3().addVectors(currentBodyVec, targetCamOffset);
       const destinationTarget = cfg.target ? new THREE.Vector3(...cfg.target) : currentBodyVec;
 
+      controls.enableDamping = false;
       camera.position.lerpVectors(transitionStartCamPosRef.current, destinationCamPos, ease);
       controls.target.lerpVectors(transitionStartTargetRef.current, destinationTarget, ease);
       controls.update();
 
       if (t >= 1.0) {
+        camera.position.copy(destinationCamPos);
+        controls.target.copy(destinationTarget);
+        controls.update();
+        controls.enableDamping = true;
         isTransitioningRef.current = false;
         previousTargetPosRef.current.copy(destinationTarget);
       }
