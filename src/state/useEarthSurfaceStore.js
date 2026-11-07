@@ -36,7 +36,7 @@ export const useEarthSurfaceStore = create((set, get) => ({
 
   // Programmatic smooth flight requests (e.g. clicking landmark or double clicking surface)
   flyToTarget: null,
-  triggerFlyTo: (target) => set({ flyToTarget: { ...target, timestamp: Date.now() } }),
+  triggerFlyTo: (target) => set({ isSurfaceMode: true, focusedLocation: target, flyToTarget: { ...target, timestamp: Date.now() } }),
   clearFlyTo: () => set({ flyToTarget: null }),
 
   // Return to orbit trigger counter

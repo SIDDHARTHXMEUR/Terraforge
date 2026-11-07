@@ -238,12 +238,18 @@ function requestTileTexture(x, y, z, onReady) {
 }
 
 // ---------------------------------------------------------------------------
-// MAIN EARTH SURFACE TILE ENGINE
+// MAIN EARTH SURFACE TILE ENGINE (Retire in-scene tile descent behind disabled flag)
 // ---------------------------------------------------------------------------
+const ENABLE_IN_SCENE_TILE_DESCENT = false;
+
 export function EarthSurfaceTileEngine({
   radius = 3.5,
   sunDirection
 }) {
+  if (!ENABLE_IN_SCENE_TILE_DESCENT) {
+    return null;
+  }
+
   const { camera } = useThree();
   const tileGroupRef = useRef();
   const tier2GroupRef = useRef();

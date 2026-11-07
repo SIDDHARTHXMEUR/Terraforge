@@ -15,6 +15,7 @@
     "3d-tiles-renderer": "^0.5.4",
     "lucide-react": "^0.359.0",
     "mapillary-js": "^4.1.2",
+    "maplibre-gl": "^6.16.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "three": "^0.167.1",

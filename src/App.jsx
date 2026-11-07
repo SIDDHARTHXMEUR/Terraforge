@@ -11,6 +11,8 @@ import { OrbitControls } from '@react-three/drei';
 import { SceneErrorBoundary } from './components/common/SceneErrorBoundary';
 import { useQualityStore } from './state/useQualityStore';
 import { CinematicPhotoMode } from './components/cinematic/CinematicPhotoMode';
+import { EarthMapLibreViewer } from './components/cinematic/EarthMapLibreViewer';
+import { useEarthSurfaceStore } from './state/useEarthSurfaceStore';
 
 const KEY_TO_BODY = {
   '1': 'sun',
@@ -63,6 +65,15 @@ export default function App() {
   const [showHelpSheet, setShowHelpSheet] = useState(false);
   const [isPhotoMode, setIsPhotoMode] = useState(false);
   const [isUserInteracting, setIsUserInteracting] = useState(false);
+
+  const { isSurfaceMode, setIsSurfaceMode } = useEarthSurfaceStore();
+
+  useEffect(() => {
+    if (queryParams?.get('street') === '1' || queryParams?.get('streetview') === '1') {
+      setSelectedBody('earth');
+      setIsSurfaceMode(true);
+    }
+  }, []);
 
   // Dynamic DPR from quality store
   const dpr = useQualityStore((s) => s.dpr);
@@ -278,6 +289,12 @@ export default function App() {
       <CinematicPhotoMode
         isActive={isPhotoMode}
         onClose={() => setIsPhotoMode(false)}
+      />
+
+      {/* 6. MapLibre OSM Vector & Mapillary 360° Street View Overlay */}
+      <EarthMapLibreViewer
+        isActive={selectedBody === 'earth' && isSurfaceMode}
+        onClose={() => setIsSurfaceMode(false)}
       />
     </div>
   );
