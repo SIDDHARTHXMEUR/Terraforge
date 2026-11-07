@@ -66,8 +66,40 @@ export function CinematicPrologueOverlay({
   // Letterbox retracts between 13.0s and 14.5s
   const isRetracting = elapsed >= 13.0;
 
+  // Thin unboxed flight telemetry text at bottom-left with real distances & blur-in/out
+  let telemetry = null;
+  if (elapsed < 3.5) {
+    const t = elapsed;
+    const alpha = t < 0.6 ? t / 0.6 : (t > 2.9 ? (3.5 - t) / 0.6 : 1.0);
+    telemetry = { text: "APPROACHING SATURN, 9.5 AU", alpha, blur: (1 - alpha) * 4 };
+  } else if (elapsed < 6.5) {
+    const t = elapsed - 3.5;
+    const alpha = t < 0.5 ? t / 0.5 : (t > 2.5 ? (3.0 - t) / 0.5 : 1.0);
+    telemetry = { text: "JUPITER, 5.2 AU", alpha, blur: (1 - alpha) * 4 };
+  } else if (elapsed < 9.0) {
+    const t = elapsed - 6.5;
+    const alpha = t < 0.5 ? t / 0.5 : (t > 2.0 ? (2.5 - t) / 0.5 : 1.0);
+    telemetry = { text: "EARTH, 1.0 AU", alpha, blur: (1 - alpha) * 4 };
+  } else if (elapsed < 13.0) {
+    const t = elapsed - 9.0;
+    const alpha = t < 0.6 ? t / 0.6 : (t > 3.4 ? (4.0 - t) / 0.6 : 1.0);
+    telemetry = { text: "SOL", alpha, blur: (1 - alpha) * 4 };
+  }
+
   return (
     <div className="absolute inset-0 pointer-events-none select-none z-40 overflow-hidden">
+      {/* Flight Telemetry Text at Bottom-Left (Thin unboxed, blur-in/out) */}
+      {telemetry && (
+        <div
+          className="absolute bottom-[11vh] left-8 z-50 pointer-events-none font-mono text-[11px] tracking-[0.35em] text-white/70 uppercase transition-all duration-200"
+          style={{
+            opacity: telemetry.alpha,
+            filter: `blur(${telemetry.blur}px)`
+          }}
+        >
+          {telemetry.text}
+        </div>
+      )}
       {/* 1. 2.39:1 Anamorphic Letterbox Bars (Top & Bottom) */}
       <div
         className={`absolute top-0 left-0 right-0 h-[8vh] sm:h-[10vh] bg-black transition-transform duration-1000 ease-out z-50 ${
