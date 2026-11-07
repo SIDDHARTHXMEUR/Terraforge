@@ -166,6 +166,7 @@ export function InteractiveSolarCamera({
   const transitionStartCamPosRef = useRef(new THREE.Vector3());
   const transitionStartTargetRef = useRef(new THREE.Vector3());
   const previousTargetPosRef = useRef(new THREE.Vector3());
+  const followOffsetRef = useRef(new THREE.Vector3());
   const driftTimeRef = useRef(0);
 
   // -------------------------------------------------------------------------
@@ -545,8 +546,10 @@ export function InteractiveSolarCamera({
 
     // -----------------------------------------------------------------------
     // B. SMOOTH TRANSITION PHASE (Switching Planets or Modes)
+    // Only ONE controller owns the camera: OrbitControls disabled during flight
     // -----------------------------------------------------------------------
     if (isTransitioningRef.current) {
+      controls.enabled = false;
       transitionProgressRef.current += delta * 1.35;
       const t = Math.min(1.0, transitionProgressRef.current);
       const ease = 1 - Math.pow(1 - t, 5);
@@ -555,19 +558,19 @@ export function InteractiveSolarCamera({
       const destinationCamPos = new THREE.Vector3().addVectors(currentBodyVec, targetCamOffset);
       const destinationTarget = getCinematicBodyCamTarget(selectedBody, currentBodyVec, cfg, targetCamOffset);
 
-      controls.enableDamping = false;
       camera.position.lerpVectors(transitionStartCamPosRef.current, destinationCamPos, ease);
       controls.target.lerpVectors(transitionStartTargetRef.current, destinationTarget, ease);
-      controls.update();
 
       if (t >= 1.0) {
         camera.position.copy(destinationCamPos);
         controls.target.copy(destinationTarget);
-        controls.update();
-        controls.enableDamping = true;
-        isTransitioningRef.current = false;
+        followOffsetRef.current.copy(targetCamOffset);
         previousTargetPosRef.current.copy(destinationTarget);
+        isTransitioningRef.current = false;
+        controls.enabled = enabled && !inSurfaceMode;
+        controls.enableDamping = isOverview;
       }
+      controls.update();
       return;
     }
 
@@ -575,18 +578,29 @@ export function InteractiveSolarCamera({
     // C. CONTINUOUS TRACKING PHASE
     // -----------------------------------------------------------------------
     if (!isOverview) {
-      controls.enableDamping = false;
-      const activeCamOffset = getCinematicBodyCamOffset(selectedBody, currentBodyVec, cfg, viewMode);
-      const currentTarget = getCinematicBodyCamTarget(selectedBody, currentBodyVec, cfg, activeCamOffset);
-      const targetDelta = new THREE.Vector3().subVectors(currentTarget, previousTargetPosRef.current);
+      controls.enabled = enabled && !inSurfaceMode;
+      controls.enableDamping = false; // Strictly no damping to eliminate spring lag & oscillation
 
-      if (targetDelta.lengthSq() > 0.000001) {
-        camera.position.add(targetDelta);
+      const targetCamOffset = getCinematicBodyCamOffset(selectedBody, currentBodyVec, cfg, viewMode);
+      const currentTarget = getCinematicBodyCamTarget(selectedBody, currentBodyVec, cfg, targetCamOffset);
+
+      if (isUserInteracting) {
+        // User orbiting: update follow offset in planet frame from OrbitControls spherical movement
+        followOffsetRef.current.subVectors(camera.position, controls.target);
         controls.target.copy(currentTarget);
-        previousTargetPosRef.current.copy(currentTarget);
-        controls.update();
+        camera.position.copy(currentTarget).add(followOffsetRef.current);
+      } else {
+        // Locked follow in planet coordinate frame: fixed offset, zero jitter, float64 precision
+        if (followOffsetRef.current.lengthSq() < 0.01) {
+          followOffsetRef.current.copy(targetCamOffset);
+        }
+        camera.position.copy(currentTarget).add(followOffsetRef.current);
+        controls.target.copy(currentTarget);
       }
+      previousTargetPosRef.current.copy(currentTarget);
+      controls.update();
     } else {
+      controls.enabled = enabled && !inSurfaceMode;
       controls.enableDamping = true;
       if (viewMode === 'cinematic' && !isUserInteracting) {
         driftTimeRef.current += delta;
@@ -596,9 +610,8 @@ export function InteractiveSolarCamera({
       }
       const desiredTarget = cfg.target ? new THREE.Vector3(...cfg.target) : new THREE.Vector3(0, 0, 0);
       controls.target.lerp(desiredTarget, 0.05);
+      controls.update();
     }
-
-    controls.update();
   });
 
   const activeKey =
@@ -608,14 +621,15 @@ export function InteractiveSolarCamera({
         : 'cinematic_overview'
       : selectedBody;
   const cfg = BODY_VIEW_CONFIGS[activeKey] || BODY_VIEW_CONFIGS.overview;
+  const isOverview = !selectedBody || selectedBody === 'overview';
 
   return (
     <OrbitControls
       ref={controlsRef}
       enabled={enabled && !inSurfaceMode}
-      enableDamping
+      enableDamping={isOverview}
       dampingFactor={0.06}
-      enablePan={selectedBody === 'overview'}
+      enablePan={isOverview}
       minDistance={cfg.minDist || 1.2}
       maxDistance={cfg.maxDist || 1800}
       rotateSpeed={0.6}

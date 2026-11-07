@@ -43,12 +43,12 @@ class SceneErrorBoundary extends React.Component {
         <div className="absolute inset-0 flex flex-col items-center justify-center bg-black text-white p-6 z-50 font-mono text-center">
           <div className="text-amber-400 text-sm tracking-widest uppercase mb-2">Graphics Engine Notice</div>
           <div className="text-white/60 text-xs max-w-md mb-6">{this.state.error?.message || 'Rendering error encountered in 3D scene.'}</div>
-          <a
-            href="?safe=1"
+          <button
+            onClick={() => window.location.reload()}
             className="px-4 py-2 border border-white/30 text-xs tracking-widest uppercase hover:bg-white/10 transition-colors"
           >
-            Switch to Safe Mode (?safe=1)
-          </a>
+            Reload Simulator
+          </button>
         </div>
       );
     }
@@ -68,15 +68,13 @@ export default function App() {
   const isMapLibreActive = useEarthSurfaceStore((s) => s.isMapLibreActive);
   const setIsMapLibreActive = useEarthSurfaceStore((s) => s.setIsMapLibreActive);
 
-  // Check URL query parameters for safe mode and benchmark mode
+  // Check URL query parameters for benchmark mode
   const queryParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
-  const isSafeMode = queryParams?.get('safe') === '1';
   const benchmarkMode = queryParams?.get('benchmark'); // 'v1' or 'enhanced'
 
   // Prologue plays on first visit only (localStorage)
   const [isPrologueActive, setIsPrologueActive] = useState(() => {
     if (typeof window === 'undefined') return false;
-    if (isSafeMode) return false;
     const seen = localStorage.getItem('terraforge_prologue_seen');
     return seen !== 'true';
   });
@@ -92,13 +90,13 @@ export default function App() {
     setIsPrologueActive(true);
   };
 
-  // 20s watchdog forces end state on any error or timeout
+  // 15s maximum watchdog forces end state on any error or timeout
   useEffect(() => {
     if (!isPrologueActive) return;
     const watchdog = setTimeout(() => {
-      console.warn('[Terraforge Watchdog] 20s timeout reached, forcing prologue end state.');
+      console.warn('[Terraforge Watchdog] 15s timeout reached, forcing prologue end state.');
       handleCompletePrologue();
-    }, 20000);
+    }, 15000);
     return () => clearTimeout(watchdog);
   }, [isPrologueActive]);
 
@@ -152,37 +150,6 @@ export default function App() {
   const handleResetCamera = () => {
     setSelectedBody('overview');
   };
-
-  // Minimal Safe Scene (?safe=1)
-  if (isSafeMode) {
-    return (
-      <div className="relative w-screen h-screen bg-black overflow-hidden font-sans select-none">
-        <div className="absolute top-4 left-6 z-30 bg-black/80 backdrop-blur-md px-4 py-2 rounded-full border border-amber-400/30 font-mono text-xs text-amber-300">
-          <span>SAFE MODE ACTIVE (?safe=1)</span>
-        </div>
-        <Canvas
-          className="w-full h-full bg-black"
-          style={{ width: '100vw', height: '100vh', position: 'absolute', inset: 0 }}
-          camera={{ position: [0, 8, 35], fov: 45 }}
-        >
-          <ambientLight intensity={1.5} />
-          <pointLight position={[0, 0, 0]} intensity={2.5} color="#ffeedd" />
-          <mesh position={[0, 0, 0]}>
-            <sphereGeometry args={[5, 32, 32]} />
-            <meshStandardMaterial color="#ff7700" emissive="#ff3300" emissiveIntensity={0.6} />
-          </mesh>
-          <mesh position={[14, 0, 0]}>
-            <sphereGeometry args={[1.6, 32, 32]} />
-            <meshStandardMaterial color="#4488ff" />
-          </mesh>
-          <OrbitControls enableDamping dampingFactor={0.05} />
-        </Canvas>
-        <div className="absolute bottom-6 left-6 z-30 font-mono text-xs text-white/50">
-          <a href="/" className="hover:text-white underline">Exit Safe Mode</a>
-        </div>
-      </div>
-    );
-  }
 
   // Dedicated Fixed-Camera Benchmark Test Harness for Quality Gate Phase 1
   if (benchmarkMode) {

@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Html } from '@react-three/drei';
+import { useFrame } from '@react-three/fiber';
 import { DISPLAY_RADII } from '../../data/displayScale';
 
 // Calibrated aerospace editorial label offsets designed to prevent text collisions
@@ -29,7 +30,15 @@ function CelestialLabelItem({
   onSelect
 }) {
   const [isHovered, setIsHovered] = useState(false);
+  const groupRef = useRef();
   const [offsetX, offsetY] = offset;
+
+  // Synchronously update label group position in same frame loop
+  useFrame(() => {
+    if (groupRef.current && position) {
+      groupRef.current.position.set(position[0], position[1] + yLift, position[2]);
+    }
+  });
 
   // Leader line geometry: from anchor (0, 0) up-right to (offsetX, offsetY)
   const tickLength = 16;
@@ -37,7 +46,7 @@ function CelestialLabelItem({
   const isVisible = !hoverOnly || isHovered;
 
   return (
-    <group position={[position[0], position[1] + yLift, position[2]]}>
+    <group ref={groupRef} position={[position[0], position[1] + yLift, position[2]]}>
       <Html
         center={false}
         occlude={true}
