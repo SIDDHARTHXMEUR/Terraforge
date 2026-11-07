@@ -193,11 +193,14 @@ export function CinematicEarth({
   useFrame((state, delta) => {
     const elapsed = state.clock.getElapsedTime();
 
-    // Dynamically update sunlight direction from current orbital position
-    const earthPos = new THREE.Vector3(...position);
-    const sunDir = earthPos.lengthSq() > 1.0
-      ? new THREE.Vector3(0, 0, 0).sub(earthPos).normalize()
-      : new THREE.Vector3(1, 0.45, 1).normalize();
+    // Dynamically compute exact world-space Sun direction from current orbital position
+    const worldPos = new THREE.Vector3();
+    if (earthBodyRef.current) {
+      earthBodyRef.current.getWorldPosition(worldPos);
+    }
+    const sunDir = worldPos.lengthSq() > 0.1
+      ? new THREE.Vector3(0, 0, 0).sub(worldPos).normalize()
+      : new THREE.Vector3(1, 0, 0);
 
     if (surfaceShaderRef.current) {
       surfaceShaderRef.current.uniforms.uTime.value = elapsed;

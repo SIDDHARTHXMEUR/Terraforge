@@ -108,7 +108,14 @@ export function CinematicMars({
       marsBodyRef.current.rotation.y += delta * 0.11;
     }
     if (shaderRef.current) {
-      shaderRef.current.uniforms.uSunDirection.value = computedSunDir;
+      const worldPos = new THREE.Vector3();
+      if (marsBodyRef.current) {
+        marsBodyRef.current.getWorldPosition(worldPos);
+      }
+      const sunDir = worldPos.lengthSq() > 0.1
+        ? new THREE.Vector3(0, 0, 0).sub(worldPos).normalize()
+        : new THREE.Vector3(1, 0, 0);
+      shaderRef.current.uniforms.uSunDirection.value.copy(sunDir);
     }
   });
 

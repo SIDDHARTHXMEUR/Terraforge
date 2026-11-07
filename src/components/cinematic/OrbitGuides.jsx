@@ -1,21 +1,22 @@
-import React, { useMemo, useRef, useState, useEffect } from 'react';
-import { useFrame } from '@react-three/fiber';
+import React, { useMemo, useRef } from 'react';
+import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { DISPLAY_RADII, DISPLAY_ORBIT_RADII } from '../../data/displayScale';
 
 const ORBIT_COLORS = {
-  mercury: '#9ca3af',
-  venus: '#eab308',
+  mercury: '#a1a1aa',
+  venus: '#facc15',
   earth: '#38bdf8',
-  mars: '#f97316',
+  mars: '#fb923c',
   asteroids: '#a8a29e',
-  jupiter: '#facc15',
-  saturn: '#fde047',
+  jupiter: '#fde047',
+  saturn: '#fef08a',
   uranus: '#67e8f9',
-  neptune: '#60a5fa'
+  neptune: '#818cf8'
 };
 
 const BODY_RADII = {
+  sun: DISPLAY_RADII.sun,
   mercury: DISPLAY_RADII.mercury,
   venus: DISPLAY_RADII.venus,
   earth: DISPLAY_RADII.earth,
@@ -47,7 +48,7 @@ const OrbitLineShader = {
 
     varying vec3 vWorldPos;
     uniform vec3 uColor;
-    uniform float uBaseOpacity;
+    uniform float uOpacity;
     uniform vec3 uTargetPos;
     uniform float uTargetRadius;
 
@@ -55,13 +56,57 @@ const OrbitLineShader = {
       #include <logdepthbuf_fragment>
 
       float distToTarget = length(vWorldPos - uTargetPos);
-      // Smoothly fade to zero within 3.5x radius of selected body so line never crosses planet face
       float fade = 1.0;
       if (uTargetRadius > 0.05) {
         fade = smoothstep(uTargetRadius * 1.0, uTargetRadius * 3.5, distToTarget);
       }
 
-      gl_FragColor = vec4(uColor, uBaseOpacity * fade);
+      gl_FragColor = vec4(uColor, uOpacity * fade);
+    }
+  `
+};
+
+const OrbitRibbonShader = {
+  vertexShader: `
+    #include <common>
+    #include <logdepthbuf_pars_vertex>
+
+    varying vec2 vUv;
+    varying vec3 vWorldPos;
+
+    void main() {
+      vUv = uv;
+      vec4 worldPos = modelMatrix * vec4(position, 1.0);
+      vWorldPos = worldPos.xyz;
+      gl_Position = projectionMatrix * viewMatrix * worldPos;
+
+      #include <logdepthbuf_vertex>
+    }
+  `,
+  fragmentShader: `
+    #include <logdepthbuf_pars_fragment>
+
+    varying vec2 vUv;
+    varying vec3 vWorldPos;
+    uniform vec3 uColor;
+    uniform float uOpacity;
+    uniform vec3 uTargetPos;
+    uniform float uTargetRadius;
+
+    void main() {
+      #include <logdepthbuf_fragment>
+
+      float distToTarget = length(vWorldPos - uTargetPos);
+      float fade = 1.0;
+      if (uTargetRadius > 0.05) {
+        fade = smoothstep(uTargetRadius * 1.0, uTargetRadius * 3.5, distToTarget);
+      }
+
+      // Soft parabolic cross-section across ribbon width (peaks at center line)
+      float crossProfile = sin(vUv.y * 3.14159265);
+      float alpha = uOpacity * crossProfile * fade;
+
+      gl_FragColor = vec4(uColor, alpha);
     }
   `
 };
@@ -69,12 +114,16 @@ const OrbitLineShader = {
 function OrbitLine({
   radius,
   color = '#38bdf8',
-  opacity = 0.22,
+  baseOpacity = 0.65,
+  ribbonOpacity = 0.20,
+  fadeAlphaRef,
   targetPos = [9999, 9999, 9999],
   targetRadius = 0
 }) {
-  const shaderRef = useRef();
+  const lineShaderRef = useRef();
+  const ribbonShaderRef = useRef();
 
+  // 1. Centerline line loop geometry (256 segments)
   const lineGeometry = useMemo(() => {
     const points = [];
     const segments = 256;
@@ -85,32 +134,79 @@ function OrbitLine({
     return new THREE.BufferGeometry().setFromPoints(points);
   }, [radius]);
 
-  const targetVec = useMemo(() => new THREE.Vector3(...targetPos), [targetPos]);
+  // 2. Physical 3D ring ribbon geometry (width = 1.5 to 4.5 display units for solid distant visibility)
+  const ribbonGeometry = useMemo(() => {
+    const halfW = Math.max(0.75, radius * 0.007);
+    return new THREE.RingGeometry(radius - halfW, radius + halfW, 256);
+  }, [radius]);
+
   const colorVec = useMemo(() => new THREE.Color(color), [color]);
+  const targetVec = useMemo(() => new THREE.Vector3(...targetPos), [targetPos]);
 
   useFrame(() => {
-    if (shaderRef.current) {
-      shaderRef.current.uniforms.uTargetPos.value.set(...targetPos);
-      shaderRef.current.uniforms.uTargetRadius.value = targetRadius;
+    const fade = fadeAlphaRef ? fadeAlphaRef.current : 1.0;
+    const effectiveLineOpacity = baseOpacity * fade;
+    const effectiveRibbonOpacity = ribbonOpacity * fade;
+
+    if (lineShaderRef.current) {
+      lineShaderRef.current.uniforms.uOpacity.value = effectiveLineOpacity;
+      lineShaderRef.current.uniforms.uTargetPos.value.set(...targetPos);
+      lineShaderRef.current.uniforms.uTargetRadius.value = targetRadius;
+    }
+
+    if (ribbonShaderRef.current) {
+      ribbonShaderRef.current.uniforms.uOpacity.value = effectiveRibbonOpacity;
+      ribbonShaderRef.current.uniforms.uTargetPos.value.set(...targetPos);
+      ribbonShaderRef.current.uniforms.uTargetRadius.value = targetRadius;
     }
   });
 
   return (
-    <lineLoop geometry={lineGeometry}>
-      <shaderMaterial
-        ref={shaderRef}
-        args={[OrbitLineShader]}
-        transparent={true}
-        depthWrite={false}
-        depthTest={true}
-        uniforms={{
-          uColor: { value: colorVec },
-          uBaseOpacity: { value: opacity },
-          uTargetPos: { value: targetVec },
-          uTargetRadius: { value: targetRadius }
-        }}
-      />
-    </lineLoop>
+    <group>
+      {/* 3D Luminous Ribbon for solid visibility at all zooms (DoubleSide) */}
+      <mesh
+        geometry={ribbonGeometry}
+        rotation={[-Math.PI / 2, 0, 0]}
+        renderOrder={8}
+      >
+        <shaderMaterial
+          ref={ribbonShaderRef}
+          args={[OrbitRibbonShader]}
+          side={THREE.DoubleSide}
+          transparent={true}
+          blending={THREE.AdditiveBlending}
+          depthWrite={false}
+          depthTest={true}
+          uniforms={{
+            uColor: { value: colorVec },
+            uOpacity: { value: ribbonOpacity },
+            uTargetPos: { value: targetVec },
+            uTargetRadius: { value: targetRadius }
+          }}
+        />
+      </mesh>
+
+      {/* Crisp Centerline */}
+      <lineLoop
+        geometry={lineGeometry}
+        renderOrder={9}
+      >
+        <shaderMaterial
+          ref={lineShaderRef}
+          args={[OrbitLineShader]}
+          transparent={true}
+          blending={THREE.AdditiveBlending}
+          depthWrite={false}
+          depthTest={true}
+          uniforms={{
+            uColor: { value: colorVec },
+            uOpacity: { value: baseOpacity },
+            uTargetPos: { value: targetVec },
+            uTargetRadius: { value: targetRadius }
+          }}
+        />
+      </lineLoop>
+    </group>
   );
 }
 
@@ -120,17 +216,31 @@ export function OrbitGuides({
   selectedBody = 'overview',
   bodyPositions = {}
 }) {
-  const [fadeAlpha, setFadeAlpha] = useState(0.0);
+  const groupRef = useRef();
+  const fadeAlphaRef = useRef(visible ? 1.0 : 0.0);
+  const { camera } = useThree();
 
   useFrame((_, delta) => {
-    if (visible && selectedBody !== 'sun') {
-      setFadeAlpha((a) => Math.min(1.0, a + delta * 0.8));
-    } else {
-      setFadeAlpha((a) => Math.max(0.0, a - delta * 2.0));
+    let targetAlpha = visible ? 1.0 : 0.0;
+
+    // Immediately fade out orbits when viewing Sol so solar closeups are clean
+    if (selectedBody === 'sun') {
+      targetAlpha = 0.0;
+    } else if (selectedBody && selectedBody !== 'overview' && bodyPositions[selectedBody]) {
+      // Fade out orbits smoothly when camera is close to a planet
+      const bPos = bodyPositions[selectedBody];
+      const camDist = camera.position.distanceTo(new THREE.Vector3(...bPos));
+      const bRadius = BODY_RADII[selectedBody] || 2.0;
+      const closeFade = THREE.MathUtils.clamp((camDist - bRadius * 1.5) / (bRadius * 3.5), 0.0, 1.0);
+      targetAlpha *= closeFade;
+    }
+
+    fadeAlphaRef.current = THREE.MathUtils.damp(fadeAlphaRef.current, targetAlpha, 6.0, delta);
+
+    if (groupRef.current) {
+      groupRef.current.visible = fadeAlphaRef.current > 0.005;
     }
   });
-
-  if (fadeAlpha <= 0.001) return null;
 
   const currentTargetPos = (selectedBody && selectedBody !== 'overview' && bodyPositions[selectedBody])
     ? bodyPositions[selectedBody]
@@ -140,17 +250,17 @@ export function OrbitGuides({
     : 0;
 
   return (
-    <group>
-      <OrbitLine radius={radii.mercury} color={ORBIT_COLORS.mercury} opacity={0.28 * fadeAlpha} targetPos={currentTargetPos} targetRadius={currentTargetRadius} />
-      <OrbitLine radius={radii.venus} color={ORBIT_COLORS.venus} opacity={0.26 * fadeAlpha} targetPos={currentTargetPos} targetRadius={currentTargetRadius} />
-      <OrbitLine radius={radii.earth} color={ORBIT_COLORS.earth} opacity={0.32 * fadeAlpha} targetPos={currentTargetPos} targetRadius={currentTargetRadius} />
-      <OrbitLine radius={radii.mars} color={ORBIT_COLORS.mars} opacity={0.28 * fadeAlpha} targetPos={currentTargetPos} targetRadius={currentTargetRadius} />
-      <OrbitLine radius={radii.asteroidsInner} color={ORBIT_COLORS.asteroids} opacity={0.16 * fadeAlpha} targetPos={currentTargetPos} targetRadius={currentTargetRadius} />
-      <OrbitLine radius={radii.asteroidsOuter} color={ORBIT_COLORS.asteroids} opacity={0.16 * fadeAlpha} targetPos={currentTargetPos} targetRadius={currentTargetRadius} />
-      <OrbitLine radius={radii.jupiter} color={ORBIT_COLORS.jupiter} opacity={0.28 * fadeAlpha} targetPos={currentTargetPos} targetRadius={currentTargetRadius} />
-      <OrbitLine radius={radii.saturn} color={ORBIT_COLORS.saturn} opacity={0.28 * fadeAlpha} targetPos={currentTargetPos} targetRadius={currentTargetRadius} />
-      <OrbitLine radius={radii.uranus} color={ORBIT_COLORS.uranus} opacity={0.24 * fadeAlpha} targetPos={currentTargetPos} targetRadius={currentTargetRadius} />
-      <OrbitLine radius={radii.neptune} color={ORBIT_COLORS.neptune} opacity={0.24 * fadeAlpha} targetPos={currentTargetPos} targetRadius={currentTargetRadius} />
+    <group ref={groupRef}>
+      <OrbitLine radius={radii.mercury} color={ORBIT_COLORS.mercury} baseOpacity={0.92} ribbonOpacity={0.62} fadeAlphaRef={fadeAlphaRef} targetPos={currentTargetPos} targetRadius={currentTargetRadius} />
+      <OrbitLine radius={radii.venus} color={ORBIT_COLORS.venus} baseOpacity={0.92} ribbonOpacity={0.62} fadeAlphaRef={fadeAlphaRef} targetPos={currentTargetPos} targetRadius={currentTargetRadius} />
+      <OrbitLine radius={radii.earth} color={ORBIT_COLORS.earth} baseOpacity={0.95} ribbonOpacity={0.68} fadeAlphaRef={fadeAlphaRef} targetPos={currentTargetPos} targetRadius={currentTargetRadius} />
+      <OrbitLine radius={radii.mars} color={ORBIT_COLORS.mars} baseOpacity={0.92} ribbonOpacity={0.62} fadeAlphaRef={fadeAlphaRef} targetPos={currentTargetPos} targetRadius={currentTargetRadius} />
+      <OrbitLine radius={radii.asteroidsInner} color={ORBIT_COLORS.asteroids} baseOpacity={0.70} ribbonOpacity={0.35} fadeAlphaRef={fadeAlphaRef} targetPos={currentTargetPos} targetRadius={currentTargetRadius} />
+      <OrbitLine radius={radii.asteroidsOuter} color={ORBIT_COLORS.asteroids} baseOpacity={0.70} ribbonOpacity={0.35} fadeAlphaRef={fadeAlphaRef} targetPos={currentTargetPos} targetRadius={currentTargetRadius} />
+      <OrbitLine radius={radii.jupiter} color={ORBIT_COLORS.jupiter} baseOpacity={0.92} ribbonOpacity={0.62} fadeAlphaRef={fadeAlphaRef} targetPos={currentTargetPos} targetRadius={currentTargetRadius} />
+      <OrbitLine radius={radii.saturn} color={ORBIT_COLORS.saturn} baseOpacity={0.92} ribbonOpacity={0.62} fadeAlphaRef={fadeAlphaRef} targetPos={currentTargetPos} targetRadius={currentTargetRadius} />
+      <OrbitLine radius={radii.uranus} color={ORBIT_COLORS.uranus} baseOpacity={0.88} ribbonOpacity={0.58} fadeAlphaRef={fadeAlphaRef} targetPos={currentTargetPos} targetRadius={currentTargetRadius} />
+      <OrbitLine radius={radii.neptune} color={ORBIT_COLORS.neptune} baseOpacity={0.88} ribbonOpacity={0.58} fadeAlphaRef={fadeAlphaRef} targetPos={currentTargetPos} targetRadius={currentTargetRadius} />
     </group>
   );
 }

@@ -1,4 +1,4 @@
-import React, { useRef, useMemo } from 'react';
+import React, { useRef, useMemo, useEffect } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { useTexture } from '@react-three/drei';
 import * as THREE from 'three';
@@ -116,6 +116,14 @@ export function CinematicJupiter({
     '/assets/planets/moons/europa.jpg'
   ]);
 
+  useEffect(() => {
+    if (jupiterMap) {
+      jupiterMap.wrapS = THREE.RepeatWrapping;
+      jupiterMap.minFilter = THREE.LinearMipmapLinearFilter;
+      jupiterMap.generateMipmaps = true;
+    }
+  }, [jupiterMap]);
+
   const jupiterRef = useRef();
   const shaderRef = useRef();
   const ioRef = useRef();
@@ -138,7 +146,14 @@ export function CinematicJupiter({
 
     if (shaderRef.current) {
       shaderRef.current.uniforms.uTime.value = elapsed;
-      shaderRef.current.uniforms.uSunDirection.value = computedSunDir;
+      const worldPos = new THREE.Vector3();
+      if (jupiterRef.current) {
+        jupiterRef.current.getWorldPosition(worldPos);
+      }
+      const sunDir = worldPos.lengthSq() > 0.1
+        ? new THREE.Vector3(0, 0, 0).sub(worldPos).normalize()
+        : new THREE.Vector3(1, 0, 0);
+      shaderRef.current.uniforms.uSunDirection.value.copy(sunDir);
       if (ioRef.current) {
         ioRef.current.getWorldPosition(ioWorldPosRef.current);
         shaderRef.current.uniforms.uIoWorldPos.value.copy(ioWorldPosRef.current);

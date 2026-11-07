@@ -4,6 +4,7 @@ import { OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
 import { useEarthSurfaceStore } from '../../state/useEarthSurfaceStore';
 import { latLonToEarthCoords, earthCoordsToLatLon } from './EarthSurfaceTileEngine';
+import { DISPLAY_RADII } from '../../data/displayScale';
 
 const BODY_VIEW_CONFIGS = {
   cinematic_overview: {
@@ -25,73 +26,73 @@ const BODY_VIEW_CONFIGS = {
     maxDist: 3500
   },
   sun: {
-    offset: [35, 18, 140],
-    target: [-10, 0, 0],
-    minDist: 70,
+    offset: [0, 8, 168],
+    target: [0, 0, 0],
+    minDist: 65,
     maxDist: 1500
   },
   mercury: {
-    distance: 6.8,
+    distance: 10.8,
     terminatorAngle: 52,
     elevAngle: 14,
-    minDist: 3.5,
-    maxDist: 180
-  },
-  venus: {
-    distance: 9.6,
-    terminatorAngle: 54,
-    elevAngle: 16,
     minDist: 4.8,
     maxDist: 220
   },
+  venus: {
+    distance: 14.5,
+    terminatorAngle: 54,
+    elevAngle: 16,
+    minDist: 6.2,
+    maxDist: 260
+  },
   earth: {
-    distance: 10.5,
-    terminatorAngle: 22,
-    elevAngle: 18,
-    minDist: 3.5002, // Relaxed minimum distance for continuous Earth surface zoom
-    maxDist: 250
+    distance: 16.5,
+    terminatorAngle: 36,
+    elevAngle: 14,
+    minDist: 5.2002, // Relaxed minimum distance for continuous Earth surface zoom
+    maxDist: 280
   },
   mars: {
-    distance: 7.8,
+    distance: 12.0,
     terminatorAngle: 42,
     elevAngle: 16,
-    minDist: 3.8,
-    maxDist: 200
+    minDist: 5.2,
+    maxDist: 240
   },
   asteroids: {
-    distance: 4.5,
+    distance: 8.5,
     terminatorAngle: 35,
     elevAngle: 16,
-    minDist: 1.8,
+    minDist: 2.8,
     maxDist: 150
   },
   jupiter: {
-    distance: 38.0,
+    distance: 46.0,
     terminatorAngle: 32,
     elevAngle: 14,
-    minDist: 18.0,
-    maxDist: 650
-  },
-  saturn: {
-    distance: 38.0,
-    terminatorAngle: 46,
-    elevAngle: 22,
-    minDist: 18.0,
+    minDist: 21.0,
     maxDist: 750
   },
+  saturn: {
+    distance: 48.0,
+    terminatorAngle: 46,
+    elevAngle: 22,
+    minDist: 22.0,
+    maxDist: 850
+  },
   uranus: {
-    distance: 19.5,
+    distance: 25.5,
     terminatorAngle: 36,
     elevAngle: 24,
-    minDist: 9.5,
-    maxDist: 450
+    minDist: 11.5,
+    maxDist: 500
   },
   neptune: {
-    distance: 18.5,
+    distance: 24.5,
     terminatorAngle: 34,
     elevAngle: 18,
-    minDist: 9.0,
-    maxDist: 450
+    minDist: 11.0,
+    maxDist: 500
   }
 };
 
@@ -126,6 +127,26 @@ function getCinematicBodyCamOffset(selectedBody, bodyPos, cfg, viewMode = 'cinem
   return new THREE.Vector3()
     .addScaledVector(groundDir, D * Math.cos(elevAngle))
     .addScaledVector(up, D * Math.sin(elevAngle));
+}
+
+function getCinematicBodyCamTarget(selectedBody, bodyPos, cfg, camOffset) {
+  if (selectedBody === 'overview' || !cfg.distance) {
+    return cfg.target ? new THREE.Vector3(...cfg.target) : new THREE.Vector3(0, 0, 0);
+  }
+
+  const targetVec = new THREE.Vector3(...bodyPos);
+
+  // If Earth is selected in cinematic view, offset camera look-at target to the left
+  // so Earth sits majestically in the right third of the frame on the sunlit crescent side
+  if (selectedBody === 'earth' && camOffset) {
+    const camDir = camOffset.clone().normalize();
+    const up = new THREE.Vector3(0, 1, 0);
+    const camRight = new THREE.Vector3().crossVectors(camDir, up).normalize();
+    const R = DISPLAY_RADII.earth || 5.2;
+    targetVec.addScaledVector(camRight, -R * 0.72);
+  }
+
+  return targetVec;
 }
 
 export function InteractiveSolarCamera({
@@ -168,7 +189,8 @@ export function InteractiveSolarCamera({
     setAltitudeKm,
     flyToTarget,
     clearFlyTo,
-    returnToOrbitCounter
+    returnToOrbitCounter,
+    tier2Status
   } = useEarthSurfaceStore();
 
   // Handle return to orbit command from HUD
@@ -285,8 +307,8 @@ export function InteractiveSolarCamera({
       const earthVec = new THREE.Vector3(...earthPos);
       const dist = camera.position.distanceTo(earthVec);
 
-      // Descending into surface mode
-      if (!inSurfaceMode && e.deltaY < 0 && dist < 7.0) {
+      // Descending into surface mode from orbit
+      if (!inSurfaceMode && e.deltaY < 0 && dist < 6.0) {
         const hit = raycastEarthSurface(e.clientX, e.clientY);
         if (hit) {
           surfaceLatRef.current = hit.lat;
@@ -300,21 +322,32 @@ export function InteractiveSolarCamera({
         }
         setInSurfaceMode(true);
         setIsSurfaceMode(true);
-        surfaceAltKmRef.current = Math.max(0.15, (dist - 3.5) * 1820.0);
+        // Start surface altitude at 1,800 km so satellite tiles immediately transition in
+        surfaceAltKmRef.current = Math.min(2200.0, Math.max(0.15, (dist - 3.5) * 1820.0));
         return;
       }
 
-      // Inside surface mode: continuous altitude zoom
+      // Inside surface mode: continuous altitude zoom with zoom-to-cursor
       if (inSurfaceMode) {
         e.preventDefault();
-        const factor = e.deltaY > 0 ? 1.14 : 0.86;
+        const factor = e.deltaY > 0 ? 1.25 : 0.80;
         let newAlt = surfaceAltKmRef.current * factor;
 
-        // Clamp minimum altitude to 150 meters (0.15 km) without ground clipping
-        newAlt = Math.max(0.15, newAlt);
+        // On zoom in, also nudge latitude & longitude toward cursor location
+        if (e.deltaY < 0) {
+          const hit = raycastEarthSurface(e.clientX, e.clientY);
+          if (hit) {
+            surfaceLatRef.current = THREE.MathUtils.lerp(surfaceLatRef.current, hit.lat, 0.18);
+            surfaceLonRef.current = THREE.MathUtils.lerp(surfaceLonRef.current, hit.lon, 0.18);
+          }
+        }
 
-        // Zooming out past 3,500 km returns to orbit mode seamlessly
-        if (newAlt > 3500) {
+        // Clamp minimum altitude: 150m (0.15 km) when 3D tiles unavailable, 20m if active
+        const minFloor = tier2Status === 'active' ? 0.02 : 0.15;
+        newAlt = Math.max(minFloor, newAlt);
+
+        // Zooming out past 2,800 km returns to orbit mode seamlessly
+        if (newAlt > 2800) {
           setInSurfaceMode(false);
           setIsSurfaceMode(false);
           return;
@@ -332,13 +365,13 @@ export function InteractiveSolarCamera({
         setIsSurfaceMode(true);
         surfaceFlyAnimRef.current = {
           startTime: performance.now(),
-          duration: 2000,
+          duration: 2200,
           startLat: surfaceLatRef.current,
           startLon: surfaceLonRef.current,
-          startAlt: surfaceAltKmRef.current,
+          startAlt: inSurfaceMode ? surfaceAltKmRef.current : 2200,
           targetLat: hit.lat,
           targetLon: hit.lon,
-          targetAlt: Math.min(25.0, surfaceAltKmRef.current * 0.3)
+          targetAlt: 1.5 // Descend to 1.5 km street/aerial level!
         };
       }
     };
@@ -398,6 +431,7 @@ export function InteractiveSolarCamera({
   // -------------------------------------------------------------------------
   // MAIN FRAME LOOP
   // -------------------------------------------------------------------------
+  // Priority 1 ensures camera frame updates strictly AFTER orbital body positions
   useFrame((_, delta) => {
     if (!enabled || !controlsRef.current) return;
     if (typeof window !== 'undefined') {
@@ -440,7 +474,7 @@ export function InteractiveSolarCamera({
 
       const earthMesh = window.__earthBodyMesh;
       if (earthMesh) {
-        const R = 3.5;
+        const R = DISPLAY_RADII.earth || 5.2;
         const lat = surfaceLatRef.current;
         const lon = surfaceLonRef.current;
         const altKm = surfaceAltKmRef.current;
@@ -468,7 +502,7 @@ export function InteractiveSolarCamera({
         const pitch = surfacePitchRef.current;
         const azimuth = surfaceAzimuthRef.current;
 
-        // Compute local camera direction vector
+        // Compute local camera direction vector (offset from ground normal)
         const camDir = new THREE.Vector3()
           .addScaledVector(north, Math.sin(pitch) * Math.cos(azimuth))
           .addScaledVector(east, Math.sin(pitch) * Math.sin(azimuth))
@@ -477,15 +511,18 @@ export function InteractiveSolarCamera({
 
         const camLocal = groundLocal.clone().addScaledVector(camDir, altUnits);
 
-        // Transform into world space via Earth's rotating body matrix
-        // This anchors the camera rigidly to the spinning Earth!
-        const worldTarget = groundLocal.clone().applyMatrix4(earthMesh.matrixWorld);
-        const worldCam = camLocal.clone().applyMatrix4(earthMesh.matrixWorld);
-        const worldNorth = north.clone().transformDirection(earthMesh.matrixWorld);
+        // Compute camera orientation in Earth's local coordinate frame
+        // This completely avoids world-space floating point cancellation!
+        const localLookMat = new THREE.Matrix4().lookAt(camLocal, groundLocal, north);
+        const localQuat = new THREE.Quaternion().setFromRotationMatrix(localLookMat);
 
-        camera.position.copy(worldCam);
-        camera.up.copy(worldNorth);
-        camera.lookAt(worldTarget);
+        const earthWorldQuat = new THREE.Quaternion();
+        earthMesh.getWorldQuaternion(earthWorldQuat);
+
+        camera.quaternion.multiplyQuaternions(earthWorldQuat, localQuat);
+        camera.position.copy(camLocal.clone().applyMatrix4(earthMesh.matrixWorld));
+
+        const worldTarget = groundLocal.clone().applyMatrix4(earthMesh.matrixWorld);
         controls.target.copy(worldTarget);
       }
       return;
@@ -503,13 +540,14 @@ export function InteractiveSolarCamera({
     // B. SMOOTH TRANSITION PHASE (Switching Planets or Modes)
     // -----------------------------------------------------------------------
     if (isTransitioningRef.current) {
-      transitionProgressRef.current += delta * 1.35;
+      transitionProgressRef.current += delta * 1.25;
       const t = Math.min(1.0, transitionProgressRef.current);
-      const ease = 1 - Math.pow(1 - t, 5);
+      // Hermite smoothstep cubic ease: zero overshoot, zero velocity discontinuity
+      const ease = t * t * (3.0 - 2.0 * t);
 
       const targetCamOffset = getCinematicBodyCamOffset(selectedBody, currentBodyVec, cfg, viewMode);
       const destinationCamPos = new THREE.Vector3().addVectors(currentBodyVec, targetCamOffset);
-      const destinationTarget = cfg.target ? new THREE.Vector3(...cfg.target) : currentBodyVec;
+      const destinationTarget = getCinematicBodyCamTarget(selectedBody, currentBodyVec, cfg, targetCamOffset);
 
       controls.enableDamping = false;
       camera.position.lerpVectors(transitionStartCamPosRef.current, destinationCamPos, ease);
@@ -520,7 +558,7 @@ export function InteractiveSolarCamera({
         camera.position.copy(destinationCamPos);
         controls.target.copy(destinationTarget);
         controls.update();
-        controls.enableDamping = true;
+        controls.enableDamping = isOverview; // Only overview uses damping; moving planets use rigid tracking
         isTransitioningRef.current = false;
         previousTargetPosRef.current.copy(destinationTarget);
       }
@@ -531,15 +569,20 @@ export function InteractiveSolarCamera({
     // C. CONTINUOUS TRACKING PHASE
     // -----------------------------------------------------------------------
     if (!isOverview) {
-      const targetDelta = new THREE.Vector3().subVectors(currentBodyVec, previousTargetPosRef.current);
+      // Disable competing damping during active tracking of orbiting planets to eliminate shake
+      controls.enableDamping = false;
+      const activeCamOffset = getCinematicBodyCamOffset(selectedBody, currentBodyVec, cfg, viewMode);
+      const currentTarget = getCinematicBodyCamTarget(selectedBody, currentBodyVec, cfg, activeCamOffset);
+      const targetDelta = new THREE.Vector3().subVectors(currentTarget, previousTargetPosRef.current);
 
       if (targetDelta.lengthSq() > 0.000001) {
         camera.position.add(targetDelta);
-        controls.target.copy(currentBodyVec);
-        previousTargetPosRef.current.copy(currentBodyVec);
+        controls.target.copy(currentTarget);
+        previousTargetPosRef.current.copy(currentTarget);
         controls.update();
       }
     } else {
+      controls.enableDamping = true;
       if (viewMode === 'cinematic' && !isUserInteracting) {
         driftTimeRef.current += delta;
         const driftSpeed = 0.22;
@@ -551,7 +594,7 @@ export function InteractiveSolarCamera({
     }
 
     controls.update();
-  });
+  }, 1);
 
   const activeKey =
     !selectedBody || selectedBody === 'overview'

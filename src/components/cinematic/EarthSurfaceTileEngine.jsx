@@ -143,6 +143,8 @@ const TileShader = {
     varying vec3 vWorldNormal;
 
     uniform sampler2D uMap;
+    uniform vec2 uUvOffset;
+    uniform float uUvScale;
     uniform vec3 uSunDirection;
     uniform float uFade;
     uniform float uAmbientFloor;
@@ -150,14 +152,15 @@ const TileShader = {
     void main() {
       #include <logdepthbuf_fragment>
 
-      vec4 texColor = texture2D(uMap, vUv);
+      vec2 mappedUv = uUvOffset + vUv * uUvScale;
+      vec4 texColor = texture2D(uMap, mappedUv);
       if (texColor.a < 0.05) discard;
 
       vec3 sunDir = normalize(uSunDirection);
       vec3 worldNormal = normalize(vWorldNormal);
       float sunDot = dot(worldNormal, sunDir);
 
-      // Smooth solar daylight modulation: 1.0 on day side, 0.32 ambient starlight on night side
+      // Smooth solar daylight modulation: 1.0 on day side, 0.65 ambient illumination on night side
       float daylight = smoothstep(-0.08, 0.20, sunDot);
       float lightFactor = mix(uAmbientFloor, 1.0, daylight);
 
@@ -256,6 +259,7 @@ export function EarthSurfaceTileEngine({
     setFocusedLocation,
     tier2Status,
     setTier2Status,
+    setTier2ErrorReason,
     hasRequestedTier2Session,
     markTier2Requested
   } = useEarthSurfaceStore();
@@ -283,8 +287,10 @@ export function EarthSurfaceTileEngine({
     markTier2Requested();
 
     const ionToken = import.meta.env.VITE_CESIUM_ION_TOKEN;
-    if (!ionToken || ionToken === 'your_cesium_ion_token_here') {
+    if (!ionToken || ionToken === 'your_cesium_ion_token_here' || ionToken.trim() === '') {
+      console.warn('[Cesium 3D Tiles] VITE_CESIUM_ION_TOKEN is not configured in .env');
       setTier2Status('unavailable');
+      setTier2ErrorReason('Cesium ion token missing in .env');
       return;
     }
 
@@ -293,13 +299,24 @@ export function EarthSurfaceTileEngine({
       const endpointRes = await fetch(
         `https://api.cesium.com/v1/assets/2275207/endpoint?access_token=${ionToken}`
       );
+      console.log('[Cesium 3D Tiles] Endpoint HTTP status:', endpointRes.status);
       if (!endpointRes.ok) {
         setTier2Status('unavailable');
+        if (endpointRes.status === 403) {
+          setTier2ErrorReason('Asset 2275207 not added to Cesium account (HTTP 403)');
+        } else if (endpointRes.status === 401) {
+          setTier2ErrorReason('Invalid Cesium ion token (HTTP 401)');
+        } else if (endpointRes.status === 429) {
+          setTier2ErrorReason('Cesium ion quota/rate limit exceeded (HTTP 429)');
+        } else {
+          setTier2ErrorReason(`Cesium ion endpoint returned HTTP ${endpointRes.status}`);
+        }
         return;
       }
       const endpointData = await endpointRes.json();
       if (!endpointData || endpointData.code === 'Forbidden' || !endpointData.url) {
         setTier2Status('unavailable');
+        setTier2ErrorReason('Asset 2275207 access forbidden or invalid');
         return;
       }
 
@@ -326,8 +343,10 @@ export function EarthSurfaceTileEngine({
       }
       tier2RendererRef.current = tiles;
       setTier2Status('active');
-    } catch {
+    } catch (err) {
+      console.error('[Cesium 3D Tiles] Initialization failed:', err);
       setTier2Status('unavailable');
+      setTier2ErrorReason('Network connection to Cesium failed');
     }
   };
 
@@ -344,7 +363,9 @@ export function EarthSurfaceTileEngine({
     const distToCenter = camera.position.distanceTo(earthWorldPos);
     const altUnits = Math.max(0.00005, distToCenter - radius);
     const currentAltKm = (altUnits / radius) * 6371.0;
-    setAltitudeKm(currentAltKm);
+    if (!isSurfaceMode) {
+      setAltitudeKm(currentAltKm);
+    }
 
     // Cross-fade calculation:
     // Above 5.2 units: 0.0 (cinematic NASA Blue Marble globe only)
@@ -390,8 +411,9 @@ export function EarthSurfaceTileEngine({
     else if (currentAltKm > 500) targetZoom = 6;
     else if (currentAltKm > 150) targetZoom = 8;
     else if (currentAltKm > 30) targetZoom = 10;
-    else if (currentAltKm > 5) targetZoom = 12;
-    else targetZoom = 13;
+    else if (currentAltKm > 6) targetZoom = 12;
+    else if (currentAltKm > 1.5) targetZoom = 13;
+    else targetZoom = 14;
 
     const tileSet = new Set();
     const newTiles = [];
@@ -446,25 +468,75 @@ export function EarthSurfaceTileEngine({
 }
 
 // ---------------------------------------------------------------------------
+// HIERARCHICAL ANCESTOR TEXTURE LOOKUP (Zero Black Holes / Zero Untextured Tiles)
+// ---------------------------------------------------------------------------
+function getBestAvailableTileTexture(x, y, z) {
+  const directKey = `${z}/${x}/${y}`;
+  if (loadedTextures.has(directKey)) {
+    return {
+      texture: loadedTextures.get(directKey),
+      uvOffset: [0.0, 0.0],
+      uvScale: 1.0,
+      isDirect: true
+    };
+  }
+
+  // Search up to 6 levels of parent hierarchy for immediate fallback imagery
+  for (let dz = 1; dz <= 6 && z - dz >= 0; dz++) {
+    const pZ = z - dz;
+    const span = Math.pow(2, dz);
+    const pX = Math.floor(x / span);
+    const pY = Math.floor(y / span);
+    const pKey = `${pZ}/${pX}/${pY}`;
+    if (loadedTextures.has(pKey)) {
+      const scale = 1.0 / span;
+      const subX = x % span;
+      const subY = y % span;
+      return {
+        texture: loadedTextures.get(pKey),
+        uvOffset: [subX * scale, subY * scale],
+        uvScale: scale,
+        isDirect: false
+      };
+    }
+  }
+
+  return null;
+}
+
+// ---------------------------------------------------------------------------
 // INDIVIDUAL SURFACE TILE MESH
 // ---------------------------------------------------------------------------
 function SurfaceTileMesh({ tile, radius, fade, sunDirection }) {
   const meshRef = useRef();
   const materialRef = useRef();
-  const [tex, setTex] = useState(() => {
-    return loadedTextures.get(`${tile.z}/${tile.x}/${tile.y}`) || null;
+  const [texState, setTexState] = useState(() => {
+    return getBestAvailableTileTexture(tile.x, tile.y, tile.z);
   });
 
   const geometry = useMemo(() => {
-    // Offset slightly by zoom to eliminate z-fighting between LOD levels
-    const zOffset = 0.0006 + tile.z * 0.00008;
+    // Micro-offset in real meters (3 to 10 meters above radius)
+    // Eliminates z-fighting while preventing camera clipping even at 150m altitude
+    const zOffset = 0.000003 + tile.z * 0.0000005;
     return getTileGeometry(tile.x, tile.y, tile.z, radius + zOffset, 12);
   }, [tile.x, tile.y, tile.z, radius]);
 
   useEffect(() => {
     let isMounted = true;
+    if (!texState?.isDirect) {
+      const best = getBestAvailableTileTexture(tile.x, tile.y, tile.z);
+      if (best) setTexState(best);
+    }
+
     requestTileTexture(tile.x, tile.y, tile.z, (loaded) => {
-      if (isMounted) setTex(loaded);
+      if (isMounted && loaded) {
+        setTexState({
+          texture: loaded,
+          uvOffset: [0.0, 0.0],
+          uvScale: 1.0,
+          isDirect: true
+        });
+      }
     });
     return () => {
       isMounted = false;
@@ -475,27 +547,35 @@ function SurfaceTileMesh({ tile, radius, fade, sunDirection }) {
     if (materialRef.current) {
       materialRef.current.uniforms.uFade.value = fade;
       materialRef.current.uniforms.uSunDirection.value = sunDirection;
+      if (texState) {
+        materialRef.current.uniforms.uMap.value = texState.texture;
+        materialRef.current.uniforms.uUvOffset.value.set(...texState.uvOffset);
+        materialRef.current.uniforms.uUvScale.value = texState.uvScale;
+      }
     }
   });
 
-  if (!tex) return null;
+  if (!texState?.texture) return null;
 
   return (
     <mesh ref={meshRef} geometry={geometry} renderOrder={10 + tile.z}>
       <shaderMaterial
         ref={materialRef}
         args={[TileShader]}
+        side={THREE.DoubleSide}
         transparent={fade < 0.98}
         depthWrite={true}
         depthTest={true}
         polygonOffset={true}
-        polygonOffsetFactor={-1.0 - tile.z * 0.2}
-        polygonOffsetUnits={-4.0}
+        polygonOffsetFactor={-1.0 - tile.z * 0.15}
+        polygonOffsetUnits={-3.0}
         uniforms={{
-          uMap: { value: tex },
+          uMap: { value: texState.texture },
+          uUvOffset: { value: new THREE.Vector2(...texState.uvOffset) },
+          uUvScale: { value: texState.uvScale },
           uSunDirection: { value: sunDirection },
           uFade: { value: fade },
-          uAmbientFloor: { value: 0.32 } // Ambient starlight floor so night side is clear & legible
+          uAmbientFloor: { value: 0.65 }
         }}
       />
     </mesh>

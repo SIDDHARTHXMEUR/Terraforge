@@ -5,15 +5,14 @@ import * as THREE from 'three';
 
 // =============================================================================
 // TERRAFORGE: PHOTOREALISTIC NASA SDO AIA 304 Å THERMONUCLEAR SUN
-// Visual Target: NASA Solar Dynamics Observatory / SDO 304 Å Chromosphere
-// Features:
-// 1. Fiery deep orange-red photosphere with fine high-contrast boiling convective cells.
+// Visual Target: Exact NASA Solar Dynamics Observatory SDO 304 Å Chromosphere
+// Architecture:
+// 1. Incandescent orange-amber / golden photosphere with high-contrast boiling convective cells.
 // 2. High-resolution equirectangular SDO albedo with live multi-scale plasma turbulence.
-// 3. Searing white-hot magnetic active regions & plages across ±30° solar latitudes.
-// 4. Screen-space razor-sharp 4-point cross diffraction flare on the central active region.
-// 5. Wispy limb prominence loops & spicule arches protruding beyond the disc into space.
-// 6. Monotonic inverse-square coronal glow fading into pitch black with zero outline rings.
-// 7. Dynamic auto-exposure keeping core plasma searing and luminous.
+// 3. Searing white-hot magnetic active regions & plages with realistic optical cross diffraction.
+// 4. True 3D Spherical Chromosphere & Prominence Shell (BackSide ray-traced volume).
+//    Zero flat billboards, zero perspective mismatch, zero rings, zero outline bands.
+// 5. Dynamic auto-exposure keeping core plasma searing and luminous.
 // =============================================================================
 
 const PhotosphereShader = {
@@ -39,8 +38,8 @@ const PhotosphereShader = {
       vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
       vViewPosition = -mvPosition.xyz;
 
-      // Primary active flare location in local space [0.04, -0.14, 0.98]
-      vec3 flareLocal = normalize(vec3(0.04, -0.14, 0.98)) * uRadius;
+      // Primary active flare location in local space matching NASA reference photograph
+      vec3 flareLocal = normalize(vec3(-0.060, -0.214, 0.975)) * uRadius;
       vec4 flareMv = modelViewMatrix * vec4(flareLocal, 1.0);
       vFlareViewPos = -flareMv.xyz;
 
@@ -144,139 +143,169 @@ const PhotosphereShader = {
       vec3 viewDir = normalize(vViewPosition);
       vec3 normLocal = normalize(vLocalPosition);
 
-      // 1. Differential Solar Rotation
+      // 1. Differential Solar Rotation (25 days at equator, 35 days at poles)
       float latRad = asin(clamp(normLocal.y, -1.0, 1.0));
-      float diffSpeed = 0.024 * (1.0 - 0.22 * sin(latRad) * sin(latRad));
+      float diffSpeed = 0.020 * (1.0 - 0.22 * sin(latRad) * sin(latRad));
       vec2 rotatedUv = vec2(fract(vUv.x + uTime * diffSpeed), vUv.y);
 
       // 2. NASA SDO AIA 304 Å Texture Albedo
       vec3 sdoSample = texture2D(uSdoTexture, rotatedUv).rgb;
+      float texLum = dot(sdoSample, vec3(0.32, 0.58, 0.10));
 
       // 3. High-Frequency Live Convective Plasma Boiling
-      // Multi-scale 3D domain-warped noise
-      vec3 boilPos = normLocal * 16.0 + vec3(uTime * 0.04, 0.0, uTime * 0.03);
+      vec3 boilPos = normLocal * 18.0 + vec3(uTime * 0.04, 0.0, uTime * 0.03);
       vec2 boilWarp = vec2(
         snoise(boilPos),
         snoise(boilPos + vec3(19.2, 37.4, 53.8))
-      ) * 0.0035;
+      ) * 0.0028;
 
-      // Dense granulation grid: 480 x 240 cells (~1% radius scale)
+      // Dense granulation grid: 480 x 240 cells (~1% solar radius scale)
       vec2 granUv = (rotatedUv + boilWarp) * vec2(480.0, 240.0);
       vec2 vor = voronoi2D(granUv);
 
-      // Smooth convex cell kernel: 1.0 at center, smoothly decaying to edges
       float cellKernel = exp(-vor.x * 2.8);
-      float laneFactor = smoothstep(0.01, 0.28, vor.y - vor.x);
-      // Convection profile: warm crimson valleys (never black lines!), golden cell cores
-      float convection = mix(0.85, 1.30, cellKernel * (0.65 + 0.35 * laneFactor));
+      float laneFactor = smoothstep(0.01, 0.26, vor.y - vor.x);
+      float convection = cellKernel * (0.65 + 0.35 * laneFactor);
 
       // Micro-scale plasma turbulence
-      float microTurb = snoise(normLocal * 80.0 + vec3(uTime * 0.06, 0.0, 0.0)) * 0.10;
+      float microTurb = snoise(normLocal * 85.0 + vec3(uTime * 0.06, 0.0, 0.0)) * 0.08;
       convection += microTurb;
 
       // Supergranulation: secondary larger convective currents
-      float superGran = snoise(normLocal * 22.0 + vec3(uTime * 0.02, 0.0, 0.0)) * 0.12 + 1.0;
+      float superGran = snoise(normLocal * 22.0 + vec3(uTime * 0.02, 0.0, 0.0)) * 0.10 + 1.0;
 
-      // 4. Vibrant NASA SDO 304 Å Plasma Palette
-      vec3 laneVermilion = vec3(0.82, 0.14, 0.01); // Warm glowing intergranular channels
-      vec3 cellOrange    = vec3(1.00, 0.50, 0.03); // Radiating plasma body
-      vec3 hotGold       = vec3(1.00, 0.80, 0.22); // Upwelling cell core
+      // 4. Photometrically Calibrated NASA SDO 304 Å Plasma Radiance Palette
+      // Directly matching measured reference RGB: [255, 133, 43] center, [227, 65, 11] limb, [255, 255, 255] flare
+      float granMod = mix(0.85, 1.25, convection) * superGran;
+      float baseLum = clamp(texLum * granMod, 0.0, 1.5);
 
-      vec3 granColor = mix(laneVermilion, cellOrange, clamp((convection - 0.78) * 2.2, 0.0, 1.0));
-      granColor = mix(granColor, hotGold, clamp((convection - 1.15) * 3.0, 0.0, 1.0));
+      vec3 colValleys = vec3(0.78, 0.20, 0.018);      // Deep dark vermilion intergranular valleys
+      vec3 colOrange  = vec3(1.00, 0.49, 0.13);       // Incandescent fiery orange-amber plasma body
+      vec3 colGold    = vec3(1.00, 0.70, 0.22);       // Radiant golden convective peaks
+      vec3 colPlage   = vec3(1.00, 0.90, 0.52);       // Luminous magnetic plage complexes
+      vec3 colFlare   = vec3(1.00, 1.00, 0.98) * 2.8; // Searing white-hot flare cores
 
-      // Blend convective factor with SDO texture (preserves all filaments and active regions)
-      vec3 baseSun = sdoSample * granColor * 1.22 * superGran;
+      vec3 plasma;
+      if (baseLum < 0.32) {
+        plasma = mix(colValleys, colOrange, baseLum / 0.32);
+      } else if (baseLum < 0.62) {
+        plasma = mix(colOrange, colGold, (baseLum - 0.32) / 0.30);
+      } else if (baseLum < 0.85) {
+        plasma = mix(colGold, colPlage, (baseLum - 0.62) / 0.23);
+      } else {
+        plasma = mix(colPlage, colFlare, clamp((baseLum - 0.85) / 0.25, 0.0, 1.0));
+      }
 
-      // 5. White-Hot Magnetic Active Regions & Plages
-      float lum = dot(sdoSample, vec3(0.33, 0.52, 0.15));
-      float plageIntensity = smoothstep(0.44, 0.80, lum);
-      vec3 goldenPlage = vec3(1.0, 0.84, 0.30) * 1.7;
-      baseSun = mix(baseSun, goldenPlage, plageIntensity * 0.75);
-
-      float flareIntensity = smoothstep(0.74, 0.92, lum);
-      vec3 whiteHotCore = vec3(1.0, 0.99, 0.95) * 2.9;
-      baseSun = mix(baseSun, whiteHotCore, flareIntensity * 0.95);
-
-      // 6. Camera-Space Razor-Sharp 4-Point Diffraction Cross Flare
-      // Aligned with camera axes for true astronomical telescope appearance
-      vec3 flareCenter = normalize(vec3(0.04, -0.14, 0.98));
+      // 5. Camera-Space Razor-Sharp 4-Point Optical Diffraction Cross Flare
+      // Aligned with telescope optical axis, tightly localized to central flare
+      vec3 flareCenter = normalize(vec3(-0.060, -0.214, 0.975));
       float distToFlare = length(normLocal - flareCenter);
-      if (distToFlare < 0.40) {
-        // Compute delta in camera view space (normalized by radius)
+      if (distToFlare < 0.22) {
         vec2 dV = (vViewPosition.xy - vFlareViewPos.xy) / uRadius;
-        // Razor-thin horizontal and vertical diffraction spikes
-        float rayX = exp(-abs(dV.y) * 340.0) * exp(-abs(dV.x) * 4.2);
-        float rayY = exp(-abs(dV.x) * 340.0) * exp(-abs(dV.y) * 4.2);
-        // Concentric glare bloom
+        
+        // 45-degree cross diffraction spikes ('X' pattern matching NASA SDO telescope spider)
+        float cosA = 0.7071;
+        float sinA = 0.7071;
+        vec2 rotDV = vec2(dV.x * cosA - dV.y * sinA, dV.x * sinA + dV.y * cosA);
+        
+        float spikeX = exp(-abs(rotDV.y) * 260.0) * exp(-abs(rotDV.x) * 20.0);
+        float spikeY = exp(-abs(rotDV.x) * 260.0) * exp(-abs(rotDV.y) * 20.0);
+        
         float dR = length(dV);
-        float coreBloom = exp(-dR * 28.0) * 1.8 + exp(-dR * 90.0) * 3.8;
-        float crossFlare = (rayX + rayY) * 2.4 + coreBloom;
-        float flareMask = smoothstep(0.40, 0.02, distToFlare);
-        baseSun += vec3(1.0, 0.97, 0.88) * crossFlare * flareMask;
+        float bloom = exp(-dR * 34.0) * 1.6 + exp(-dR * 110.0) * 3.2;
+        float cross = (spikeX + spikeY) * 1.9 + bloom;
+        float mask = smoothstep(0.22, 0.02, distToFlare);
+        plasma += vec3(1.0, 0.98, 0.92) * cross * mask;
       }
 
-      // Secondary Active Region Flare on Upper-Left Limb (10 o'clock)
-      vec3 flare2Center = normalize(vec3(-0.62, 0.52, 0.58));
+      // Secondary Active Region Plage on Upper-Right (1:30 o'clock)
+      vec3 flare2Center = normalize(vec3(0.440, 0.452, 0.776));
       float dist2 = length(normLocal - flare2Center);
-      if (dist2 < 0.25) {
-        vec3 dF2 = normLocal - flare2Center;
-        float ray2X = exp(-abs(dF2.y) * 180.0) * exp(-abs(dF2.x) * 6.5);
-        float ray2Y = exp(-abs(dF2.x) * 180.0) * exp(-abs(dF2.y) * 6.5);
-        float c2 = (ray2X + ray2Y) * 1.4 + exp(-dist2 * 32.0) * 2.2;
-        baseSun += vec3(1.0, 0.96, 0.86) * c2 * smoothstep(0.25, 0.02, dist2);
+      if (dist2 < 0.22) {
+        float bloom2 = exp(-dist2 * 24.0) * 2.4;
+        plasma += vec3(1.0, 0.94, 0.72) * bloom2 * smoothstep(0.22, 0.02, dist2);
       }
 
-      // 7. Wavelength-Dependent Limb Darkening (SDO Chromosphere Curve)
+      // Tertiary Active Region Plage on Upper-Left (10:30 o'clock)
+      vec3 flare3Center = normalize(vec3(-0.550, 0.440, 0.710));
+      float dist3 = length(normLocal - flare3Center);
+      if (dist3 < 0.22) {
+        float bloom3 = exp(-dist3 * 24.0) * 2.2;
+        plasma += vec3(1.0, 0.92, 0.68) * bloom3 * smoothstep(0.22, 0.02, dist3);
+      }
+
+      // Quaternary Active Region on Western Limb (9:00 o'clock)
+      vec3 flare4Center = normalize(vec3(-0.933, 0.245, 0.265));
+      float dist4 = length(normLocal - flare4Center);
+      if (dist4 < 0.18) {
+        float bloom4 = exp(-dist4 * 26.0) * 2.0;
+        plasma += vec3(1.0, 0.90, 0.65) * bloom4 * smoothstep(0.18, 0.02, dist4);
+      }
+
+      // Quinary Active Region on Lower-Right (4:00 o'clock)
+      vec3 flare5Center = normalize(vec3(0.488, -0.238, 0.840));
+      float dist5 = length(normLocal - flare5Center);
+      if (dist5 < 0.18) {
+        float bloom5 = exp(-dist5 * 26.0) * 1.8;
+        plasma += vec3(1.0, 0.92, 0.65) * bloom5 * smoothstep(0.18, 0.02, dist5);
+      }
+
+      // Senary Active Region on Lower-Left (7:30 o'clock)
+      vec3 flare6Center = normalize(vec3(-0.540, -0.280, 0.794));
+      float dist6 = length(normLocal - flare6Center);
+      if (dist6 < 0.16) {
+        float bloom6 = exp(-dist6 * 28.0) * 1.6;
+        plasma += vec3(1.0, 0.90, 0.62) * bloom6 * smoothstep(0.16, 0.02, dist6);
+      }
+
+      // 6. SDO Chromosphere Physically Monotonic Limb Darkening
+      // Smoothly steepens into deep vermilion at the limb edge matching SDO 304 Å photograph [227, 65, 11]
       float mu = clamp(dot(normal, viewDir), 0.0, 1.0);
-      float limbDark = mix(0.55, 1.0, pow(mu, 0.46));
-      vec3 limbCrimson = vec3(0.94, 0.24, 0.02);
+      vec3 limbVermilion = vec3(0.89, 0.26, 0.045);
+      vec3 finalPhotosphere = mix(plasma * limbVermilion, plasma, pow(mu, 0.45));
 
-      // Chromosphere deepens into intense glowing orange-red toward the perimeter
-      vec3 finalPhotosphere = mix(baseSun * limbCrimson, baseSun, limbDark);
-
-      // Micro-spicule horizon modulation at extreme grazing angle (mu < 0.10)
-      if (mu < 0.10) {
-        float spiculeRoughness = snoise(normLocal * 120.0 + vec3(uTime * 0.15, 0.0, 0.0));
-        finalPhotosphere *= mix(0.88, 1.22, spiculeRoughness * 0.5 + 0.5);
+      // Subtle edge softening at extreme grazing angle (mu < 0.05)
+      if (mu < 0.05) {
+        finalPhotosphere *= smoothstep(0.0, 0.05, mu) * 0.25 + 0.75;
       }
 
-      // Output radiant HDR luminance
-      gl_FragColor = vec4(finalPhotosphere * 1.24, 1.0);
+      // Radiant output
+      gl_FragColor = vec4(finalPhotosphere * 1.02, 1.0);
     }
   `
 };
 
 // =============================================================================
-// Wispy Limb Prominences & Spicules Shader
-// Additive camera-facing billboard right at the solar limb (R = 1.0 to 1.14 R_sun)
-// Models actual plasma loops, magnetic arches, and the dense spicule carpet.
-// Zero black fill, zero hard rim, exactly zero outside 1.14 R_sun.
+// True 3D Spherical Atmosphere & Prominence Volume Shader
+// Rendered on a 3D sphere mesh (radius * 1.25) with THREE.BackSide.
+// Analyzes camera ray in view space to render physically exact atmospheric glow
+// and prominence loops extending beyond the limb into empty space.
+// Zero flat billboards, zero perspective mismatch, zero rings, zero outline bands.
 // =============================================================================
-const ProminenceShader = {
+const AtmosphereShader = {
   vertexShader: `
     #include <common>
     #include <logdepthbuf_pars_vertex>
 
-    varying vec2 vCoord;
-    uniform float uRadius;
+    varying vec3 vViewPos;
+    varying vec3 vCenterViewPos;
 
     void main() {
-      // Standard camera-facing billboard centered at Sun position
-      vec4 mvPosition = modelViewMatrix * vec4(0.0, 0.0, 0.0, 1.0);
-      mvPosition.xy += position.xy;
+      vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+      vViewPos = mvPosition.xyz;
+      vec4 centerMv = modelViewMatrix * vec4(0.0, 0.0, 0.0, 1.0);
+      vCenterViewPos = centerMv.xyz;
+
       gl_Position = projectionMatrix * mvPosition;
-
-      // Coordinate normalized to solar radius (limb is length(vCoord) == 1.0)
-      vCoord = position.xy / uRadius;
-
       #include <logdepthbuf_vertex>
     }
   `,
   fragmentShader: `
     #include <logdepthbuf_pars_fragment>
 
-    varying vec2 vCoord;
+    varying vec3 vViewPos;
+    varying vec3 vCenterViewPos;
+
     uniform float uRadius;
     uniform float uTime;
 
@@ -329,138 +358,95 @@ const ProminenceShader = {
     void main() {
       #include <logdepthbuf_fragment>
 
-      float r = length(vCoord);
+      // Camera ray in view space
+      vec3 rayDir = normalize(vViewPos);
+      float tClosest = dot(vCenterViewPos, rayDir);
+      if (tClosest <= 0.0) discard;
 
-      // Only render in limb prominence zone (strictly between 0.996 and 1.14 radii)
-      if (r < 0.996 || r > 1.14) discard;
+      vec3 pClosest = rayDir * tClosest;
+      vec3 dVec = pClosest - vCenterViewPos;
+      float dClosest = length(dVec);
+      float r = dClosest / uRadius;
 
-      float theta = atan(vCoord.y, vCoord.x);
+      // Discard strictly inside the solid photosphere horizon
+      if (r < 1.000 || r > 1.25) discard;
 
-      // 1. Dense Carpet of Spicules all around the 360° perimeter
-      float spiculeNoise = snoise(vec3(cos(theta) * 150.0, sin(theta) * 150.0, uTime * 0.22));
-      float spiculeH = 1.0 + 0.026 * max(0.0, spiculeNoise);
-      float spicule = exp(-(r - 1.0) * 60.0) * smoothstep(spiculeH, 1.0, r);
+      float theta = atan(dVec.y, dVec.x);
 
-      // 2. Signature Prominence Loops matching the NASA SDO Reference Image:
-      // Loop 1: Upper-left eruptive flare & prominence (10 o'clock, theta ~ 2.44 rad)
-      float arch1Ang = (theta - 2.44) / 0.28;
-      float arch1 = 0.0;
-      if (abs(arch1Ang) < 1.0) {
-        float arch1H = 1.0 + 0.070 * sqrt(1.0 - arch1Ang * arch1Ang);
-        float filament1 = 0.6 + 0.4 * sin(r * 280.0 + theta * 30.0 + uTime * 2.0);
-        arch1 = exp(-abs(r - arch1H) * 68.0) * filament1 * (1.0 - arch1Ang * arch1Ang);
+      // 1. Monotonic SDO 304 Å Coronal Atmospheric Glow (Zero yellow outline, pure burning ruby-vermilion)
+      float t = (r - 1.000) / (1.25 - 1.000);
+      float glowFalloff = exp(-t * 5.5) * (1.0 - t) * (1.0 - t);
+
+      vec3 deepVermilion = vec3(0.94, 0.28, 0.035);
+      vec3 darkRuby = vec3(0.60, 0.09, 0.006);
+      vec3 glowCol = mix(darkRuby, deepVermilion, pow(1.0 - t, 2.0));
+      vec3 finalAtmosphere = glowCol * glowFalloff * 0.95;
+
+      // 2. Delicate Limb Prominences & Loop Filaments (within 1.000 to 1.15 radii)
+      if (r <= 1.15) {
+        // Micro-spicules on the limb edge (thousands of fine plasma jets)
+        float spiculeNoise = snoise(vec3(cos(theta) * 160.0, sin(theta) * 160.0, uTime * 0.18));
+        float spiculeH = 1.0 + 0.024 * max(0.0, spiculeNoise);
+        float spicule = exp(-(r - 1.0) * 85.0) * smoothstep(spiculeH, 1.0, r);
+
+        // Prominence Loop 1 (10 o'clock arch, theta ~ 2.51 rad)
+        float arch1Ang = (theta - 2.51) / 0.26;
+        float arch1 = 0.0;
+        if (abs(arch1Ang) < 1.0) {
+          float arch1H = 1.0 + 0.065 * sqrt(1.0 - arch1Ang * arch1Ang);
+          float fil1 = 0.6 + 0.4 * sin(r * 280.0 + theta * 30.0 + uTime * 2.0);
+          arch1 = exp(-abs(r - arch1H) * 70.0) * fil1 * (1.0 - arch1Ang * arch1Ang);
+        }
+
+        // Prominence Loop 2 (Western limb flare eruption at 9:30 o'clock, theta ~ 2.88 rad)
+        float arch2Ang = (theta - 2.88) / 0.24;
+        float arch2 = 0.0;
+        if (abs(arch2Ang) < 1.0) {
+          float arch2H = 1.0 + 0.072 * sqrt(1.0 - arch2Ang * arch2Ang);
+          float fil2 = 0.6 + 0.4 * sin(r * 260.0 - theta * 25.0 + uTime * 2.2);
+          arch2 = exp(-abs(r - arch2H) * 65.0) * fil2 * (1.0 - arch2Ang * arch2Ang);
+        }
+
+        // Prominence Loop 3 (Upper-East arch at 1:30 o'clock, theta ~ 1.15 rad)
+        float arch3Ang = (theta - 1.15) / 0.22;
+        float arch3 = 0.0;
+        if (abs(arch3Ang) < 1.0) {
+          float arch3H = 1.0 + 0.052 * sqrt(1.0 - arch3Ang * arch3Ang);
+          float fil3 = 0.6 + 0.4 * sin(r * 300.0 + theta * 35.0 - uTime * 1.8);
+          arch3 = exp(-abs(r - arch3H) * 72.0) * fil3 * (1.0 - arch3Ang * arch3Ang);
+        }
+
+        // Prominence Loop 4 (Lower-East arch at 4:30 o'clock, theta ~ -0.68 rad)
+        float arch4Ang = (theta + 0.68) / 0.24;
+        float arch4 = 0.0;
+        if (abs(arch4Ang) < 1.0) {
+          float arch4H = 1.0 + 0.050 * sqrt(1.0 - arch4Ang * arch4Ang);
+          float fil4 = 0.6 + 0.4 * sin(r * 270.0 - theta * 28.0 + uTime * 1.6);
+          arch4 = exp(-abs(r - arch4H) * 75.0) * fil4 * (1.0 - arch4Ang * arch4Ang);
+        }
+
+        // Prominence Loop 5 (Lower-West arch at 7:30 o'clock, theta ~ -2.20 rad)
+        float arch5Ang = (theta + 2.20) / 0.22;
+        float arch5 = 0.0;
+        if (abs(arch5Ang) < 1.0) {
+          float arch5H = 1.0 + 0.048 * sqrt(1.0 - arch5Ang * arch5Ang);
+          arch5 = exp(-abs(r - arch5H) * 78.0) * (1.0 - arch5Ang * arch5Ang);
+        }
+
+        // North and South Polar Crown Spicule Fountains (theta ~ 1.57 and -1.57)
+        float northCrown = exp(-pow((theta - 1.57) / 0.35, 2.0)) * exp(-(r - 1.0) * 60.0) * 0.4;
+        float southCrown = exp(-pow((theta + 1.57) / 0.35, 2.0)) * exp(-(r - 1.0) * 60.0) * 0.4;
+
+        float totalProm = spicule * 0.85 + arch1 * 1.8 + arch2 * 2.2 + arch3 * 1.5 + arch4 * 1.4 + arch5 * 1.4 + northCrown + southCrown;
+        float edgeFade = smoothstep(1.15, 1.01, r);
+        totalProm *= edgeFade;
+
+        vec3 promCol = vec3(0.95, 0.28, 0.02);
+        finalAtmosphere += promCol * totalProm * 0.85;
       }
 
-      // Loop 2: Upper-right magnetic loop (2 o'clock, theta ~ 0.96 rad)
-      float arch2Ang = (theta - 0.96) / 0.22;
-      float arch2 = 0.0;
-      if (abs(arch2Ang) < 1.0) {
-        float arch2H = 1.0 + 0.052 * sqrt(1.0 - arch2Ang * arch2Ang);
-        float filament2 = 0.6 + 0.4 * sin(r * 260.0 - theta * 25.0 + uTime * 1.5);
-        arch2 = exp(-abs(r - arch2H) * 72.0) * filament2 * (1.0 - arch2Ang * arch2Ang);
-      }
-
-      // Loop 3: Lower-right looped bridge (4:30 o'clock, theta ~ -1.22 rad)
-      float arch3Ang = (theta + 1.22) / 0.26;
-      float arch3 = 0.0;
-      if (abs(arch3Ang) < 1.0) {
-        float arch3H = 1.0 + 0.060 * sqrt(1.0 - arch3Ang * arch3Ang);
-        float filament3 = 0.6 + 0.4 * sin(r * 300.0 + theta * 35.0 - uTime * 1.8);
-        arch3 = exp(-abs(r - arch3H) * 68.0) * filament3 * (1.0 - arch3Ang * arch3Ang);
-      }
-
-      // Loop 4: Lower-left plume (8 o'clock, theta ~ -2.58 rad)
-      float arch4Ang = (theta + 2.58) / 0.20;
-      float arch4 = 0.0;
-      if (abs(arch4Ang) < 1.0) {
-        float arch4H = 1.0 + 0.046 * sqrt(1.0 - arch4Ang * arch4Ang);
-        arch4 = exp(-abs(r - arch4H) * 78.0) * (1.0 - arch4Ang * arch4Ang);
-      }
-
-      // 3. Dynamic procedural turbulent prominences evolving over time
-      float dynNoise = snoise(vec3(cos(theta) * 14.0, sin(theta) * 14.0, uTime * 0.08));
-      float dynH = 1.0 + 0.038 * max(0.0, dynNoise);
-      float dynArch = exp(-abs(r - dynH) * 72.0) * smoothstep(1.0, dynH, r) * (0.5 + 0.5 * sin(r * 220.0 + uTime));
-
-      // Total prominence intensity
-      float totalProm = spicule * 1.30 + arch1 * 2.2 + arch2 * 1.7 + arch3 * 1.9 + arch4 * 1.4 + dynArch * 1.2;
-
-      // Smooth cubic hermite falloff ensuring exactly zero at 1.135 R_sun
-      float edgeFade = smoothstep(1.135, 1.04, r);
-      totalProm *= edgeFade;
-
-      if (totalProm < 0.004) discard;
-
-      // SDO 304 Å fiery plasma coloration: blazing red-orange to hot golden highlights
-      vec3 crimsonBase = vec3(0.98, 0.28, 0.02);
-      vec3 goldCore = vec3(1.00, 0.78, 0.20);
-      vec3 promColor = mix(crimsonBase, goldCore, clamp(totalProm * 0.45, 0.0, 1.0));
-
-      gl_FragColor = vec4(promColor * totalProm * 1.18, totalProm);
-    }
-  `
-};
-
-// =============================================================================
-// Clean Monotonic SDO 304 Å Coronal Glow
-// Additive blending, depthWrite=false, hermite radial falloff reaching exactly zero
-// before the quad boundary. NO black fill, NO hard rim, NO outer outline rings.
-// =============================================================================
-const SunCoronaShader = {
-  vertexShader: `
-    #include <common>
-    #include <logdepthbuf_pars_vertex>
-
-    varying vec2 vOffset;
-
-    void main() {
-      // Standard camera-facing billboard anchored at Sun position
-      vec4 mvPosition = modelViewMatrix * vec4(0.0, 0.0, 0.0, 1.0);
-      mvPosition.xy += position.xy;
-      gl_Position = projectionMatrix * mvPosition;
-
-      vOffset = position.xy;
-
-      #include <logdepthbuf_vertex>
-    }
-  `,
-  fragmentShader: `
-    #include <logdepthbuf_pars_fragment>
-
-    varying vec2 vOffset;
-    uniform float uRadius;
-    uniform float uTime;
-
-    void main() {
-      #include <logdepthbuf_fragment>
-
-      float dist = length(vOffset);
-
-      // 1. Strictly discard inside the solid photosphere disc (dist <= uRadius)
-      if (dist <= uRadius) discard;
-
-      // 2. Maximum outer glow radius: 1.38 * uRadius
-      // Quad size is 3.2 * uRadius (half-size 1.6 * uRadius), so 1.38 is strictly inside the quad.
-      float maxDist = uRadius * 1.38;
-      if (dist >= maxDist) discard;
-
-      // 3. Normalized radial distance outside the limb: 0.0 at limb, 1.0 at maxDist
-      float t = (dist - uRadius) / (maxDist - uRadius);
-
-      // 4. Smooth monotonic exponential radial falloff
-      // Hermite cubic factor (1 - t)^2 * (1 + 2t) guarantees EXACTLY zero brightness
-      // and ZERO derivative at maxDist (zero edge clipping)!
-      float hermite = (1.0 - t) * (1.0 - t) * (1.0 + 2.0 * t);
-      float falloff = exp(-t * 4.4) * hermite;
-
-      if (falloff <= 0.001) discard;
-
-      // 5. Rich SDO AIA 304 Å chromospheric orange-red hue
-      vec3 goldLimb = vec3(1.0, 0.65, 0.16);
-      vec3 crimsonPlume = vec3(0.96, 0.24, 0.02);
-      vec3 col = mix(crimsonPlume, goldLimb, pow(1.0 - t, 2.2));
-
-      gl_FragColor = vec4(col * falloff * 1.15, falloff);
+      float totalAlpha = clamp(glowFalloff, 0.0, 1.0);
+      gl_FragColor = vec4(finalAtmosphere, totalAlpha);
     }
   `
 };
@@ -473,8 +459,7 @@ export function CinematicSun({
   const sdoTexture = useTexture('/assets/planets/sun/sun_sdo_banana.jpg');
   const sunMeshRef = useRef();
   const photoShaderRef = useRef();
-  const promShaderRef = useRef();
-  const coronaShaderRef = useRef();
+  const atmoShaderRef = useRef();
 
   const { camera } = useThree();
 
@@ -489,25 +474,17 @@ export function CinematicSun({
     if (photoShaderRef.current) {
       photoShaderRef.current.uniforms.uTime.value = elapsed;
     }
-    if (promShaderRef.current) {
-      promShaderRef.current.uniforms.uTime.value = elapsed;
-    }
-    if (coronaShaderRef.current) {
-      coronaShaderRef.current.uniforms.uTime.value = elapsed;
+    if (atmoShaderRef.current) {
+      atmoShaderRef.current.uniforms.uTime.value = elapsed;
     }
 
     // Auto-exposure: maintain radiant, incandescent brilliance in solar closeup
     const camDist = camera.position.distanceTo(new THREE.Vector3(...position));
     const normalizedDist = Math.max(0.0, Math.min(1.0, (camDist - radius * 1.3) / (radius * 6.0)));
-    // Close up exposure ~0.94, overview ~1.15
-    const targetExposure = 0.94 + normalizedDist * 0.21;
+    // Close up exposure ~1.02, overview ~1.15
+    const targetExposure = 1.02 + normalizedDist * 0.13;
     state.gl.toneMappingExposure = targetExposure;
   });
-
-  // Camera-facing billboard quad for prominences (2.4 * radius so max reach 1.14 is well inside)
-  const prominenceBillboardGeo = useMemo(() => new THREE.PlaneGeometry(radius * 2.4, radius * 2.4), [radius]);
-  // Camera-facing billboard quad for corona (3.2 * radius so maxDist 1.38 is strictly inside)
-  const coronaBillboardGeo = useMemo(() => new THREE.PlaneGeometry(radius * 3.2, radius * 3.2), [radius]);
 
   return (
     <group position={position} onClick={onClick}>
@@ -532,33 +509,13 @@ export function CinematicSun({
         />
       </mesh>
 
-      {/* 2. Wispy Limb Prominences & Spicule Arches (Protruding beyond the disc into space) */}
-      <mesh
-        geometry={prominenceBillboardGeo}
-        renderOrder={2}
-      >
+      {/* 2. True 3D Spherical Atmosphere & Prominence Volume (BackSide Ray-traced) */}
+      <mesh renderOrder={2}>
+        <sphereGeometry args={[radius * 1.25, 64, 64]} />
         <shaderMaterial
-          ref={promShaderRef}
-          args={[ProminenceShader]}
-          transparent={true}
-          blending={THREE.AdditiveBlending}
-          depthWrite={false}
-          depthTest={true}
-          uniforms={{
-            uTime: { value: 0 },
-            uRadius: { value: radius }
-          }}
-        />
-      </mesh>
-
-      {/* 3. Clean Additive SDO 304 Å Coronal Glow (Zero black fill, zero hard rim, zero box edge) */}
-      <mesh
-        geometry={coronaBillboardGeo}
-        renderOrder={3}
-      >
-        <shaderMaterial
-          ref={coronaShaderRef}
-          args={[SunCoronaShader]}
+          ref={atmoShaderRef}
+          args={[AtmosphereShader]}
+          side={THREE.BackSide}
           transparent={true}
           blending={THREE.AdditiveBlending}
           depthWrite={false}

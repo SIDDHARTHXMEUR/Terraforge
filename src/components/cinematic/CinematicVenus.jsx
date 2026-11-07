@@ -107,7 +107,14 @@ export function CinematicVenus({
 
     if (deckShaderRef.current) {
       deckShaderRef.current.uniforms.uTime.value = elapsed;
-      deckShaderRef.current.uniforms.uSunDirection.value = computedSunDir;
+      const worldPos = new THREE.Vector3();
+      if (bodyRef.current) {
+        bodyRef.current.getWorldPosition(worldPos);
+      }
+      const sunDir = worldPos.lengthSq() > 0.1
+        ? new THREE.Vector3(0, 0, 0).sub(worldPos).normalize()
+        : new THREE.Vector3(1, 0, 0);
+      deckShaderRef.current.uniforms.uSunDirection.value.copy(sunDir);
     }
 
     if (isPlaying && bodyRef.current) {

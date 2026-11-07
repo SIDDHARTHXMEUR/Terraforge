@@ -167,12 +167,20 @@ export function CinematicUranus({
       // 17.24-hour retrograde rotation
       bodyRef.current.rotation.y -= delta * 0.09;
     }
+    const worldPos = new THREE.Vector3();
+    if (bodyRef.current) {
+      bodyRef.current.getWorldPosition(worldPos);
+    }
+    const sunDir = worldPos.lengthSq() > 0.1
+      ? new THREE.Vector3(0, 0, 0).sub(worldPos).normalize()
+      : new THREE.Vector3(1, 0, 0);
+
     if (shaderRef.current) {
-      shaderRef.current.uniforms.uSunDirection.value = computedSunDir;
+      shaderRef.current.uniforms.uSunDirection.value.copy(sunDir);
     }
     if (ringShaderRef.current) {
-      ringShaderRef.current.uniforms.uSunDirection.value = computedSunDir;
-      ringShaderRef.current.uniforms.uPlanetCenter.value.set(...position);
+      ringShaderRef.current.uniforms.uSunDirection.value.copy(sunDir);
+      ringShaderRef.current.uniforms.uPlanetCenter.value.copy(worldPos);
     }
   });
 

@@ -1,5 +1,5 @@
-import React, { useRef, useMemo } from 'react';
-import { useFrame } from '@react-three/fiber';
+import React, { useRef, useMemo, useEffect } from 'react';
+import { useFrame, useThree } from '@react-three/fiber';
 import { useTexture } from '@react-three/drei';
 import * as THREE from 'three';
 
@@ -182,10 +182,14 @@ const SaturnRingsShader = {
       // Backlit forward-scattering (Cassini high phase angle translucent glow)
       vec3 viewDir = normalize(vViewPosition);
       float forwardFactor = pow(max(0.0, dot(viewDir, toSun)), 4.0);
-      vec3 forwardGlow = vec3(1.0, 0.92, 0.72) * forwardFactor * 1.2;
+      vec3 forwardGlow = vec3(0.95, 0.88, 0.70) * forwardFactor * 0.55;
 
-      // Ring illumination: double-sided scattering with transparency and forward glow
-      vec3 ringColor = (ringTex.rgb * vec3(1.0, 0.95, 0.84) + forwardGlow) * shadow * 1.5;
+      // Ring illumination: double-sided scattering with transparency and controlled tone-mapped glow
+      vec3 diffuseRings = ringTex.rgb * vec3(0.96, 0.90, 0.80);
+      vec3 ringColor = (diffuseRings + forwardGlow) * shadow * 1.15;
+
+      // Tone mapping clamp to prevent blow-out to flat white in crescent view
+      ringColor = ringColor / (1.0 + ringColor * 0.45);
       float alpha = ringTex.a * 0.92;
 
       if (alpha < 0.02) discard;
@@ -209,14 +213,19 @@ export function CinematicSaturn({
   const saturnBodyRef = useRef();
   const surfaceShaderRef = useRef();
   const ringShaderRef = useRef();
+  const { gl } = useThree();
 
-  const computedSunDir = useMemo(() => {
-    const pos = new THREE.Vector3(...position);
-    if (pos.lengthSq() > 1.0) {
-      return new THREE.Vector3(0, 0, 0).sub(pos).normalize();
+  // Configure high-fidelity anisotropic filtering & mipmaps to prevent moiré aliasing
+  useEffect(() => {
+    if (ringMap && gl) {
+      ringMap.minFilter = THREE.LinearMipmapLinearFilter;
+      ringMap.magFilter = THREE.LinearFilter;
+      ringMap.generateMipmaps = true;
+      const maxAniso = gl.capabilities ? gl.capabilities.getMaxAnisotropy() : 8;
+      ringMap.anisotropy = maxAniso;
+      ringMap.needsUpdate = true;
     }
-    return new THREE.Vector3(1, 0.35, 1).normalize();
-  }, [position]);
+  }, [ringMap, gl]);
 
   // High-density custom Ring Geometry with radial 1D UV mapping
   const ringGeometry = useMemo(() => {
@@ -246,12 +255,20 @@ export function CinematicSaturn({
     if (isPlaying && saturnBodyRef.current) {
       saturnBodyRef.current.rotation.y += delta * 0.16;
     }
+    const worldPos = new THREE.Vector3();
+    if (saturnBodyRef.current) {
+      saturnBodyRef.current.getWorldPosition(worldPos);
+    }
+    const sunDir = worldPos.lengthSq() > 0.1
+      ? new THREE.Vector3(0, 0, 0).sub(worldPos).normalize()
+      : new THREE.Vector3(1, 0, 0);
+
     if (surfaceShaderRef.current) {
-      surfaceShaderRef.current.uniforms.uSunDirection.value = computedSunDir;
+      surfaceShaderRef.current.uniforms.uSunDirection.value.copy(sunDir);
     }
     if (ringShaderRef.current) {
-      ringShaderRef.current.uniforms.uSunDirection.value = computedSunDir;
-      ringShaderRef.current.uniforms.uPlanetCenter.value.set(...position);
+      ringShaderRef.current.uniforms.uSunDirection.value.copy(sunDir);
+      ringShaderRef.current.uniforms.uPlanetCenter.value.copy(worldPos);
     }
   });
 
@@ -273,7 +290,7 @@ export function CinematicSaturn({
           depthTest={true}
           uniforms={{
             uAlbedo: { value: saturnMap },
-            uSunDirection: { value: computedSunDir },
+            uSunDirection: { value: new THREE.Vector3(1, 0, 0) },
             uRadius: { value: radius }
           }}
         />
@@ -292,7 +309,7 @@ export function CinematicSaturn({
           args={[SaturnRingsShader]}
           uniforms={{
             uRingMap: { value: ringMap },
-            uSunDirection: { value: computedSunDir },
+            uSunDirection: { value: new THREE.Vector3(1, 0, 0) },
             uPlanetCenter: { value: planetCenterVec },
             uPlanetRadius: { value: radius }
           }}

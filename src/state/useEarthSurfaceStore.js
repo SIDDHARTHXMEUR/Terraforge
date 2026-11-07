@@ -27,6 +27,8 @@ export const useEarthSurfaceStore = create((set, get) => ({
   // 'unavailable' -> token missing, forbidden, quota exhausted, or network error
   tier2Status: 'dormant',
   setTier2Status: (status) => set({ tier2Status: status }),
+  tier2ErrorReason: '',
+  setTier2ErrorReason: (reason) => set({ tier2ErrorReason: reason }),
 
   // Strict session gate: root 3D tileset requested strictly ONCE per session
   hasRequestedTier2Session: false,

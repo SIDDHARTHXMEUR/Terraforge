@@ -33,20 +33,20 @@
 
 export const DISPLAY_RADII = {
   sun: 54.0,
-  mercury: 2.4,
-  venus: 3.3,
-  earth: 3.5,
-  moon: 0.95,
-  mars: 2.7,
-  ceres: 0.65,
-  jupiter: 13.5,
-  saturn: 11.5,
-  saturnRingsInner: 14.8,
-  saturnRingsOuter: 26.8,
-  uranus: 6.6,
-  uranusRingsInner: 8.5,
-  uranusRingsOuter: 13.2,
-  neptune: 6.3
+  mercury: 4.8,
+  venus: 5.4,
+  earth: 5.8,
+  moon: 1.5,
+  mars: 4.8,
+  ceres: 1.1,
+  jupiter: 18.0,
+  saturn: 15.0,
+  saturnRingsInner: 19.5,
+  saturnRingsOuter: 35.0,
+  uranus: 9.2,
+  uranusRingsInner: 12.0,
+  uranusRingsOuter: 18.5,
+  neptune: 8.8
 };
 
 export const DISPLAY_ORBIT_RADII = {
@@ -92,67 +92,67 @@ export const DISPLAY_CAMERA_LIMITS = {
     maxDist: 1200
   },
   mercury: {
-    distance: 7.2,
+    distance: 10.8,
     terminatorAngle: -28,
     elevAngle: 16,
-    minDist: 3.2,
-    maxDist: 180
-  },
-  venus: {
-    distance: 9.5,
-    terminatorAngle: -30,
-    elevAngle: 16,
-    minDist: 4.2,
+    minDist: 4.8,
     maxDist: 220
   },
-  earth: {
-    distance: 10.2,
-    terminatorAngle: -28,
-    elevAngle: 18,
-    minDist: 4.5,
-    maxDist: 240
-  },
-  mars: {
-    distance: 7.8,
+  venus: {
+    distance: 14.5,
     terminatorAngle: -30,
     elevAngle: 16,
-    minDist: 3.5,
-    maxDist: 200
+    minDist: 6.2,
+    maxDist: 260
+  },
+  earth: {
+    distance: 15.6,
+    terminatorAngle: -28,
+    elevAngle: 18,
+    minDist: 5.2002,
+    maxDist: 280
+  },
+  mars: {
+    distance: 12.0,
+    terminatorAngle: -30,
+    elevAngle: 16,
+    minDist: 5.2,
+    maxDist: 240
   },
   asteroids: {
-    distance: 6.5,
+    distance: 8.5,
     terminatorAngle: -35,
     elevAngle: 20,
-    minDist: 2.2,
-    maxDist: 120
+    minDist: 2.8,
+    maxDist: 150
   },
   jupiter: {
-    distance: 36.0,
+    distance: 46.0,
     terminatorAngle: -26,
     elevAngle: 18,
-    minDist: 16.0,
-    maxDist: 650
-  },
-  saturn: {
-    distance: 38.0,
-    terminatorAngle: -32,
-    elevAngle: 22,
-    minDist: 18.0,
+    minDist: 21.0,
     maxDist: 750
   },
+  saturn: {
+    distance: 48.0,
+    terminatorAngle: -32,
+    elevAngle: 22,
+    minDist: 22.0,
+    maxDist: 850
+  },
   uranus: {
-    distance: 19.5,
+    distance: 25.5,
     terminatorAngle: -26,
     elevAngle: 20,
-    minDist: 8.5,
-    maxDist: 450
+    minDist: 11.5,
+    maxDist: 500
   },
   neptune: {
-    distance: 18.5,
+    distance: 24.5,
     terminatorAngle: -26,
     elevAngle: 18,
-    minDist: 8.2,
-    maxDist: 450
+    minDist: 11.0,
+    maxDist: 500
   }
 };
 

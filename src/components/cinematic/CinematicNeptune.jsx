@@ -56,9 +56,9 @@ const NeptuneAtmosphereShader = {
       vec3 deepNeptuneBlue = vec3(0.06, 0.18, 0.58);
       vec3 baseColor = mix(texColor, deepNeptuneBlue, 0.50);
 
-      // 1. Zonal Atmospheric Wind Bands
-      float bandPattern = sin(vUv.y * 36.0) * 0.035 + sin(vUv.y * 72.0) * 0.015;
-      baseColor += vec3(0.02, 0.05, 0.12) * bandPattern;
+      // 1. Zonal Atmospheric Wind Bands & Methane Depth
+      float bandPattern = sin(vUv.y * 42.0) * 0.04 + sin(vUv.y * 84.0) * 0.02 + sin(vUv.y * 14.0) * 0.05;
+      baseColor += vec3(0.03, 0.08, 0.18) * bandPattern;
 
       // 2. The Great Dark Spot (Voyager 2 anticyclonic storm at -20° latitude)
       vec2 spotCenter = vec2(0.55 + sin(uTime * 0.005) * 0.05, 0.38);
@@ -66,16 +66,10 @@ const NeptuneAtmosphereShader = {
       float darkSpot = smoothstep(0.03, 0.10, spotDist);
       baseColor *= mix(0.70, 1.0, darkSpot);
 
-      // 3. Delicate High-Altitude Methane Cirrus ("The Scooter" and companion cloud streaks)
-      // Elongated wispy cirrus streaks parallel to supersonic equatorial jet streams
-      float cirrusLat = abs(vUv.y - 0.34);
-      float cirrusStreak1 = smoothstep(0.035, 0.005, cirrusLat) * smoothstep(0.4, 0.9, sin(vUv.x * 24.0 + uTime * 0.08));
-      float cirrusStreak2 = smoothstep(0.025, 0.005, abs(vUv.y - 0.52)) * smoothstep(0.5, 0.95, cos(vUv.x * 18.0 - uTime * 0.06));
-      float delicateCirrus = clamp(cirrusStreak1 + cirrusStreak2 * 0.7, 0.0, 1.0);
-
-      // Add delicate white methane ice cirrus
-      vec3 whiteCirrus = vec3(0.92, 0.96, 1.0);
-      baseColor = mix(baseColor, whiteCirrus, delicateCirrus * 0.65);
+      // 3. Deep Atmospheric Methane Haze Layer (zero blocky smears)
+      vec3 methaneHaze = vec3(0.12, 0.40, 0.88);
+      float hazeDepth = pow(1.0 - max(0.0, dot(normal, viewDir)), 3.2) * 0.40;
+      baseColor = mix(baseColor, methaneHaze, hazeDepth);
 
       // Day / Night illumination
       float sunDot = dot(worldNormal, sunDir);
@@ -116,7 +110,14 @@ export function CinematicNeptune({
 
     if (shaderRef.current) {
       shaderRef.current.uniforms.uTime.value = elapsed;
-      shaderRef.current.uniforms.uSunDirection.value = computedSunDir;
+      const worldPos = new THREE.Vector3();
+      if (bodyRef.current) {
+        bodyRef.current.getWorldPosition(worldPos);
+      }
+      const sunDir = worldPos.lengthSq() > 0.1
+        ? new THREE.Vector3(0, 0, 0).sub(worldPos).normalize()
+        : new THREE.Vector3(1, 0, 0);
+      shaderRef.current.uniforms.uSunDirection.value.copy(sunDir);
     }
 
     if (isPlaying && bodyRef.current) {
