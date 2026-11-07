@@ -14,7 +14,6 @@ import { DeepSpaceSkybox } from './DeepSpaceSkybox';
 import { InteractiveSolarCamera } from './InteractiveSolarCamera';
 import { OrbitGuides } from './OrbitGuides';
 import { CelestialLabels } from './CelestialLabels';
-import { CinematicPrologueDirector } from './CinematicPrologueDirector';
 import { DISPLAY_RADII, DISPLAY_ORBIT_RADII, ORBIT_SPEEDS } from '../../data/displayScale';
 
 export function SolarSystemEngine({
@@ -170,15 +169,6 @@ export function SolarSystemEngine({
         isUserInteracting={isUserInteracting}
         enabled={!isPrologueActive}
       />
-
-      {/* 2b. Directed Nolan-Style Space Prologue Camera */}
-      {isPrologueActive && (
-        <CinematicPrologueDirector
-          isActive={isPrologueActive}
-          onComplete={onCompletePrologue}
-          bodyPositions={positionsRef.current}
-        />
-      )}
 
       {/* 3. Subtle Orbital Guides */}
       <OrbitGuides

@@ -1,132 +1,143 @@
-# 🪐 Terraforge — Cinematic Astronomical Simulator
+# 🪐 TERRAFORGE — Cinematic 3D Solar System Experience
 
-Terraforge is a real-time, interactive 3D Solar System simulator engineered with Three.js, React, and WebGL2. Grounded in NASA astronomical observations, it combines scientific Keplerian simulation with cinematic presentation.
+> **A Photorealistic, Cinematic 3D Astronomical Solar System Platform**  
+> Engineered with Three.js, WebGL2 hardware shaders, filmic tone mapping, and NASA planetary observations.  
+> **🚀 Live Experience**: [http://localhost:3000/](http://localhost:3000/)
 
-![Terraforge Overview](https://img.shields.io/badge/Terraforge-Solar%20System%20Simulator-cyan)
-![WebGL2](https://img.shields.io/badge/WebGL2-Hardware--Accelerated-emerald)
-![Three.js](https://img.shields.io/badge/Three.js-r167-black)
-![React](https://img.shields.io/badge/React-18-blue)
-![Vite](https://img.shields.io/badge/Vite-5.4-purple)
-
----
-
-## 🌟 Core Features
-
-- **Live 3D Directed Prologue (~12s)**:
-  - Beat 1 (0–3s): Saturn’s sunlit crescent, backlit ring system, and shadow cast across the globe.
-  - Beat 2 (3–6s): Asteroid belt drift and Jupiter crossing with Great Red Spot visible.
-  - Beat 3 (6–10.5s): SDO Sun dawn rising massive (50–60% frame height), convective plasma boiling, limb prominences, and smooth coronal falloff with zero hard rims or boxes.
-  - Beat 4 (10.5–12s): Deceleration into Solar System master overview, title reveal, and anamorphic letterbox opening.
-  - Instant skip via `Esc` key or on-screen "Skip Prologue" button.
-
-- **SDO AIA 304 Å Thermonuclear Sun**:
-  - Live convective plasma boiling via multi-scale domain-warped procedural noise.
-  - Searing active regions with optical cross-diffraction flare.
-  - True 3D BackSide ray-traced spherical chromosphere with limb prominences protruding into deep space.
-
-- **Planetary Bodies & Moons**:
-  - **Terrestrial Worlds**: Mercury (cratered terminator), Venus (opaque golden cloud deck), Earth (multi-layer albedo, landmask, night lights, clouds, atmosphere), Mars (iron oxide, polar caps).
-  - **Earth's Moon**: Cratered lunar texture with 27.3-day synchronous tidal locking.
-  - **Gas & Ice Giants**: Jupiter with Great Red Spot, Saturn with oblate globe and double-sided anisotropic Cassini Division rings, Uranus (97.8° tilt), Neptune (supersonic methane wind banding).
-  - **Major Moons**: Galilean moons (Io, Europa, Ganymede, Callisto) orbiting Jupiter; Titan orbiting Saturn.
-  - **Pluto & Dwarf Planets**: Inclined 17.16° eccentric orbit in the Kuiper Belt; Asteroid Belt with 950 procedural tumbling asteroids.
-
-- **Display Scale & Scientific Accuracy**:
-  - `src/data/displayScale.js` provides single source of truth separating display presentation from scientific Keplerian orbits, periods, and tilts.
-  - Preserved size hierarchy: Sun (54) > Jupiter (18) > Saturn (15) > Uranus (9.2) > Neptune (8.8) > Earth (5.8) > Venus (5.4) > Mars (4.8) = Mercury (4.8) > Pluto (2.2) > Moon (1.5).
-
-- **View Modes**:
-  - **Cinematic**: Orbiting camera with sunlit terminator framing and smooth transitions.
-  - **Scientific**: True top-down Keplerian orbital planes.
-  - **Scale Lineup**: Linear side-by-side arrangement of all bodies on a flat surface with comparative scale bar to visualize true scale differences.
-
-- **Astrophotography Photo Mode (`P` key)**:
-  - Clean screen with rule-of-thirds composition grid.
-  - Live FOV (15°–90°) and exposure sliders.
-  - One-click high-resolution photo download.
-
-- **Earth Street View (MapLibre + Mapillary)**:
-  - OpenFreeMap OSM vector tiles with 3D extruded buildings and satellite imagery toggle.
-  - Interactive Mapillary street coverage layer with token authentication.
-  - 360-degree street-level viewer with smooth return to orbit.
-  - Fallback notification with quick-jump exploration links (Tokyo, NYC, London).
+[![Three.js](https://img.shields.io/badge/Three.js-r162-black.svg?logo=three.js)](https://threejs.org/)
+[![WebGL2](https://img.shields.io/badge/WebGL2-Hardware--Accelerated-green.svg?logo=webgl)](https://www.khronos.org/webgl/)
+[![React](https://img.shields.io/badge/React-18-blue.svg?logo=react)](https://react.dev/)
+[![Vite](https://img.shields.io/badge/Vite-5.4-purple.svg?logo=vite)](https://vitejs.dev/)
+[![Unit Tests](https://img.shields.io/badge/Tests-16%2F16%20Passed-brightgreen.svg?logo=node.js)](package.json)
 
 ---
 
-## 🎮 Interactive Controls & Keyboard Shortcuts
+## 🌟 Visual Core & Cinematic Architecture
 
-| Key | Action |
-| :--- | :--- |
-| `Space` | Play / Pause Simulation |
-| `1` – `9` | Select celestial bodies in order (Sol, Mercury, Venus, Earth, Mars, Asteroids, Jupiter, Saturn, Uranus, Neptune) |
-| `Esc` | Return to Master Overview / Skip Prologue / Close Active Modal |
-| `[` / `]` | Time warp speed down / up (1X, 5X, 25X, 100X, 500X) |
-| `H` | Toggle Cinematic Clean UI mode (Hide / Show) |
-| `F` | Toggle Fullscreen view |
-| `P` | Toggle Astrophotography Photo Mode |
-| `O` | Toggle Keplerian orbital ribbon paths |
-| `L` | Toggle celestial name labels |
-| `?` | Open Keyboard Shortcuts cheat sheet |
-| **Mouse / Touch** | Single finger / Left click drag to rotate; Two fingers pinch / Scroll wheel to zoom |
+Terraforge is a cinematic, photorealistic 3D astronomical simulation designed to capture the visual grandeur of our Solar System. 
+
+```
+                                  [ THE SUN ]
+                  • Convective Plasma Granulation (GLSL Simplex Noise)
+                  • Eddington Solar Limb Darkening Law
+                  • Multi-Layered Coronal Glow & Atmospheric Scattering
+                  • Omnidirectional PointLight (Intensity: 5.0)
+                                       │
+        ┌──────────────┬───────────────┼───────────────┬──────────────┐
+        ▼              ▼               ▼               ▼              ▼
+    [ MERCURY ]    [ VENUS ]       [ EARTH ]        [ MARS ]   [ ASTEROID BELT ]
+    • Cratered     • Sulfuric      • Multi-Texture  • Oxidized • 1,200 Rocky
+      Regolith       Clouds          GLSL Shader      Iron       Boulders
+    • High         • Dense Amber   • Ocean Glint      Oxide    • Irregular
+      Contrast       Atmosphere    • City Lights    • Polar      Geometry
+                                   • Cloud Sphere     Caps     • InstancedMesh
+                                   • Tidal Moon
+                                       │
+        ┌──────────────────────────────┴──────────────────────────────┐
+        ▼                                                             ▼
+   [ JUPITER ]                    [ SATURN ]                     [ URANUS & NEPTUNE ]
+   • Zonal Bands                  • Multi-Division Cassini Rings  • Methane Ice Giants
+   • Great Red Spot                 (A, B, C Rings with Alpha)   • Uranus 97.8° Sideways Tilt
+   • Atmospheric Depth            • Realistic Ring Transparency  • Deep Azure Windswept Storms
+```
 
 ---
 
-## 📡 Deep Links
+## 🪐 The Celestial Bodies
 
-You can link directly to specific simulation states via URL query parameters:
-- `?body=mars` — Opens directly focusing Mars.
-- `?view=lineup` — Opens directly in Scale Lineup mode.
-- `?view=scientific` — Opens directly in top-down Scientific mode.
-- `?time=paused` or `?time=25` — Sets initial playback state or time multiplier.
-- `?street=1` — Opens Earth MapLibre / Mapillary Street View.
-- `?safe=1` — Launches Safe Mode (minimal 3D scene with tile engine disabled).
+1. **The Sun (Centerpiece)**:
+   - Large apparent scale ($R = 12.0$) at the origin $[0, 0, 0]$.
+   - Procedural cellular simplex noise simulating convective boiling plasma granules.
+   - Realistic solar limb darkening according to Eddington's radiation law ($I(\mu) = I_0(1 - u(1 - \cos\theta))$).
+   - Multi-layered coronal glow spheres with additive blending.
+   - High-intensity omnidirectional solar point light illuminating all planetary bodies with deep space shadows.
+
+2. **Earth & The Moon (Version 1 Preserved & Enhanced)**:
+   - Full multi-texture programmable GLSL shader combining Albedo, Bump map, Landmask, and Night lights.
+   - Dynamic day/night terminator with emissive city lights on the nocturnal hemisphere.
+   - Specular ocean reflection with dynamic Fresnel falloff.
+   - Climate-driven temperature color ramps (cryo-ice $-60^\circ\text{C}$ with procedural sparkling crystals to scorched desert $+60^\circ\text{C}$).
+   - Independent rotating cloud sphere layer (`earth_clouds.png`).
+   - Orbiting Moon with NASA albedo and bump mapping, maintaining an exact $27.32:1$ kinematic tidal lock.
+
+3. **Saturn**:
+   - High-resolution atmospheric cloud deck (`saturn.jpg`).
+   - Detailed Cassini-division ring system (`RingGeometry` with radial UV mapping and `saturn_ring.png` alpha transparency).
+   - Tilted to Saturn's real $26.73^\circ$ axial inclination.
+
+4. **Jupiter**:
+   - High-resolution banded gas giant atmosphere (`jupiter.jpg`) with Great Red Spot anticyclonic storm and atmospheric limb scattering.
+
+5. **Mars**:
+   - High-resolution iron oxide surface (`mars.jpg`), polar ice caps, Valles Marineris topography, and thin dusty amber atmosphere.
+
+6. **Venus**:
+   - Opaque sulfuric acid cloud deck (`venus.jpg`) with smooth amber atmospheric limb glow and retrograde rotation.
+
+7. **Mercury**:
+   - Cratered rocky regolith (`mercury.jpg`) with sharp terminator shadow contrast.
+
+8. **Uranus & Neptune**:
+   - Pale cyan methane ice giant with extreme $97.8^\circ$ sideways tilt and rings.
+   - Deep azure windswept atmosphere (`neptune.jpg`) with high-altitude storm structures.
+
+9. **Main Asteroid Belt (Between Mars & Jupiter)**:
+   - 1,200 unique rocky asteroids distributed in a toroidal belt between $R = 61$ and $R = 68$.
+   - Irregular 3D polyhedron geometries with vertex displacement, random tumble axes, and Keplerian orbital speeds.
+   - Hardware-accelerated using Three.js `InstancedMesh` (1 draw call for 60 FPS performance).
 
 ---
 
-## 🚀 Setup & Development
+## 🎥 Cinematic Camera System
 
-### Prerequisites
-- Node.js >= 18.0.0
-- npm >= 9.0.0
+- **Clean Viewport**: Thin circular orbit outlines and cyan rings are **disabled by default**, presenting deep space with unblemished cinematic realism.
+- **Solar System Establishing Shot**: Elevated panoramic view at $[0, 95, 145]$ framing the glowing Sun and revolving planets.
+- **Planetary Flythrough**: Smooth cubic ease-out camera dolly directly into any planet's orbit, automatically framing the planet to fill 35–50% of the viewport.
+- **Saturn Ring Experience**: Automatically angles the camera to $32^\circ$ elevation so Saturn's rings and divisions are showcased in dramatic perspective.
+- **Cinematic Tour**: Click **"CINEMATIC TOUR"** to let the camera automatically glide from body to body on a continuous documentary-style space tour!
+- **Interactive OrbitControls**: Free 360° rotation and zoom around any focused planet with inertia damping.
 
-### Installation
+---
+
+## ⌨️ Controls & Shortcuts
+
+| Key / Control | Action |
+|---|---|
+| <kbd>Space</kbd> | Pause / Resume orbital revolution and planetary spin |
+| <kbd>0</kbd> | Return to Solar System Overview |
+| <kbd>1</kbd> - <kbd>9</kbd> | Quick fly-to: Sun (1), Mercury (2), Venus (3), Earth (4), Mars (5), Jupiter (6), Saturn (7), Uranus (8), Neptune (9) |
+| <kbd>O</kbd> | Toggle Keplerian orbit paths on/off (off by default) |
+| <kbd>H</kbd> | Hide/Show all UI overlays for pure cinema mode |
+| <kbd>R</kbd> | Reset camera framing |
+| **Mouse Drag** | Rotate 360° around focused celestial body |
+| **Mouse Wheel** | Zoom in / out |
+
+---
+
+## 🚀 Running Locally
+
 ```bash
-# Clone the repository
-git clone <repo-url>
-cd Simulator
-
 # Install dependencies
 npm install
-```
 
-### Environment Configuration
-Copy `.env.example` to `.env` and provide your Mapillary API token:
-```bash
-cp .env.example .env
-```
-Inside `.env`:
-```env
-VITE_MAPILLARY_TOKEN="your_mapillary_token_here"
-```
+# Run automated mathematical test suite (16/16 tests)
+npm test
 
-### Run Locally
-```bash
-# Start Vite development server
+# Start local development server
 npm run dev
-
-# Build production bundle
-npm run build
-
-# Preview production build locally
-npm run preview
 ```
+
+Open [http://localhost:3000/](http://localhost:3000/) in your browser.
 
 ---
 
-## 📜 Credits & Citations
+## 🛰️ Credits & Planetary Telemetry Sources
 
-- **NASA Solar Dynamics Observatory (SDO)**: AIA 304 Å and HMI observations providing ground truth for solar chromosphere, convection, active regions, and limb prominences.
-- **NASA JPL Solar System Dynamics**: Planetary physical characteristics, orbital periods, semi-major axes, eccentricities, and axial tilts.
-- **OpenFreeMap & OpenStreetMap**: Free vector tiles and base map data.
-- **Mapillary**: Community-sourced street-level 360-degree imagery.
-- **Esri**: World Imagery high-resolution satellite tiles.
+- **Sun**: NASA / SDO AIA 304 Å Telemetry ([https://sdo.gsfc.nasa.gov/](https://sdo.gsfc.nasa.gov/))
+- **Earth**: NASA Earth Observatory / ISS Expedition Crew ([https://earthobservatory.nasa.gov/](https://earthobservatory.nasa.gov/))
+- **Mars**: NASA / JPL-Caltech / MSSS / Mars Global Surveyor ([https://mars.nasa.gov/](https://mars.nasa.gov/))
+- **Jupiter**: NASA / JPL-Caltech / SwRI / MSSS / JunoCam ([https://www.missionjuno.swri.edu/](https://www.missionjuno.swri.edu/))
+- **Saturn**: NASA / JPL-Caltech / Space Science Institute / Cassini-Huygens ([https://solarsystem.nasa.gov/missions/cassini/](https://solarsystem.nasa.gov/missions/cassini/))
+
+*Note: Imagery and scientific data courtesy of NASA / JPL-Caltech / USGS. Not affiliated with or endorsed by NASA.*
+

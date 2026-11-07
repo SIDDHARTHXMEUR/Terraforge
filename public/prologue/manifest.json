@@ -1,0 +1,59 @@
+{
+  "clips": [
+    {
+      "id": "sun",
+      "file": "sun.mp4",
+      "file720": "sun_720p.mp4",
+      "poster": "/assets/planets/sun/sdo_aia_304_2k.jpg",
+      "title": "SOL",
+      "credit": "NASA / SDO AIA 304 Å Telemetry",
+      "source": "https://sdo.gsfc.nasa.gov/",
+      "start": 1.0,
+      "duration": 2.0
+    },
+    {
+      "id": "earth",
+      "file": "earth-night.mp4",
+      "file720": "earth-night_720p.mp4",
+      "poster": "/assets/planets/earth/earth_albedo.jpg",
+      "title": "EARTH",
+      "credit": "NASA Earth Observatory / ISS Expedition Crew",
+      "source": "https://earthobservatory.nasa.gov/",
+      "start": 3.0,
+      "duration": 2.0
+    },
+    {
+      "id": "mars",
+      "file": "mars.mp4",
+      "file720": "mars_720p.mp4",
+      "poster": "/assets/planets/mars/mars.jpg",
+      "title": "MARS",
+      "credit": "NASA / JPL-Caltech / MSSS / Mars Global Surveyor",
+      "source": "https://mars.nasa.gov/",
+      "start": 5.0,
+      "duration": 2.0
+    },
+    {
+      "id": "jupiter",
+      "file": "jupiter.mp4",
+      "file720": "jupiter_720p.mp4",
+      "poster": "/assets/planets/jupiter/jupiter.jpg",
+      "title": "JUPITER",
+      "credit": "NASA / JPL-Caltech / SwRI / MSSS / JunoCam",
+      "source": "https://www.missionjuno.swri.edu/",
+      "start": 7.0,
+      "duration": 2.0
+    },
+    {
+      "id": "saturn",
+      "file": "saturn.mp4",
+      "file720": "saturn_720p.mp4",
+      "poster": "/assets/planets/saturn/saturn.jpg",
+      "title": "SATURN",
+      "credit": "NASA / JPL-Caltech / Space Science Institute / Cassini",
+      "source": "https://solarsystem.nasa.gov/missions/cassini/",
+      "start": 9.0,
+      "duration": 2.0
+    }
+  ]
+}
