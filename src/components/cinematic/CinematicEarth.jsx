@@ -3,6 +3,9 @@ import { useFrame } from '@react-three/fiber';
 import { useTexture } from '@react-three/drei';
 import * as THREE from 'three';
 
+// STAGE 6: Retire in-scene Earth tile descent and 3D-tiles layer behind a disabled flag
+const ENABLE_IN_SCENE_3D_TILES = false;
+
 // Earth 23.44° Astronomical Axial Tilt
 const EARTH_AXIAL_TILT = (23.44 * Math.PI) / 180;
 const MOON_INCLINATION = (5.14 * Math.PI) / 180;
@@ -158,7 +161,6 @@ export function CinematicEarth({
   isPlaying = true,
   axialTilt = EARTH_AXIAL_TILT,
   sunDirection,
-  isSafeMode = false,
   onClick
 }) {
   const [albedoMap, bumpMap, cloudsMap, landmaskMap, nightlightsMap, moonAlbedo, moonBump] = useTexture([
@@ -193,14 +195,11 @@ export function CinematicEarth({
   useFrame((state, delta) => {
     const elapsed = state.clock.getElapsedTime();
 
-    // Dynamically compute exact world-space Sun direction from current orbital position
-    const worldPos = new THREE.Vector3();
-    if (earthBodyRef.current) {
-      earthBodyRef.current.getWorldPosition(worldPos);
-    }
-    const sunDir = worldPos.lengthSq() > 0.1
-      ? new THREE.Vector3(0, 0, 0).sub(worldPos).normalize()
-      : new THREE.Vector3(1, 0, 0);
+    // Dynamically update sunlight direction from current orbital position
+    const earthPos = new THREE.Vector3(...position);
+    const sunDir = earthPos.lengthSq() > 1.0
+      ? new THREE.Vector3(0, 0, 0).sub(earthPos).normalize()
+      : new THREE.Vector3(1, 0.45, 1).normalize();
 
     if (surfaceShaderRef.current) {
       surfaceShaderRef.current.uniforms.uTime.value = elapsed;
@@ -272,8 +271,8 @@ export function CinematicEarth({
               uTime: { value: 0 }
             }}
           />
-          {/* Real Satellite & 3D Tile Surface Engine (Mounted in Earth Local Rotating Frame; disabled in Safe Mode) */}
-          {!isSafeMode && (
+          {/* Real Satellite & 3D Tile Surface Engine (Disabled behind flag for Stage 6 MapLibre transition) */}
+          {ENABLE_IN_SCENE_3D_TILES && (
             <EarthSurfaceTileEngine
               radius={radius}
               sunDirection={computedSunDir}

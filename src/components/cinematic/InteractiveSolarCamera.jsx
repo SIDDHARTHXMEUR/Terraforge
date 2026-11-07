@@ -346,6 +346,11 @@ export function InteractiveSolarCamera({
         const minFloor = tier2Status === 'active' ? 0.02 : 0.15;
         newAlt = Math.max(minFloor, newAlt);
 
+        // Stage 6: Zooming below 50 km altitude smoothly fades into MapLibre vector map
+        if (newAlt < 50) {
+          useEarthSurfaceStore.getState().openMapAtLocation(surfaceLatRef.current, surfaceLonRef.current, 'Earth Surface');
+        }
+
         // Zooming out past 2,800 km returns to orbit mode seamlessly
         if (newAlt > 2800) {
           setInSurfaceMode(false);
@@ -468,6 +473,9 @@ export function InteractiveSolarCamera({
 
         if (t >= 1.0) {
           surfaceFlyAnimRef.current = null;
+          if (anim.targetAlt <= 25.0) {
+            useEarthSurfaceStore.getState().openMapAtLocation(anim.targetLat, anim.targetLon, 'Earth Surface');
+          }
         }
       }
 

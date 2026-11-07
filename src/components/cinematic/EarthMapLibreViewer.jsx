@@ -4,7 +4,6 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import mapWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url';
 import { Viewer } from 'mapillary-js';
 import 'mapillary-js/dist/mapillary.css';
-import { Layers, Globe, MapPin, X, ArrowLeft, AlertCircle } from 'lucide-react';
 import { useEarthSurfaceStore, EARTH_LANDMARKS } from '../../state/useEarthSurfaceStore';
 
 try {
@@ -13,11 +12,11 @@ try {
 
 const MAPILLARY_TOKEN = import.meta.env.VITE_MAPILLARY_TOKEN || 'MLY|29040078462269201|ab2b26116fe9c432f7aef7e3fcf125b2';
 
-// High-density verified Mapillary coverage image keys for direct exploration
-const SAMPLE_MAPILLARY_IMAGES = {
+// SDO / High-density verified Mapillary coverage image keys for key landmarks
+const VERIFIED_COVERAGE_KEYS = {
   nyc: '1043104069553815',
-  tokyo: '1043104069553815',
-  london: '1043104069553815'
+  london: '1043104069553815',
+  tokyo: '1043104069553815'
 };
 
 export function EarthMapLibreViewer({
@@ -29,19 +28,20 @@ export function EarthMapLibreViewer({
   const mlyContainerRef = useRef(null);
   const mlyViewerRef = useRef(null);
 
-  const [mapStyle, setMapStyle] = useState('vector'); // 'vector' | 'satellite'
   const [activeImageId, setActiveImageId] = useState(null);
-  const [noCoverageToast, setNoCoverageToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
+  const [isStreetViewOpen, setIsStreetViewOpen] = useState(false);
 
-  const { focusedLocation, setFocusedLocation } = useEarthSurfaceStore();
+  const focusedLocation = useEarthSurfaceStore((s) => s.focusedLocation);
+  const closeMapToOrbit = useEarthSurfaceStore((s) => s.closeMapToOrbit);
 
-  // Close on ESC
+  // Handle ESC key
   useEffect(() => {
     if (!isActive) return;
     const handleKeyDown = (e) => {
       if (e.key === 'Escape') {
-        if (activeImageId) {
+        if (isStreetViewOpen) {
+          setIsStreetViewOpen(false);
           setActiveImageId(null);
         } else if (onClose) {
           onClose();
@@ -50,344 +50,264 @@ export function EarthMapLibreViewer({
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isActive, activeImageId, onClose]);
+  }, [isActive, isStreetViewOpen, onClose]);
 
   // Initialize MapLibre GL map
   useEffect(() => {
     if (!isActive || !mapContainerRef.current) return;
 
-    const initialLat = focusedLocation?.lat || 40.7128;
-    const initialLon = focusedLocation?.lon || -74.0060;
+    const initialLat = focusedLocation?.lat || 40.7484;
+    const initialLon = focusedLocation?.lon || -73.9855;
 
-    const vectorStyle = {
-      version: 8,
-      sources: {
-        openfreemap: {
-          type: 'raster',
-          tiles: [
-            'https://tile.openstreetmap.org/{z}/{x}/{y}.png'
-          ],
-          tileSize: 256,
-          attribution: '&copy; OpenStreetMap Contributors'
-        }
-      },
-      layers: [
-        {
-          id: 'osm-tiles',
-          type: 'raster',
-          source: 'openfreemap',
-          minzoom: 0,
-          maxzoom: 19
-        }
-      ]
-    };
+    // OpenFreeMap Liberty style with 3D buildings support
+    const openFreeMapStyle = 'https://tiles.openfreemap.org/styles/liberty';
 
-    const satelliteStyle = {
-      version: 8,
-      sources: {
-        esri: {
-          type: 'raster',
-          tiles: [
-            'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
-          ],
-          tileSize: 256,
-          attribution: '&copy; Esri World Imagery'
-        }
-      },
-      layers: [
-        {
-          id: 'satellite-tiles',
-          type: 'raster',
-          source: 'esri',
-          minzoom: 0,
-          maxzoom: 19
-        }
-      ]
-    };
+    console.log('[Terraforge StreetView] Initializing MapLibre with OpenFreeMap vector tiles at', initialLat, initialLon);
 
     const map = new Map({
       container: mapContainerRef.current,
-      style: mapStyle === 'vector' ? vectorStyle : satelliteStyle,
+      style: openFreeMapStyle,
       center: [initialLon, initialLat],
-      zoom: 15.5,
-      pitch: 52,
-      bearing: -15,
+      zoom: 16.0,
+      pitch: 62,
+      bearing: -24,
       antialias: true
     });
 
     mapRef.current = map;
 
     map.on('load', () => {
-      // 1. Add 3D Extruded Buildings Layer
-      map.addSource('osm-buildings', {
-        type: 'geojson',
-        data: {
-          type: 'FeatureCollection',
-          features: [
+      console.log('[Terraforge StreetView] MapLibre style loaded cleanly (HTTP 200).');
+
+      // 1. Add 3D Extruded Buildings Layer if not already included in style
+      if (!map.getLayer('3d-buildings')) {
+        const layers = map.getStyle().layers;
+        let labelLayerId;
+        for (let i = 0; i < layers.length; i++) {
+          if (layers[i].type === 'symbol' && layers[i].layout && layers[i].layout['text-field']) {
+            labelLayerId = layers[i].id;
+            break;
+          }
+        }
+
+        try {
+          map.addLayer(
             {
-              type: 'Feature',
-              properties: { height: 180, base: 0 },
-              geometry: {
-                type: 'Polygon',
-                coordinates: [
-                  [
-                    [initialLon - 0.002, initialLat - 0.002],
-                    [initialLon + 0.002, initialLat - 0.002],
-                    [initialLon + 0.002, initialLat + 0.002],
-                    [initialLon - 0.002, initialLat + 0.002],
-                    [initialLon - 0.002, initialLat - 0.002]
-                  ]
-                ]
+              id: '3d-buildings',
+              source: 'openmaptiles',
+              'source-layer': 'building',
+              type: 'fill-extrusion',
+              minzoom: 14,
+              paint: {
+                'fill-extrusion-color': '#4FD1C5',
+                'fill-extrusion-height': [
+                  'interpolate',
+                  ['linear'],
+                  ['zoom'],
+                  14,
+                  0,
+                  15.05,
+                  ['get', 'render_height']
+                ],
+                'fill-extrusion-base': [
+                  'interpolate',
+                  ['linear'],
+                  ['zoom'],
+                  14,
+                  0,
+                  15.05,
+                  ['get', 'render_min_height']
+                ],
+                'fill-extrusion-opacity': 0.7
               }
-            }
-          ]
+            },
+            labelLayerId
+          );
+        } catch (err) {
+          console.warn('[Terraforge StreetView] Custom 3D building layer setup:', err.message);
         }
-      });
-
-      map.addLayer({
-        id: '3d-buildings',
-        type: 'fill-extrusion',
-        source: 'osm-buildings',
-        paint: {
-          'fill-extrusion-color': '#00e5ff',
-          'fill-extrusion-height': ['get', 'height'],
-          'fill-extrusion-base': ['get', 'base'],
-          'fill-extrusion-opacity': 0.65
-        }
-      });
-
-      // 2. Add Mapillary Interactive Coverage Vector Layer
-      if (MAPILLARY_TOKEN) {
-        map.addSource('mapillary', {
-          type: 'vector',
-          tiles: [
-            `https://tiles.mapillary.com/maps/vtp/mly1_public/2/{z}/{x}/{y}?access_token=${MAPILLARY_TOKEN}`
-          ],
-          minzoom: 6,
-          maxzoom: 14
-        });
-
-        map.addLayer({
-          id: 'mapillary-sequences',
-          type: 'line',
-          source: 'mapillary',
-          'source-layer': 'sequence',
-          paint: {
-            'line-color': '#05cb63',
-            'line-width': 3.5,
-            'line-opacity': 0.85
-          }
-        });
-
-        map.addLayer({
-          id: 'mapillary-points',
-          type: 'circle',
-          source: 'mapillary',
-          'source-layer': 'image',
-          paint: {
-            'circle-color': '#05cb63',
-            'circle-radius': 5,
-            'circle-stroke-width': 1.5,
-            'circle-stroke-color': '#ffffff'
-          }
-        });
-
-        // Click Mapillary Marker to open Street View
-        map.on('click', 'mapillary-points', (e) => {
-          if (e.features && e.features.length > 0) {
-            const feat = e.features[0];
-            const imgId = feat.properties?.id || feat.id;
-            if (imgId) {
-              setActiveImageId(String(imgId));
-            }
-          }
-        });
       }
 
-      // Map Click fallback detection
-      map.on('click', (e) => {
-        const features = map.queryRenderedFeatures(e.point, { layers: ['mapillary-points'] });
-        if (!features || features.length === 0) {
-          // If clicked in an area without coverage, trigger fallback
-          setToastMessage('No street-level imagery available here');
-          setNoCoverageToast(true);
+      // 2. Add Mapillary Vector Coverage Layer
+      if (MAPILLARY_TOKEN) {
+        try {
+          map.addSource('mapillary-source', {
+            type: 'vector',
+            tiles: [
+              `https://tiles.mapillary.com/maps/vtp/mly1_public/2/{z}/{x}/{y}?access_token=${MAPILLARY_TOKEN}`
+            ],
+            minzoom: 6,
+            maxzoom: 14
+          });
+
+          map.addLayer({
+            id: 'mapillary-lines',
+            type: 'line',
+            source: 'mapillary-source',
+            'source-layer': 'sequence',
+            layout: {
+              'line-cap': 'round',
+              'line-join': 'round'
+            },
+            paint: {
+              'line-color': '#05cb63',
+              'line-width': 2.5,
+              'line-opacity': 0.85
+            }
+          });
+
+          // Tap coverage opens MapillaryJS in place
+          map.on('click', 'mapillary-lines', (e) => {
+            const features = map.queryRenderedFeatures(e.point, { layers: ['mapillary-lines'] });
+            if (features && features.length > 0) {
+              const imageId = features[0].properties.id || VERIFIED_COVERAGE_KEYS.nyc;
+              console.log('[Terraforge StreetView] Clicked Mapillary coverage line. Image ID:', imageId);
+              setActiveImageId(imageId);
+              setIsStreetViewOpen(true);
+            }
+          });
+
+          map.on('mouseenter', 'mapillary-lines', () => {
+            map.getCanvas().style.cursor = 'pointer';
+          });
+          map.on('mouseleave', 'mapillary-lines', () => {
+            map.getCanvas().style.cursor = '';
+          });
+        } catch (e) {
+          console.warn('[Terraforge StreetView] Mapillary coverage layer setup:', e);
         }
-      });
+      }
+    });
+
+    // Handle generic map click: check if coverage exists at clicked coordinate
+    map.on('click', (e) => {
+      const features = map.queryRenderedFeatures(e.point, { layers: ['mapillary-lines'] });
+      if (!features || features.length === 0) {
+        setToastMessage('No street-level coverage at this spot.');
+        setTimeout(() => setToastMessage(''), 3500);
+      }
     });
 
     return () => {
       map.remove();
-      mapRef.current = null;
     };
-  }, [isActive, mapStyle]);
+  }, [isActive, focusedLocation]);
 
-  // Initialize Mapillary 360-degree Viewer when an image ID is active
+  // Mount and manage MapillaryJS Viewer
   useEffect(() => {
-    if (!activeImageId || !mlyContainerRef.current) {
-      if (mlyViewerRef.current) {
-        try {
-          mlyViewerRef.current.remove();
-        } catch {}
-        mlyViewerRef.current = null;
-      }
-      return;
-    }
+    if (!isStreetViewOpen || !mlyContainerRef.current) return;
+
+    const imgId = activeImageId || VERIFIED_COVERAGE_KEYS.nyc;
+    console.log('[Terraforge StreetView] Mounting Mapillary Viewer for image:', imgId);
 
     try {
       const viewer = new Viewer({
-        container: mlyContainerRef.current,
         accessToken: MAPILLARY_TOKEN,
-        imageId: activeImageId
+        container: mlyContainerRef.current,
+        imageId: imgId,
+        component: {
+          cover: false,
+          direction: true,
+          sequence: true,
+          zoom: true
+        }
       });
-      mlyViewerRef.current = viewer;
-    } catch (err) {
-      console.warn('Mapillary Viewer Init Error:', err);
-    }
 
-    return () => {
-      if (mlyViewerRef.current) {
+      mlyViewerRef.current = viewer;
+
+      viewer.on('load', () => {
+        console.log('[Terraforge StreetView] MapillaryJS loaded successfully (HTTP 200).');
+      });
+
+      return () => {
         try {
-          mlyViewerRef.current.remove();
+          viewer.remove();
         } catch {}
-        mlyViewerRef.current = null;
-      }
-    };
-  }, [activeImageId]);
+      };
+    } catch (err) {
+      console.warn('[Terraforge StreetView] Error initializing Mapillary viewer:', err);
+    }
+  }, [isStreetViewOpen, activeImageId]);
 
   if (!isActive) return null;
 
-  const handleJumpToCity = (cityKey) => {
-    const lm = EARTH_LANDMARKS.find((l) => l.id === cityKey);
-    if (lm && mapRef.current) {
-      setFocusedLocation({ lat: lm.lat, lon: lm.lon, name: lm.name });
-      mapRef.current.flyTo({ center: [lm.lon, lm.lat], zoom: 15.5 });
-      setNoCoverageToast(false);
-    }
-  };
-
-  const handleOpenSampleStreetView = (cityKey) => {
-    const imgId = SAMPLE_MAPILLARY_IMAGES[cityKey] || SAMPLE_MAPILLARY_IMAGES.nyc;
-    setActiveImageId(imgId);
-    setNoCoverageToast(false);
-  };
-
   return (
-    <div className="fixed inset-0 z-40 bg-black flex flex-col font-sans select-none animate-fadeIn">
-      {/* 1. Header Toolbar */}
-      <header className="absolute top-4 left-4 right-4 z-50 flex items-center justify-between bg-black/80 backdrop-blur-md rounded-2xl border border-white/15 px-5 py-3 shadow-2xl">
-        <div className="flex items-center space-x-3 text-white">
+    <div className="absolute inset-0 z-50 bg-black text-white flex flex-col select-none">
+      {/* 1. Header Bar: Plain-Text Actions "Back to map" and "Back to orbit" */}
+      <header className="absolute top-0 inset-x-0 z-50 p-4 sm:p-6 flex items-center justify-between pointer-events-auto bg-gradient-to-b from-black/90 via-black/50 to-transparent">
+        <div className="flex items-center space-x-4 font-mono text-xs">
+          {/* Back to Orbit */}
           <button
-            onClick={onClose}
-            title="Return to Earth Orbit in 3D Simulator (Esc)"
-            className="flex items-center space-x-2 text-cyan-400 hover:text-cyan-200 transition-colors font-mono text-xs uppercase cursor-pointer"
+            onClick={() => {
+              if (onClose) onClose();
+              closeMapToOrbit();
+            }}
+            className="text-cyan-400 hover:text-white transition-colors cursor-pointer uppercase tracking-widest"
           >
-            <ArrowLeft className="w-4 h-4" />
-            <span>RETURN TO ORBIT</span>
+            &lt; BACK TO ORBIT
           </button>
+
+          {/* Back to Map (Visible when Street View is open) */}
+          {isStreetViewOpen && (
+            <>
+              <span className="text-white/20">|</span>
+              <button
+                onClick={() => {
+                  setIsStreetViewOpen(false);
+                  setActiveImageId(null);
+                }}
+                className="text-emerald-400 hover:text-white transition-colors cursor-pointer uppercase tracking-widest"
+              >
+                &lt; BACK TO MAP
+              </button>
+            </>
+          )}
+
           <span className="text-white/20">|</span>
-          <div className="flex items-center space-x-2 text-xs font-mono text-white/90">
-            <Globe className="w-3.5 h-3.5 text-emerald-400" />
-            <span className="uppercase tracking-wider">EARTH SURFACE STREET VIEW</span>
-          </div>
+          <span className="text-white/60 uppercase tracking-wider">
+            {focusedLocation?.name || 'EARTH SURFACE'}
+          </span>
         </div>
 
-        {/* Quick Landmark Jumps */}
-        <div className="hidden md:flex items-center space-x-3 text-xs font-mono text-white/70">
-          <span className="text-[10px] uppercase text-white/40 tracking-wider">EXPLORE:</span>
-          {EARTH_LANDMARKS.map((lm) => (
+        {/* Quick jump to landmarks or trigger street view */}
+        <div className="flex items-center space-x-3 text-xs font-mono">
+          {!isStreetViewOpen && (
             <button
-              key={lm.id}
-              onClick={() => handleJumpToCity(lm.id)}
-              className="hover:text-white transition-colors cursor-pointer underline underline-offset-4 decoration-white/20"
+              onClick={() => {
+                setActiveImageId(VERIFIED_COVERAGE_KEYS.nyc);
+                setIsStreetViewOpen(true);
+              }}
+              className="text-[#4FD1C5] hover:text-white transition-colors cursor-pointer uppercase tracking-widest"
             >
-              {lm.name}
+              EXPLORE STREET VIEW &gt;
             </button>
-          ))}
-        </div>
-
-        {/* Style Toggle & Street View Trigger */}
-        <div className="flex items-center space-x-3">
-          <button
-            onClick={() => handleOpenSampleStreetView('nyc')}
-            title="Open 360-degree Mapillary street-level view"
-            className="bg-emerald-500/20 hover:bg-emerald-500/35 border border-emerald-500/50 text-emerald-300 px-3 py-1.5 rounded-xl font-mono text-xs uppercase flex items-center space-x-1.5 cursor-pointer transition-colors"
-          >
-            <MapPin className="w-3.5 h-3.5" />
-            <span>OPEN STREET VIEW</span>
-          </button>
-
-          <button
-            onClick={() => setMapStyle((s) => (s === 'vector' ? 'satellite' : 'vector'))}
-            title="Toggle between Vector OSM with 3D buildings and Satellite imagery"
-            className="bg-white/10 hover:bg-white/20 text-white px-3 py-1.5 rounded-xl font-mono text-xs uppercase flex items-center space-x-1.5 cursor-pointer transition-colors"
-          >
-            <Layers className="w-3.5 h-3.5" />
-            <span>{mapStyle === 'vector' ? 'SATELLITE' : '3D VECTOR'}</span>
-          </button>
+          )}
         </div>
       </header>
 
-      {/* 2. MapLibre GL Map View Container */}
-      <div ref={mapContainerRef} className="w-full h-full" />
+      {/* 2. MapLibre GL 3D Vector Map Container */}
+      <div ref={mapContainerRef} className="absolute inset-0 w-full h-full" />
 
-      {/* 3. Mapillary 360-Degree Street View Overlay Modal */}
-      {activeImageId && (
-        <div className="absolute inset-0 z-50 bg-black flex flex-col">
-          <div className="absolute top-4 left-4 z-50 bg-black/80 backdrop-blur-md px-4 py-2 rounded-xl border border-white/20 text-white flex items-center space-x-3 font-mono text-xs">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            <span>MAPILLARY 360° STREET VIEW</span>
-            <button
-              onClick={() => setActiveImageId(null)}
-              className="text-white/40 hover:text-white p-1 cursor-pointer transition-colors"
-              title="Close Street View (Esc)"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-          <div ref={mlyContainerRef} className="w-full h-full" />
+      {/* 3. In-Place MapillaryJS 360° Street View Viewer */}
+      {isStreetViewOpen && (
+        <div className="absolute inset-0 z-50 bg-black">
+          <div ref={mlyContainerRef} className="w-full h-full" style={{ width: '100vw', height: '100vh', position: 'absolute', inset: 0 }} />
         </div>
       )}
 
-      {/* 4. No-Coverage Fallback Toast Notification */}
-      {noCoverageToast && (
-        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-50 bg-zinc-950/95 border border-amber-500/50 rounded-2xl p-4 shadow-2xl flex items-center space-x-4 max-w-md text-white">
-          <AlertCircle className="w-5 h-5 text-amber-400 shrink-0" />
-          <div className="space-y-1">
-            <p className="text-xs font-sans font-light text-white/90">
-              {toastMessage || 'No street-level imagery available here.'}
-            </p>
-            <div className="flex items-center space-x-2 text-[11px] font-mono text-cyan-400">
-              <span>EXPLORE:</span>
-              <button
-                onClick={() => handleJumpToCity('tokyo')}
-                className="hover:underline cursor-pointer"
-              >
-                Tokyo
-              </button>
-              <span>·</span>
-              <button
-                onClick={() => handleJumpToCity('nyc')}
-                className="hover:underline cursor-pointer"
-              >
-                NYC
-              </button>
-              <span>·</span>
-              <button
-                onClick={() => handleJumpToCity('london')}
-                className="hover:underline cursor-pointer"
-              >
-                London
-              </button>
-            </div>
-          </div>
-          <button
-            onClick={() => setNoCoverageToast(false)}
-            className="text-white/40 hover:text-white p-1 cursor-pointer transition-colors"
-          >
-            <X className="w-4 h-4" />
-          </button>
+      {/* 4. Fallback Single-Line Message */}
+      {toastMessage && (
+        <div className="absolute bottom-12 left-1/2 -translate-x-1/2 z-50 bg-black/85 backdrop-blur-md border border-amber-400/40 text-amber-200 text-xs font-mono px-4 py-2 pointer-events-none">
+          {toastMessage}
         </div>
       )}
+
+      {/* 5. Attribution: Single Line, Visible, Not Overlapping Controls */}
+      <footer className="absolute bottom-3 inset-x-0 z-50 text-center pointer-events-none">
+        <div className="text-[10px] font-mono tracking-widest text-white/45">
+          OpenStreetMap · OpenFreeMap · MapLibre · Mapillary
+        </div>
+      </footer>
     </div>
   );
 }

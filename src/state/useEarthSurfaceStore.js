@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 
 export const EARTH_LANDMARKS = [
-  { id: 'nyc', name: 'New York', lat: 40.7128, lon: -74.0060, desc: 'Manhattan, Hudson River & Central Park' },
+  { id: 'nyc', name: 'New York', lat: 40.7484, lon: -73.9855, desc: 'Midtown Manhattan, Empire State Building & Central Park' },
   { id: 'london', name: 'London', lat: 51.5074, lon: -0.1278, desc: 'Thames, Big Ben & Greenwich Meridian' },
   { id: 'tokyo', name: 'Tokyo', lat: 35.6762, lon: 139.6503, desc: 'Tokyo Bay, Shinjuku & Kanto Plain' },
   { id: 'dubai', name: 'Dubai', lat: 25.2048, lon: 55.2708, desc: 'Burj Khalifa, Palm Jumeirah & Arabian Coast' }
@@ -16,8 +16,8 @@ export const useEarthSurfaceStore = create((set, get) => ({
   altitudeKm: 12000,
   setAltitudeKm: (km) => set({ altitudeKm: Math.max(0.01, km) }),
 
-  // Current surface focus point (lat/lon)
-  focusedLocation: { lat: 40.7128, lon: -74.0060, name: 'New York' },
+  // Current surface focus point (lat/lon) - Midtown Manhattan
+  focusedLocation: { lat: 40.7484, lon: -73.9855, name: 'New York' },
   setFocusedLocation: (loc) => set({ focusedLocation: loc }),
 
   // Tier 2 3D Tiles State:
@@ -36,10 +36,27 @@ export const useEarthSurfaceStore = create((set, get) => ({
 
   // Programmatic smooth flight requests (e.g. clicking landmark or double clicking surface)
   flyToTarget: null,
-  triggerFlyTo: (target) => set({ isSurfaceMode: true, focusedLocation: target, flyToTarget: { ...target, timestamp: Date.now() } }),
+  triggerFlyTo: (target) => set({ flyToTarget: { ...target, timestamp: Date.now() } }),
   clearFlyTo: () => set({ flyToTarget: null }),
 
   // Return to orbit trigger counter
   returnToOrbitCounter: 0,
-  triggerReturnToOrbit: () => set((s) => ({ returnToOrbitCounter: s.returnToOrbitCounter + 1, isSurfaceMode: false }))
+  triggerReturnToOrbit: () => set((s) => ({ returnToOrbitCounter: s.returnToOrbitCounter + 1, isSurfaceMode: false, isMapLibreActive: false })),
+
+  // Stage 6: Fullscreen MapLibre Vector Map & Mapillary Street View
+  isMapLibreActive: false,
+  setIsMapLibreActive: (active) => set({ isMapLibreActive: active }),
+  openMapAtLocation: (lat, lon, name = '') => set({
+    isMapLibreActive: true,
+    focusedLocation: { lat, lon, name }
+  }),
+  closeMapToOrbit: () => set((s) => ({
+    isMapLibreActive: false,
+    isSurfaceMode: false,
+    returnToOrbitCounter: s.returnToOrbitCounter + 1
+  }))
 }));
+
+if (typeof window !== 'undefined') {
+  window.useEarthSurfaceStore = useEarthSurfaceStore;
+}

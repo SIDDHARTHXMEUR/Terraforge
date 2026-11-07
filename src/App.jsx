@@ -8,6 +8,8 @@ import { LoadingScreen } from './components/LoadingScreen';
 import { EarthBaselineComparator } from './components/test/EarthBaselineComparator';
 import { DeepSpaceSkybox } from './components/cinematic/DeepSpaceSkybox';
 import { OrbitControls } from '@react-three/drei';
+import { EarthMapLibreViewer } from './components/cinematic/EarthMapLibreViewer';
+import { useEarthSurfaceStore } from './state/useEarthSurfaceStore';
 
 const CELESTIAL_ORDER = ['sun', 'mercury', 'venus', 'earth', 'mars', 'jupiter', 'saturn', 'uranus', 'neptune'];
 
@@ -63,6 +65,8 @@ export default function App() {
   const [showLabels, setShowLabels] = useState(true);
   const [uiVisible, setUiVisible] = useState(true);
   const [isUserInteracting, setIsUserInteracting] = useState(false);
+  const isMapLibreActive = useEarthSurfaceStore((s) => s.isMapLibreActive);
+  const setIsMapLibreActive = useEarthSurfaceStore((s) => s.setIsMapLibreActive);
 
   // Check URL query parameters for safe mode and benchmark mode
   const queryParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
@@ -218,6 +222,7 @@ export default function App() {
           className="w-full h-full cursor-grab active:cursor-grabbing bg-black"
           style={{ width: '100vw', height: '100vh', position: 'absolute', inset: 0 }}
           dpr={[1, 1.5]}
+          frameloop={isMapLibreActive ? 'never' : 'always'}
           gl={{
             antialias: true,
             alpha: false,
@@ -240,9 +245,9 @@ export default function App() {
               selectedBody={selectedBody}
               viewMode={viewMode}
               timeMultiplier={timeMultiplier}
-              isPaused={isPaused}
-              showOrbits={!isPrologueActive && showOrbits}
-              showLabels={!isPrologueActive && showLabels}
+              isPaused={isPaused || isMapLibreActive}
+              showOrbits={!isPrologueActive && !isMapLibreActive && showOrbits}
+              showLabels={!isPrologueActive && !isMapLibreActive && showLabels}
               onSelectBody={setSelectedBody}
               isUserInteracting={isUserInteracting}
               isPrologueActive={isPrologueActive}
@@ -252,7 +257,13 @@ export default function App() {
         </Canvas>
       </SceneErrorBoundary>
 
-      {/* 2. Directed Christopher Nolan Prologue Overlay (Letterbox + Anamorphic Flare + Title) */}
+      {/* 2. Fullscreen MapLibre 3D Vector Map & Mapillary Street View */}
+      <EarthMapLibreViewer
+        isActive={isMapLibreActive}
+        onClose={() => setIsMapLibreActive(false)}
+      />
+
+      {/* 3. Directed Christopher Nolan Prologue Overlay (Letterbox + Anamorphic Flare + Title) */}
       <CinematicPrologueOverlay
         isActive={isPrologueActive}
         onSkip={handleCompletePrologue}
@@ -277,7 +288,7 @@ export default function App() {
         setShowOrbits={setShowOrbits}
         showLabels={showLabels}
         setShowLabels={setShowLabels}
-        uiVisible={!isPrologueActive && uiVisible}
+        uiVisible={!isPrologueActive && !isMapLibreActive && uiVisible}
         setUiVisible={setUiVisible}
         onResetCamera={handleResetCamera}
         onReplayIntro={handleReplayIntro}

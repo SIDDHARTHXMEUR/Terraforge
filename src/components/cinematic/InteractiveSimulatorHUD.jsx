@@ -335,9 +335,7 @@ export function InteractiveSimulatorHUD({
                   <div className="flex items-center space-x-4">
                     <button
                       onClick={() => {
-                        if (window.__triggerFlyTo) {
-                          window.__triggerFlyTo({ lat: 40.7128, lon: -74.006, altitudeKm: 25.0 });
-                        }
+                        useEarthSurfaceStore.getState().openMapAtLocation(40.7128, -74.006, 'New York');
                       }}
                       className="text-[11px] font-mono uppercase tracking-[0.22em] text-[#4FD1C5] hover:text-cyan-200 transition-colors cursor-pointer flex items-center space-x-1.5"
                       title="Explore Earth Surface"
