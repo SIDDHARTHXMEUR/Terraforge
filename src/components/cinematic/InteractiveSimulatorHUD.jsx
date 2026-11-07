@@ -9,15 +9,10 @@ import {
   EyeOff,
   Orbit,
   Tag,
-  ChevronRight,
-  HelpCircle,
-  X,
-  Clock,
-  Camera
+  ChevronRight
 } from 'lucide-react';
 import { PLANETS_CONFIG } from '../../data/planetsData';
 import { useEarthSurfaceStore, EARTH_LANDMARKS } from '../../state/useEarthSurfaceStore';
-import { useQualityStore } from '../../state/useQualityStore';
 
 const CELESTIAL_LIST = [
   { id: 'overview', name: 'Overview' },
@@ -25,13 +20,11 @@ const CELESTIAL_LIST = [
   { id: 'mercury', name: 'Mercury' },
   { id: 'venus', name: 'Venus' },
   { id: 'earth', name: 'Earth' },
-  { id: 'moon', name: 'Moon' },
   { id: 'mars', name: 'Mars' },
   { id: 'jupiter', name: 'Jupiter' },
   { id: 'saturn', name: 'Saturn' },
   { id: 'uranus', name: 'Uranus' },
-  { id: 'neptune', name: 'Neptune' },
-  { id: 'pluto', name: 'Pluto' }
+  { id: 'neptune', name: 'Neptune' }
 ];
 
 const SPEED_PRESETS = [1, 5, 25, 100, 500];
@@ -52,37 +45,10 @@ export function InteractiveSimulatorHUD({
   uiVisible = true,
   setUiVisible,
   onResetCamera,
-  onReplayIntro,
-  showHelpSheet = false,
-  setShowHelpSheet
+  onReplayIntro
 }) {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isIdle, setIsIdle] = useState(false);
-  const [simDate, setSimDate] = useState(() => new Date());
-
-  // Simulation clock ticker
-  useEffect(() => {
-    if (isPaused) return;
-    const interval = setInterval(() => {
-      setSimDate((prev) => new Date(prev.getTime() + 1000 * timeMultiplier));
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [isPaused, timeMultiplier]);
-
-  const snapToNow = () => {
-    setSimDate(new Date());
-  };
-
-  const formattedSimTime = simDate.toISOString().replace('T', ' ').substring(0, 19) + ' UTC';
-
-  const preset = useQualityStore((s) => s.preset);
-  const setPreset = useQualityStore((s) => s.setPreset);
-
-  const cycleQuality = () => {
-    if (preset === 'auto') setPreset('high');
-    else if (preset === 'high') setPreset('low');
-    else setPreset('auto');
-  };
 
   // Auto-hide UI during inactivity (4 seconds)
   useEffect(() => {
@@ -135,14 +101,14 @@ export function InteractiveSimulatorHUD({
 
   return (
     <div
-      className={`absolute inset-0 pointer-events-none select-none z-30 flex flex-col justify-between p-4 sm:p-6 transition-opacity duration-700 ${
+      className={`absolute inset-0 pointer-events-none select-none z-30 flex flex-col justify-between p-6 sm:p-8 transition-opacity duration-700 ${
         !uiVisible || isIdle ? 'opacity-0' : 'opacity-100'
       }`}
     >
       {/* --------------------------------------------------------------------- */}
-      {/* 1. TOP HEADER WITH PROTECTIVE SCRIM                                   */}
+      {/* 1. TOP HEADER: STRICTLY ONE LINE AT ALL SCREEN SIZES                   */}
       {/* --------------------------------------------------------------------- */}
-      <header className="w-full flex items-center justify-between gap-4 pointer-events-auto whitespace-nowrap overflow-x-auto bg-black/60 backdrop-blur-md rounded-2xl border border-white/10 px-5 py-2.5 shadow-lg">
+      <header className="w-full flex items-center justify-between gap-4 pointer-events-auto whitespace-nowrap overflow-x-auto py-1">
         {/* Brand & Simulation Live Indicator */}
         <div className="flex items-center space-x-2.5 text-white/90 shrink-0">
           <span className="text-xs font-light tracking-[0.3em] uppercase">
@@ -150,7 +116,7 @@ export function InteractiveSimulatorHUD({
           </span>
           <span className="text-white/20">/</span>
           <span className="text-[10px] font-mono tracking-[0.2em] text-white/50 uppercase hidden md:inline">
-            SOLAR SIMULATOR
+            SOLAR SYSTEM SIMULATOR
           </span>
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
           <span className="text-[9px] font-mono tracking-widest text-emerald-400 uppercase">
@@ -166,7 +132,6 @@ export function InteractiveSimulatorHUD({
               <button
                 key={id}
                 onClick={() => onSelectBody(id)}
-                title={`Focus ${name} (Key shortcut)`}
                 className={`transition-all duration-200 cursor-pointer shrink-0 pb-0.5 border-b ${
                   isActive
                     ? 'text-white border-white font-medium'
@@ -179,28 +144,15 @@ export function InteractiveSimulatorHUD({
           })}
         </nav>
 
-        {/* Date/Time Readout with Snap-to-Now */}
-        <div className="hidden lg:flex items-center space-x-2 text-xs font-mono text-white/70 bg-white/5 px-2.5 py-1 rounded-lg border border-white/5 shrink-0">
-          <Clock className="w-3.5 h-3.5 text-cyan-400/80" />
-          <span className="tracking-wider">{formattedSimTime}</span>
-          <button
-            onClick={snapToNow}
-            title="Snap simulation date and time to current real time"
-            className="text-[9px] font-mono uppercase bg-cyan-500/20 hover:bg-cyan-500/35 text-cyan-300 px-1.5 py-0.5 rounded cursor-pointer transition-colors"
-          >
-            NOW
-          </button>
-        </div>
-
-        {/* View Mode (CINEMATIC / SCIENTIFIC) & Controls */}
-        <div className="flex items-center space-x-3 shrink-0 text-[11px] font-mono tracking-[0.2em] uppercase">
-          <div className="flex items-center space-x-2.5">
+        {/* View Mode (CINEMATIC / SCIENTIFIC) & Controls (Strictly One Line) */}
+        <div className="flex items-center space-x-4 shrink-0 text-[11px] font-mono tracking-[0.2em] uppercase">
+          {/* Two plain text options, active underlined (no pill) */}
+          <div className="flex items-center space-x-3">
             <button
               onClick={() => {
                 if (setViewMode) setViewMode('cinematic');
                 if (selectedBody !== 'overview') onSelectBody('overview');
               }}
-              title="Cinematic Camera Mode (Realistic planetary flybys)"
               className={`pb-0.5 border-b cursor-pointer transition-all ${
                 viewMode === 'cinematic'
                   ? 'text-white border-white font-medium'
@@ -214,7 +166,6 @@ export function InteractiveSimulatorHUD({
                 if (setViewMode) setViewMode('scientific');
                 if (selectedBody !== 'overview') onSelectBody('overview');
               }}
-              title="Scientific Mode (True top-down Keplerian orbital planes)"
               className={`pb-0.5 border-b cursor-pointer transition-all ${
                 viewMode === 'scientific'
                   ? 'text-white border-white font-medium'
@@ -223,84 +174,53 @@ export function InteractiveSimulatorHUD({
             >
               SCIENTIFIC
             </button>
-            <button
-              onClick={() => {
-                if (setViewMode) setViewMode('lineup');
-                if (selectedBody !== 'overview') onSelectBody('overview');
-              }}
-              title="Scale Lineup Mode: Compare planetary scale side-by-side"
-              className={`pb-0.5 border-b cursor-pointer transition-all ${
-                viewMode === 'lineup'
-                  ? 'text-white border-white font-medium'
-                  : 'text-white/40 hover:text-white/80 border-transparent'
-              }`}
-            >
-              LINEUP
-            </button>
           </div>
 
           <span className="text-white/20">|</span>
 
           {/* Quick utility icons */}
-          <div className="flex items-center space-x-2 text-white/40">
-            <button
-              onClick={() => {
-                // Dispatch 'p' key to toggle photo mode
-                window.dispatchEvent(new KeyboardEvent('keydown', { key: 'p' }));
-              }}
-              className="hover:text-cyan-300 transition-colors cursor-pointer p-1"
-              title="Astrophotography Mode (P)"
-            >
-              <Camera className="w-3.5 h-3.5" />
-            </button>
+          <div className="flex items-center space-x-2.5 text-white/40">
             <button
               onClick={() => setUiVisible((v) => !v)}
-              className="hover:text-white transition-colors cursor-pointer p-1"
-              title="Toggle Clean UI Mode (H)"
+              className="hover:text-white transition-colors cursor-pointer"
+              title="Toggle Clean View (H)"
             >
               {uiVisible ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
             </button>
             <button
               onClick={toggleFullscreen}
-              className="hover:text-white transition-colors cursor-pointer p-1"
-              title="Toggle Fullscreen (F)"
+              className="hover:text-white transition-colors cursor-pointer"
+              title="Fullscreen (F)"
             >
               {isFullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
-            </button>
-            <button
-              onClick={() => setShowHelpSheet && setShowHelpSheet((s) => !s)}
-              className="hover:text-cyan-300 transition-colors cursor-pointer p-1"
-              title="Keyboard Shortcuts Cheat Sheet (?)"
-            >
-              <HelpCircle className="w-3.5 h-3.5 text-cyan-400/80 hover:text-cyan-300" />
             </button>
           </div>
         </div>
       </header>
 
       {/* --------------------------------------------------------------------- */}
-      {/* 2. REFINED PLANETARY CARD WITH DARK PROTECTIVE SCRIM                  */}
+      {/* 2. REFINED PLANETARY TYPOGRAPHY (Zero Boxes / Zero Grids / Zero Lines) */}
       {/* --------------------------------------------------------------------- */}
       {selectedData && selectedBody !== 'overview' && (
-        <main className="max-w-xl pointer-events-auto transition-all duration-700 my-auto bg-black/65 backdrop-blur-md rounded-2xl border border-white/10 p-6 shadow-[0_8px_32px_rgba(0,0,0,0.8)]">
+        <main className="max-w-xl pointer-events-auto transition-all duration-700 my-auto pl-2">
           {/* Celestial Classification */}
-          <div className="text-[10px] font-mono tracking-[0.32em] text-cyan-400 uppercase mb-2">
+          <div className="text-[10px] font-mono tracking-[0.32em] text-white/50 uppercase mb-2">
             {selectedData.category || 'CELESTIAL BODY'}
           </div>
 
           {/* Large Refined Planet Name */}
-          <h1 className="text-4xl sm:text-6xl font-extralight tracking-[0.25em] text-white uppercase drop-shadow-[0_4px_30px_rgba(0,0,0,0.9)]">
+          <h1 className="text-5xl sm:text-7xl font-extralight tracking-[0.25em] text-white uppercase drop-shadow-[0_4px_30px_rgba(0,0,0,0.9)]">
             {selectedData.name}
           </h1>
 
-          {/* One-line Descriptor in High-Contrast Clean Sans */}
-          <p className="font-sans font-light text-[13px] leading-relaxed text-white/90 mt-2 mb-6">
+          {/* One-line Descriptor */}
+          <p className="text-xs font-mono tracking-[0.18em] text-white/70 uppercase mt-2 mb-8">
             {selectedData.tagline}
           </p>
 
           {/* Earth Surface Mode Panel or Standard Orbital Key Figures */}
           {selectedBody === 'earth' && isSurfaceMode ? (
-            <div className="mb-4 space-y-3.5">
+            <div className="mb-6 space-y-3.5">
               <div className="flex flex-wrap items-baseline gap-x-8 gap-y-2 text-xs font-mono">
                 <div>
                   <span className="text-[9px] uppercase tracking-[0.2em] text-cyan-400/80 block">SURFACE ALTITUDE</span>
@@ -329,7 +249,6 @@ export function InteractiveSimulatorHUD({
                   <button
                     key={lm.id}
                     onClick={() => triggerFlyTo({ lat: lm.lat, lon: lm.lon, altitudeKm: 0.8 })}
-                    title={`Fly camera down to ${lm.name}`}
                     className="hover:text-white transition-colors cursor-pointer underline underline-offset-4 decoration-white/20 hover:decoration-white"
                   >
                     {lm.name}
@@ -339,7 +258,7 @@ export function InteractiveSimulatorHUD({
 
               {/* Quiet note if Tier 2 token is missing, forbidden or exhausted */}
               {tier2Status === 'unavailable' && (
-                <div className="text-[10px] font-sans font-light text-amber-300/80 pt-0.5">
+                <div className="text-[10px] font-mono tracking-wider text-amber-300/80 pt-0.5">
                   Google 3D Tiles: {tier2ErrorReason || 'High-detail city view unavailable'} · Showing 10m Sentinel-2 satellite imagery
                 </div>
               )}
@@ -348,7 +267,6 @@ export function InteractiveSimulatorHUD({
               <div className="pt-2">
                 <button
                   onClick={triggerReturnToOrbit}
-                  title="Return camera to orbital perspective"
                   className="flex items-center space-x-2 text-[10px] font-mono uppercase tracking-[0.25em] text-cyan-400 hover:text-cyan-200 transition-colors cursor-pointer"
                 >
                   <span>RETURN TO ORBIT</span>
@@ -358,51 +276,50 @@ export function InteractiveSimulatorHUD({
             </div>
           ) : (
             <>
-              {/* Key Figures in Monospace Readouts */}
-              <div className="flex flex-wrap items-baseline gap-x-8 gap-y-3 text-xs font-mono mb-5">
+              {/* 3 to 4 Key Figures in a Quiet Row (No divider lines, no grid, no boxes) */}
+              <div className="flex flex-wrap items-baseline gap-x-8 gap-y-3 text-xs font-mono mb-6">
                 <div>
                   <span className="text-[9px] uppercase tracking-[0.2em] text-white/40 block">RADIUS</span>
-                  <span className="text-white/95 text-sm font-light tracking-wider">
+                  <span className="text-white/90 text-sm font-light tracking-wider">
                     {selectedData.radiusKm ? `${selectedData.radiusKm.toLocaleString()} KM` : 'N/A'}
                   </span>
                 </div>
                 <div>
                   <span className="text-[9px] uppercase tracking-[0.2em] text-white/40 block">GRAVITY</span>
-                  <span className="text-white/95 text-sm font-light tracking-wider">
+                  <span className="text-white/90 text-sm font-light tracking-wider">
                     {selectedData.gravity || 'N/A'}
                   </span>
                 </div>
                 <div>
                   <span className="text-[9px] uppercase tracking-[0.2em] text-white/40 block">TEMP</span>
-                  <span className="text-white/95 text-sm font-light tracking-wider">
+                  <span className="text-white/90 text-sm font-light tracking-wider">
                     {selectedData.meanTempC !== undefined ? `${selectedData.meanTempC}°C` : 'N/A'}
                   </span>
                 </div>
                 <div>
                   <span className="text-[9px] uppercase tracking-[0.2em] text-white/40 block">ORBIT</span>
-                  <span className="text-white/95 text-sm font-light tracking-wider">
+                  <span className="text-white/90 text-sm font-light tracking-wider">
                     {selectedData.orbitalPeriodDays ? `${selectedData.orbitalPeriodDays} D` : 'CENTER'}
                   </span>
                 </div>
               </div>
 
-              {/* Atmosphere Composition in High-Contrast Sans */}
+              {/* Atmosphere Composition as a Small Caption */}
               {selectedData.atmosphereComposition && (
-                <div className="font-sans font-light text-[13px] text-white/80 mb-5 max-w-md">
-                  <span className="font-mono text-[10px] text-white/40 uppercase tracking-[0.2em] mr-2">ATMOSPHERE:</span>
+                <div className="text-[10px] font-mono tracking-wider text-white/60 mb-6 max-w-md">
+                  <span className="text-white/40 uppercase tracking-[0.2em] mr-2">ATMOSPHERE:</span>
                   <span>{selectedData.atmosphereComposition}</span>
                 </div>
               )}
 
               {/* Surface Zoom Entrypoint from Orbit */}
               {selectedBody === 'earth' && (
-                <div className="flex items-center flex-wrap gap-2 mb-5 text-[10px] font-mono tracking-wider text-white/50">
+                <div className="flex items-center flex-wrap gap-2 mb-6 text-[10px] font-mono tracking-wider text-white/50">
                   <span className="text-cyan-400 uppercase tracking-widest mr-1">SURFACE ZOOM:</span>
                   {EARTH_LANDMARKS.map((lm) => (
                     <button
                       key={lm.id}
                       onClick={() => triggerFlyTo({ lat: lm.lat, lon: lm.lon, altitudeKm: 0.8 })}
-                      title={`Descent to ${lm.name}`}
                       className="hover:text-white transition-colors cursor-pointer underline underline-offset-4 decoration-white/20 hover:decoration-white"
                     >
                       {lm.name}
@@ -414,8 +331,7 @@ export function InteractiveSimulatorHUD({
               {/* Return Action */}
               <button
                 onClick={() => onSelectBody('overview')}
-                title="Return to Solar System Overview (Esc)"
-                className="flex items-center space-x-2 text-[10px] font-mono uppercase tracking-[0.25em] text-white/50 hover:text-white transition-colors cursor-pointer"
+                className="flex items-center space-x-2 text-[10px] font-mono uppercase tracking-[0.25em] text-white/40 hover:text-white transition-colors cursor-pointer"
               >
                 <span>RETURN TO OVERVIEW</span>
                 <ChevronRight className="w-3.5 h-3.5" />
@@ -433,14 +349,13 @@ export function InteractiveSimulatorHUD({
       )}
 
       {/* --------------------------------------------------------------------- */}
-      {/* 3. BOTTOM TRANSPORT & DISPLAY TOGGLES WITH PROTECTIVE SCRIM           */}
+      {/* 3. BOTTOM TRANSPORT & DISPLAY TOGGLES (Quiet Edge Controls)           */}
       {/* --------------------------------------------------------------------- */}
-      <footer className="w-full flex items-center justify-between gap-3 pointer-events-auto bg-black/60 backdrop-blur-md rounded-2xl border border-white/10 px-5 py-2.5 shadow-lg">
+      <footer className="w-full flex items-center justify-between gap-3 pointer-events-auto">
         {/* Playback & Multiplier Strip */}
         <div className="flex items-center space-x-3 text-xs font-mono">
           <button
             onClick={() => setIsPaused(!isPaused)}
-            title="Play / Pause simulation (Space)"
             className="flex items-center space-x-1.5 text-white/80 hover:text-white transition-colors cursor-pointer tracking-wider"
           >
             {isPaused ? <Play className="w-3.5 h-3.5 text-amber-400" /> : <Pause className="w-3.5 h-3.5 text-emerald-400" />}
@@ -450,7 +365,7 @@ export function InteractiveSimulatorHUD({
           <span className="text-white/20">|</span>
 
           {/* Speeds */}
-          <div className="flex items-center space-x-2 text-[10px] tracking-wider text-white/40">
+          <div className="flex items-center space-x-2.5 text-[10px] tracking-wider text-white/40">
             {SPEED_PRESETS.map((multiplier) => {
               const isActive = timeMultiplier === multiplier && !isPaused;
               return (
@@ -460,9 +375,8 @@ export function InteractiveSimulatorHUD({
                     setTimeMultiplier(multiplier);
                     if (isPaused) setIsPaused(false);
                   }}
-                  title={`Set time speed to ${multiplier}X (Use [ and ] to cycle)`}
-                  className={`transition-colors cursor-pointer px-1.5 py-0.5 rounded ${
-                    isActive ? 'text-white bg-white/10 font-medium' : 'hover:text-white/80'
+                  className={`transition-colors cursor-pointer ${
+                    isActive ? 'text-white font-medium underline' : 'hover:text-white/80'
                   }`}
                 >
                   {multiplier}X
@@ -473,129 +387,45 @@ export function InteractiveSimulatorHUD({
         </div>
 
         {/* View Toggles & Reset */}
-        <div className="flex items-center space-x-4 text-[10px] font-mono tracking-wider text-white/40">
+        <div className="flex items-center space-x-5 text-[10px] font-mono tracking-wider text-white/40">
           <button
             onClick={() => setShowOrbits(!showOrbits)}
-            title="Toggle Keplerian orbit ribbons (O)"
-            className={`transition-colors cursor-pointer flex items-center space-x-1.5 ${
+            className={`transition-colors cursor-pointer flex items-center space-x-1 ${
               showOrbits ? 'text-white/90' : 'hover:text-white/70'
             }`}
           >
-            <Orbit className="w-3.5 h-3.5 text-cyan-400/80" />
+            <Orbit className="w-3 h-3 text-cyan-400/80" />
             <span className="uppercase">ORBITS ({showOrbits ? 'ON' : 'OFF'})</span>
           </button>
 
           <button
             onClick={() => setShowLabels(!showLabels)}
-            title="Toggle celestial planet labels (L)"
-            className={`transition-colors cursor-pointer flex items-center space-x-1.5 ${
+            className={`transition-colors cursor-pointer flex items-center space-x-1 ${
               showLabels ? 'text-white/90' : 'hover:text-white/70'
             }`}
           >
-            <Tag className="w-3.5 h-3.5 text-amber-400/80" />
+            <Tag className="w-3 h-3 text-amber-400/80" />
             <span className="uppercase">LABELS ({showLabels ? 'ON' : 'OFF'})</span>
           </button>
 
           <button
             onClick={onResetCamera}
-            title="Reset camera orientation to default master overview"
-            className="hover:text-white transition-colors cursor-pointer flex items-center space-x-1.5"
+            className="hover:text-white transition-colors cursor-pointer flex items-center space-x-1"
           >
-            <RotateCcw className="w-3.5 h-3.5" />
+            <RotateCcw className="w-3 h-3" />
             <span className="uppercase">RESET CAMERA</span>
-          </button>
-
-          <button
-            onClick={cycleQuality}
-            className="hover:text-white transition-colors cursor-pointer flex items-center space-x-1.5"
-            title="Cycle dynamic DPR & antialiasing quality preset (Auto/High/Low)"
-          >
-            <span className="uppercase text-cyan-400">QUALITY ({preset.toUpperCase()})</span>
           </button>
 
           {onReplayIntro && (
             <button
               onClick={onReplayIntro}
-              className="hover:text-white transition-colors cursor-pointer flex items-center space-x-1.5"
-              title="Replay directed Christopher Nolan cinematic prologue"
+              className="hover:text-white transition-colors cursor-pointer flex items-center space-x-1"
             >
-              <span className="uppercase text-amber-300/80 hover:text-amber-300">REPLAY INTRO</span>
+              <span className="uppercase">REPLAY INTRO</span>
             </button>
           )}
         </div>
       </footer>
-
-      {/* --------------------------------------------------------------------- */}
-      {/* 4. KEYBOARD SHORTCUTS CHEAT SHEET MODAL (Accessible via ? or Button) */}
-      {/* --------------------------------------------------------------------- */}
-      {showHelpSheet && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm pointer-events-auto">
-          <div className="bg-zinc-950/95 border border-white/20 rounded-2xl p-6 sm:p-8 max-w-lg w-full text-white shadow-2xl space-y-6">
-            <div className="flex items-center justify-between border-b border-white/10 pb-4">
-              <div className="flex items-center space-x-2.5">
-                <HelpCircle className="w-5 h-5 text-cyan-400" />
-                <h2 className="text-base font-light tracking-[0.2em] uppercase">KEYBOARD SHORTCUTS</h2>
-              </div>
-              <button
-                onClick={() => setShowHelpSheet(false)}
-                title="Close cheat sheet (Esc)"
-                className="text-white/40 hover:text-white p-1 rounded-lg transition-colors cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs font-sans font-light">
-              <div className="flex items-center justify-between p-2 rounded-lg bg-white/5 border border-white/5">
-                <span className="text-white/80">Play / Pause</span>
-                <kbd className="px-2 py-0.5 rounded bg-white/10 border border-white/20 font-mono text-[11px] text-cyan-300">Space</kbd>
-              </div>
-              <div className="flex items-center justify-between p-2 rounded-lg bg-white/5 border border-white/5">
-                <span className="text-white/80">Select Planet 1-9</span>
-                <kbd className="px-2 py-0.5 rounded bg-white/10 border border-white/20 font-mono text-[11px] text-cyan-300">1 - 9</kbd>
-              </div>
-              <div className="flex items-center justify-between p-2 rounded-lg bg-white/5 border border-white/5">
-                <span className="text-white/80">Overview / Skip</span>
-                <kbd className="px-2 py-0.5 rounded bg-white/10 border border-white/20 font-mono text-[11px] text-cyan-300">Esc</kbd>
-              </div>
-              <div className="flex items-center justify-between p-2 rounded-lg bg-white/5 border border-white/5">
-                <span className="text-white/80">Warp Speed Up / Down</span>
-                <kbd className="px-2 py-0.5 rounded bg-white/10 border border-white/20 font-mono text-[11px] text-cyan-300">[ &nbsp; ]</kbd>
-              </div>
-              <div className="flex items-center justify-between p-2 rounded-lg bg-white/5 border border-white/5">
-                <span className="text-white/80">Cinematic Clean UI</span>
-                <kbd className="px-2 py-0.5 rounded bg-white/10 border border-white/20 font-mono text-[11px] text-cyan-300">H</kbd>
-              </div>
-              <div className="flex items-center justify-between p-2 rounded-lg bg-white/5 border border-white/5">
-                <span className="text-white/80">Fullscreen Mode</span>
-                <kbd className="px-2 py-0.5 rounded bg-white/10 border border-white/20 font-mono text-[11px] text-cyan-300">F</kbd>
-              </div>
-              <div className="flex items-center justify-between p-2 rounded-lg bg-white/5 border border-white/5">
-                <span className="text-white/80">Toggle Orbits</span>
-                <kbd className="px-2 py-0.5 rounded bg-white/10 border border-white/20 font-mono text-[11px] text-cyan-300">O</kbd>
-              </div>
-              <div className="flex items-center justify-between p-2 rounded-lg bg-white/5 border border-white/5">
-                <span className="text-white/80">Astrophotography Mode</span>
-                <kbd className="px-2 py-0.5 rounded bg-white/10 border border-white/20 font-mono text-[11px] text-cyan-300">P</kbd>
-              </div>
-              <div className="flex items-center justify-between p-2 rounded-lg bg-white/5 border border-white/5">
-                <span className="text-white/80">Toggle Labels</span>
-                <kbd className="px-2 py-0.5 rounded bg-white/10 border border-white/20 font-mono text-[11px] text-cyan-300">L</kbd>
-              </div>
-            </div>
-
-            <div className="pt-2 border-t border-white/10 text-[11px] font-sans font-light text-white/50 flex items-center justify-between">
-              <span>Mobile Touch: 1 finger drag to rotate · 2 finger pinch to zoom</span>
-              <button
-                onClick={() => setShowHelpSheet(false)}
-                className="text-cyan-400 hover:text-cyan-300 font-mono text-[10px] uppercase cursor-pointer"
-              >
-                GOT IT
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

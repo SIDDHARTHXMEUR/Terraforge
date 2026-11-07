@@ -12,6 +12,26 @@ export function CinematicPrologueOverlay({
     }
   }, [onSkip]);
 
+  // Click, key or scroll also skip immediately
+  useEffect(() => {
+    if (!isActive) return;
+
+    const handleSkipTrigger = () => {
+      if (onSkip) onSkip();
+    };
+
+    window.addEventListener('pointerdown', handleSkipTrigger);
+    window.addEventListener('keydown', handleSkipTrigger);
+    window.addEventListener('wheel', handleSkipTrigger, { passive: true });
+
+    return () => {
+      window.removeEventListener('pointerdown', handleSkipTrigger);
+      window.removeEventListener('keydown', handleSkipTrigger);
+      window.removeEventListener('wheel', handleSkipTrigger);
+    };
+  }, [isActive, onSkip]);
+
+  // Max 14.5s timer (under 15s hard ceiling)
   useEffect(() => {
     if (!isActive) return;
 
@@ -19,7 +39,7 @@ export function CinematicPrologueOverlay({
     const interval = setInterval(() => {
       const sec = (performance.now() - start) / 1000;
       setElapsed(sec);
-      if (sec >= 12.0 && onSkip) {
+      if (sec >= 14.5 && onSkip) {
         onSkip();
       }
     }, 50);
@@ -29,22 +49,22 @@ export function CinematicPrologueOverlay({
 
   if (!isActive) return null;
 
-  // Anamorphic horizontal flare opacity during solar dawn (6s - 10.5s)
-  const isSolarDawn = elapsed >= 6.0 && elapsed < 10.5;
+  // Anamorphic horizontal flare opacity during solar dawn (9s - 13s)
+  const isSolarDawn = elapsed >= 9.0 && elapsed < 13.0;
   const flareIntensity = isSolarDawn
-    ? Math.sin(((elapsed - 6.0) / 4.5) * Math.PI) * 0.70
+    ? Math.sin(((elapsed - 9.0) / 4.0) * Math.PI) * 0.70
     : 0.0;
 
-  // Title opacity during stage 4 (10s - 12s)
-  const isTitleStage = elapsed >= 9.8 && elapsed < 12.0;
+  // Title opacity during stage 5 (12.5s - 14.5s)
+  const isTitleStage = elapsed >= 12.0 && elapsed < 14.5;
   const titleOpacity = isTitleStage
-    ? (elapsed < 11.0
-        ? (elapsed - 9.8) / 1.2
-        : Math.max(0, 1.0 - (elapsed - 11.0) / 1.0))
+    ? (elapsed < 13.2
+        ? (elapsed - 12.0) / 1.2
+        : Math.max(0, 1.0 - (elapsed - 13.2) / 1.3))
     : 0.0;
 
-  // Letterbox retracts between 10.5s and 12s
-  const isRetracting = elapsed >= 10.5;
+  // Letterbox retracts between 13.0s and 14.5s
+  const isRetracting = elapsed >= 13.0;
 
   return (
     <div className="absolute inset-0 pointer-events-none select-none z-40 overflow-hidden">
@@ -102,13 +122,13 @@ export function CinematicPrologueOverlay({
       {/* 4. Film Grain & Vignette */}
       <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(ellipse_at_center,transparent_40%,rgba(0,0,0,0.75)_100%)]"></div>
 
-      {/* 5. Skip Prologue Action */}
-      <div className="absolute bottom-[11vh] right-8 z-50 pointer-events-auto">
+      {/* 5. Skip Prologue Action (Plain text at top-right) */}
+      <div className="absolute top-6 right-8 z-50 pointer-events-auto">
         <button
           onClick={onSkip}
-          className="text-[9px] font-mono tracking-[0.32em] uppercase text-white/35 hover:text-white/80 transition-colors cursor-pointer p-0 bg-transparent border-0 outline-none"
+          className="text-[11px] font-mono tracking-[0.25em] uppercase text-white/50 hover:text-white transition-colors cursor-pointer p-0 bg-transparent border-0 outline-none"
         >
-          SKIP PROLOGUE
+          SKIP
         </button>
       </div>
     </div>

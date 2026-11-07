@@ -8,11 +8,6 @@ import { LoadingScreen } from './components/LoadingScreen';
 import { EarthBaselineComparator } from './components/test/EarthBaselineComparator';
 import { DeepSpaceSkybox } from './components/cinematic/DeepSpaceSkybox';
 import { OrbitControls } from '@react-three/drei';
-import { SceneErrorBoundary } from './components/common/SceneErrorBoundary';
-import { useQualityStore } from './state/useQualityStore';
-import { CinematicPhotoMode } from './components/cinematic/CinematicPhotoMode';
-import { EarthMapLibreViewer } from './components/cinematic/EarthMapLibreViewer';
-import { useEarthSurfaceStore } from './state/useEarthSurfaceStore';
 
 const KEY_TO_BODY = {
   '1': 'sun',
@@ -27,89 +22,78 @@ const KEY_TO_BODY = {
   '0': 'neptune'
 };
 
-const SPEED_STEPS = [1, 5, 25, 100, 500];
+class SceneErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+  componentDidCatch(error, errorInfo) {
+    console.error('[Terraforge Scene Error]', error, errorInfo);
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="absolute inset-0 flex flex-col items-center justify-center bg-black text-white p-6 z-50 font-mono text-center">
+          <div className="text-amber-400 text-sm tracking-widest uppercase mb-2">Graphics Engine Notice</div>
+          <div className="text-white/60 text-xs max-w-md mb-6">{this.state.error?.message || 'Rendering error encountered in 3D scene.'}</div>
+          <a
+            href="?safe=1"
+            className="px-4 py-2 border border-white/30 text-xs tracking-widest uppercase hover:bg-white/10 transition-colors"
+          >
+            Switch to Safe Mode (?safe=1)
+          </a>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 export default function App() {
-  // Check URL query parameters for deep linking
-  const queryParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
-  const benchmarkMode = queryParams?.get('benchmark'); // 'v1' or 'enhanced'
-  const isSafeMode = queryParams?.get('safe') === '1';
-  const urlBody = queryParams?.get('body');
-  const urlView = queryParams?.get('view');
-  const urlTime = queryParams?.get('time');
-
-  const [selectedBody, setSelectedBody] = useState(() => {
-    if (urlBody && (KEY_TO_BODY[urlBody] || Object.values(KEY_TO_BODY).includes(urlBody.toLowerCase()))) {
-      return urlBody.toLowerCase();
-    }
-    return 'overview';
-  });
-
-  const [viewMode, setViewMode] = useState(() => {
-    if (urlView === 'scientific' || urlView === 'cinematic') return urlView;
-    return 'cinematic';
-  });
-
-  const [isPaused, setIsPaused] = useState(() => {
-    return urlTime === 'paused';
-  });
-
-  const [timeMultiplier, setTimeMultiplier] = useState(() => {
-    if (urlTime && !isNaN(parseFloat(urlTime))) return parseFloat(urlTime);
-    return 1.0;
-  });
-
+  const [selectedBody, setSelectedBody] = useState('overview');
+  const [viewMode, setViewMode] = useState('cinematic'); // 'cinematic' or 'scientific'
+  const [isPaused, setIsPaused] = useState(false);
+  const [timeMultiplier, setTimeMultiplier] = useState(1.0);
   const [showOrbits, setShowOrbits] = useState(true);
   const [showLabels, setShowLabels] = useState(true);
   const [uiVisible, setUiVisible] = useState(true);
-  const [showHelpSheet, setShowHelpSheet] = useState(false);
-  const [isPhotoMode, setIsPhotoMode] = useState(false);
   const [isUserInteracting, setIsUserInteracting] = useState(false);
 
-  const { isSurfaceMode, setIsSurfaceMode } = useEarthSurfaceStore();
+  // Check URL query parameters for safe mode and benchmark mode
+  const queryParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+  const isSafeMode = queryParams?.get('safe') === '1';
+  const benchmarkMode = queryParams?.get('benchmark'); // 'v1' or 'enhanced'
 
-  useEffect(() => {
-    if (queryParams?.get('street') === '1' || queryParams?.get('streetview') === '1') {
-      setSelectedBody('earth');
-      setIsSurfaceMode(true);
-    }
-  }, []);
-
-  // Dynamic DPR from quality store
-  const dpr = useQualityStore((s) => s.dpr);
-
-  // LocalStorage-backed prologue state: skip on return visits or if deep link provided or in safe mode
+  // Prologue plays on first visit only (localStorage)
   const [isPrologueActive, setIsPrologueActive] = useState(() => {
-    if (isSafeMode || urlBody || urlView || urlTime) return false;
-    try {
-      return localStorage.getItem('terraforge_prologue_seen') !== 'true';
-    } catch {
-      return true;
-    }
+    if (typeof window === 'undefined') return false;
+    if (isSafeMode) return false;
+    const seen = localStorage.getItem('terraforge_prologue_seen');
+    return seen !== 'true';
   });
 
-  const handleEndPrologue = () => {
+  const handleCompletePrologue = () => {
     setIsPrologueActive(false);
     try {
       localStorage.setItem('terraforge_prologue_seen', 'true');
-    } catch {}
+    } catch (_) {}
   };
 
   const handleReplayIntro = () => {
-    setSelectedBody('overview');
     setIsPrologueActive(true);
   };
 
-  // Prologue Watchdog: strictly forces completion at 15s maximum
+  // 20s watchdog forces end state on any error or timeout
   useEffect(() => {
     if (!isPrologueActive) return;
-
-    const watchdogTimer = setTimeout(() => {
-      console.warn('[Prologue Watchdog] 15s limit reached - forcing prologue end state');
-      handleEndPrologue();
-    }, 15000);
-
-    return () => clearTimeout(watchdogTimer);
+    const watchdog = setTimeout(() => {
+      console.warn('[Terraforge Watchdog] 20s timeout reached, forcing prologue end state.');
+      handleCompletePrologue();
+    }, 20000);
+    return () => clearTimeout(watchdog);
   }, [isPrologueActive]);
 
   // Global Keyboard Shortcuts for interactive navigation
@@ -121,31 +105,11 @@ export default function App() {
         e.preventDefault();
         setIsPaused((p) => !p);
       } else if (e.key === 'Escape') {
-        if (showHelpSheet) {
-          setShowHelpSheet(false);
-        } else {
-          setSelectedBody('overview');
-        }
-      } else if (e.key === '?' || e.key === '/') {
-        setShowHelpSheet((s) => !s);
-      } else if (e.key === '[' || e.key === '{') {
-        setTimeMultiplier((cur) => {
-          const idx = SPEED_STEPS.indexOf(cur);
-          if (idx > 0) return SPEED_STEPS[idx - 1];
-          return SPEED_STEPS[0];
-        });
-      } else if (e.key === ']' || e.key === '}') {
-        setTimeMultiplier((cur) => {
-          const idx = SPEED_STEPS.indexOf(cur);
-          if (idx !== -1 && idx < SPEED_STEPS.length - 1) return SPEED_STEPS[idx + 1];
-          return SPEED_STEPS[SPEED_STEPS.length - 1];
-        });
+        setSelectedBody('overview');
       } else if (e.key === 'o' || e.key === 'O') {
         setShowOrbits((v) => !v);
       } else if (e.key === 'l' || e.key === 'L') {
         setShowLabels((v) => !v);
-      } else if (e.key === 'p' || e.key === 'P') {
-        setIsPhotoMode((m) => !m);
       } else if (e.key === 'h' || e.key === 'H') {
         setUiVisible((v) => !v);
       } else if (e.key === 'f' || e.key === 'F') {
@@ -163,11 +127,42 @@ export default function App() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [showHelpSheet]);
+  }, []);
 
   const handleResetCamera = () => {
     setSelectedBody('overview');
   };
+
+  // Minimal Safe Scene (?safe=1)
+  if (isSafeMode) {
+    return (
+      <div className="relative w-screen h-screen bg-black overflow-hidden font-sans select-none">
+        <div className="absolute top-4 left-6 z-30 bg-black/80 backdrop-blur-md px-4 py-2 rounded-full border border-amber-400/30 font-mono text-xs text-amber-300">
+          <span>SAFE MODE ACTIVE (?safe=1)</span>
+        </div>
+        <Canvas
+          className="w-full h-full bg-black"
+          style={{ width: '100vw', height: '100vh', position: 'absolute', inset: 0 }}
+          camera={{ position: [0, 8, 35], fov: 45 }}
+        >
+          <ambientLight intensity={1.5} />
+          <pointLight position={[0, 0, 0]} intensity={2.5} color="#ffeedd" />
+          <mesh position={[0, 0, 0]}>
+            <sphereGeometry args={[5, 32, 32]} />
+            <meshStandardMaterial color="#ff7700" emissive="#ff3300" emissiveIntensity={0.6} />
+          </mesh>
+          <mesh position={[14, 0, 0]}>
+            <sphereGeometry args={[1.6, 32, 32]} />
+            <meshStandardMaterial color="#4488ff" />
+          </mesh>
+          <OrbitControls enableDamping dampingFactor={0.05} />
+        </Canvas>
+        <div className="absolute bottom-6 left-6 z-30 font-mono text-xs text-white/50">
+          <a href="/" className="hover:text-white underline">Exit Safe Mode</a>
+        </div>
+      </div>
+    );
+  }
 
   // Dedicated Fixed-Camera Benchmark Test Harness for Quality Gate Phase 1
   if (benchmarkMode) {
@@ -201,20 +196,12 @@ export default function App() {
 
   return (
     <div className="relative w-screen h-screen bg-black overflow-hidden font-sans select-none">
-      {/* Safe Mode Indicator Badge */}
-      {isSafeMode && (
-        <div className="absolute top-4 left-6 z-50 bg-amber-500/20 border border-amber-500/50 backdrop-blur-md px-3 py-1.5 rounded-full font-mono text-[11px] text-amber-300 flex items-center space-x-2">
-          <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
-          <span>SAFE MODE ACTIVE (?safe=1) &mdash; Minimal 3D Scene</span>
-        </div>
-      )}
-
       {/* 1. Interactive 3D WebGL Solar System Canvas with Error Boundary */}
       <SceneErrorBoundary>
         <Canvas
           className="w-full h-full cursor-grab active:cursor-grabbing bg-black"
           style={{ width: '100vw', height: '100vh', position: 'absolute', inset: 0 }}
-          dpr={dpr}
+          dpr={[1, 1.5]}
           gl={{
             antialias: true,
             alpha: false,
@@ -243,23 +230,20 @@ export default function App() {
               onSelectBody={setSelectedBody}
               isUserInteracting={isUserInteracting}
               isPrologueActive={isPrologueActive}
-              onCompletePrologue={handleEndPrologue}
-              isSafeMode={isSafeMode}
+              onCompletePrologue={handleCompletePrologue}
             />
           </Suspense>
         </Canvas>
       </SceneErrorBoundary>
 
       {/* 2. Directed Christopher Nolan Prologue Overlay (Letterbox + Anamorphic Flare + Title) */}
-      {!isSafeMode && (
-        <CinematicPrologueOverlay
-          isActive={isPrologueActive}
-          onSkip={handleEndPrologue}
-        />
-      )}
+      <CinematicPrologueOverlay
+        isActive={isPrologueActive}
+        onSkip={handleCompletePrologue}
+      />
 
       {/* 3. Loading Gate */}
-      <Suspense fallback={<LoadingScreen />}>
+      <Suspense fallback={<div className="absolute inset-0 bg-black flex items-center justify-center text-white/50 font-mono text-xs tracking-[0.3em]">INITIALIZING SIMULATION...</div>}>
         {/* Drei texture preloader hook fallback */}
       </Suspense>
 
@@ -277,24 +261,10 @@ export default function App() {
         setShowOrbits={setShowOrbits}
         showLabels={showLabels}
         setShowLabels={setShowLabels}
-        uiVisible={!isPrologueActive && !isPhotoMode && uiVisible}
+        uiVisible={!isPrologueActive && uiVisible}
         setUiVisible={setUiVisible}
         onResetCamera={handleResetCamera}
         onReplayIntro={handleReplayIntro}
-        showHelpSheet={showHelpSheet}
-        setShowHelpSheet={setShowHelpSheet}
-      />
-
-      {/* 5. Professional Cinematic Astrophotography Mode */}
-      <CinematicPhotoMode
-        isActive={isPhotoMode}
-        onClose={() => setIsPhotoMode(false)}
-      />
-
-      {/* 6. MapLibre OSM Vector & Mapillary 360° Street View Overlay */}
-      <EarthMapLibreViewer
-        isActive={selectedBody === 'earth' && isSurfaceMode}
-        onClose={() => setIsSurfaceMode(false)}
       />
     </div>
   );

@@ -15,6 +15,7 @@ import * as THREE from 'three';
 // Pre-allocated scratch vectors to guarantee ZERO per-frame garbage collection
 const _satVec = new THREE.Vector3();
 const _jupVec = new THREE.Vector3();
+const _earthVec = new THREE.Vector3();
 const _toSun = new THREE.Vector3();
 const _up = new THREE.Vector3(0, 1, 0);
 const _tangent = new THREE.Vector3();
@@ -35,141 +36,130 @@ export function CinematicPrologueDirector({
   const { camera } = useThree();
   const timeRef = useRef(0);
   const isTerminatedRef = useRef(false);
-  const frameTimesRef = useRef([]);
 
-  const logBenchmark = () => {
-    if (frameTimesRef.current.length > 5) {
-      const sorted = [...frameTimesRef.current].sort((a, b) => a - b);
-      const n = sorted.length;
-      const p95 = sorted[Math.floor(n * 0.95)].toFixed(2);
-      const p99 = sorted[Math.floor(n * 0.99)].toFixed(2);
-      const max = sorted[n - 1].toFixed(2);
-      const avg = (frameTimesRef.current.reduce((a, b) => a + b, 0) / n).toFixed(2);
-      console.log(`[Prologue Benchmark] Frames: ${n}, Avg: ${avg}ms, p95: ${p95}ms, p99: ${p99}ms, Max: ${max}ms`);
-    }
-  };
-
-  useEffect(() => {
-    return () => {
-      logBenchmark();
-    };
-  }, []);
-
-  // Instant skip on ESC key or explicit trigger
+  // Instant skip / interactive handover on user input
   useEffect(() => {
     if (!isActive) return;
 
-    const handleKeyDown = (e) => {
-      if (e.key === 'Escape') {
-        if (!isTerminatedRef.current) {
-          isTerminatedRef.current = true;
-          logBenchmark();
-          if (onComplete) onComplete();
-        }
+    const handleUserInterrupt = () => {
+      if (!isTerminatedRef.current) {
+        isTerminatedRef.current = true;
+        if (onComplete) onComplete();
       }
     };
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    window.addEventListener('pointerdown', handleUserInterrupt);
+    window.addEventListener('wheel', handleUserInterrupt, { passive: true });
+    window.addEventListener('keydown', handleUserInterrupt);
+
+    return () => {
+      window.removeEventListener('pointerdown', handleUserInterrupt);
+      window.removeEventListener('wheel', handleUserInterrupt);
+      window.removeEventListener('keydown', handleUserInterrupt);
+    };
   }, [isActive, onComplete]);
 
   useFrame((state, delta) => {
     if (!isActive || isTerminatedRef.current) return;
 
-    const dtMs = delta * 1000;
-    frameTimesRef.current.push(dtMs);
-
     timeRef.current += delta;
     const t = timeRef.current;
 
-    // Saturn real-time position
     const satPos = bodyPositions.saturn || [-132, 0, 98];
     _satVec.set(satPos[0], satPos[1], satPos[2]);
 
-    // Jupiter real-time position
     const jupPos = bodyPositions.jupiter || [150, 0, -85];
     _jupVec.set(jupPos[0], jupPos[1], jupPos[2]);
 
-    // Dynamic solar orientation vectors relative to Saturn
+    const earthPos = bodyPositions.earth || [58, 0, 32];
+    _earthVec.set(earthPos[0], earthPos[1], earthPos[2]);
+
     _toSun.copy(_satVec).negate().normalize();
     _tangent.crossVectors(_up, _toSun).normalize();
 
-    if (t < 3.0) {
-      // -----------------------------------------------------------------------
-      // BEAT A (0 - 3s): Saturn's Sunlit Crescent, Ring Shadows & Dolly
-      // -----------------------------------------------------------------------
-      const p = t / 3.0;
+    // Banked spline with gentle roll and faint drift (prologue only)
+    const roll = Math.sin(t * 0.45) * 0.035;
+    camera.rotation.z = roll;
+
+    if (t < 3.5) {
+      // 0 to 3.5s: Saturn's sunlit rings (low push, ring particles whipping past)
+      const p = t / 3.5;
       const ease = p * p * (3.0 - 2.0 * p);
-      state.gl.toneMappingExposure = 0.88 + ease * 0.22;
+      state.gl.toneMappingExposure = 0.5 + p * 0.60;
 
-      const angleStart = (70.0 * Math.PI) / 180;
-      const angleEnd   = (50.0 * Math.PI) / 180;
-
+      const angleStart = (74.0 * Math.PI) / 180;
+      const angleEnd = (48.0 * Math.PI) / 180;
       _dirStart.copy(_toSun).multiplyScalar(Math.cos(angleStart)).addScaledVector(_tangent, Math.sin(angleStart)).normalize();
       _dirEnd.copy(_toSun).multiplyScalar(Math.cos(angleEnd)).addScaledVector(_tangent, Math.sin(angleEnd)).normalize();
 
-      _startCam.copy(_satVec).addScaledVector(_dirStart, 26.0).addScaledVector(_up, 4.2);
-      _endCam.copy(_satVec).addScaledVector(_dirEnd, 30.0).addScaledVector(_up, 7.8);
-
+      _startCam.copy(_satVec).addScaledVector(_dirStart, 38.0).addScaledVector(_up, 3.2);
+      _endCam.copy(_satVec).addScaledVector(_dirEnd, 24.0).addScaledVector(_up, 4.5);
       camera.position.lerpVectors(_startCam, _endCam, ease);
 
-      _startTgt.copy(_satVec).addScaledVector(_toSun, 3.0);
-      _endTgt.copy(_satVec).addScaledVector(_toSun, 1.5);
-      _lookTgt.lerpVectors(_startTgt, _endTgt, ease);
+      _lookTgt.copy(_satVec).addScaledVector(_toSun, 2.5);
       camera.lookAt(_lookTgt);
 
     } else if (t < 6.0) {
-      // -----------------------------------------------------------------------
-      // BEAT B (3 - 6s): Asteroids Drift & Jupiter Crossing with GRS
-      // -----------------------------------------------------------------------
-      const p = (t - 3.0) / 3.0;
+      // 3.5 to 6s: Jupiter fills the frame
+      const p = (t - 3.5) / 2.5;
       const ease = p * p * (3.0 - 2.0 * p);
-      state.gl.toneMappingExposure = 1.05;
+      state.gl.toneMappingExposure = 1.10;
 
-      const angleEnd = (50.0 * Math.PI) / 180;
-      _dirStart.copy(_toSun).multiplyScalar(Math.cos(angleEnd)).addScaledVector(_tangent, Math.sin(angleEnd)).normalize();
-      _startCam.copy(_satVec).addScaledVector(_dirStart, 30.0).addScaledVector(_up, 7.8);
-
-      // Approach Jupiter on its sunlit approach flank
-      const jupToSun = new THREE.Vector3().copy(_jupVec).negate().normalize();
-      const jupTangent = new THREE.Vector3().crossVectors(_up, jupToSun).normalize();
-      _endCam.copy(_jupVec).addScaledVector(jupToSun, 36.0).addScaledVector(jupTangent, 28.0).addScaledVector(_up, 12.0);
-
-      camera.position.lerpVectors(_startCam, _endCam, ease);
-      _lookTgt.lerpVectors(_satVec, _jupVec, ease * 0.85);
-      camera.lookAt(_lookTgt);
-
-    } else if (t < 10.5) {
-      // -----------------------------------------------------------------------
-      // BEAT C (6 - 10.5s): Solar Dawn — SDO Sun Rises Massive (50-60% Frame Height)
-      // -----------------------------------------------------------------------
-      const p = (t - 6.0) / 4.5;
-      const ease = p * p * (3.0 - 2.0 * p);
-
-      const jupToSun = new THREE.Vector3().copy(_jupVec).negate().normalize();
-      const jupTangent = new THREE.Vector3().crossVectors(_up, jupToSun).normalize();
-      _startCam.copy(_jupVec).addScaledVector(jupToSun, 36.0).addScaledVector(jupTangent, 28.0).addScaledVector(_up, 12.0);
-
-      // Distance ~232 units from Sun (radius 54) -> Sun diameter (108) fills ~56% of FOV 45°
-      _endCam.set(-155, 62, 160);
-
+      _startCam.copy(_jupVec).add(new THREE.Vector3(-45, 12, 60));
+      _endCam.copy(_jupVec).add(new THREE.Vector3(-28, 8, 38));
       camera.position.lerpVectors(_startCam, _endCam, ease);
 
-      _startTgt.copy(_jupVec);
-      _endTgt.copy(_zeroVec); // Center on the thermonuclear Sun
-      _lookTgt.lerpVectors(_startTgt, _endTgt, ease);
+      _lookTgt.copy(_jupVec);
       camera.lookAt(_lookTgt);
 
-    } else if (t < 12.0) {
-      // -----------------------------------------------------------------------
-      // BEAT D (10.5 - 12s): Settle into Master Solar Overview
-      // -----------------------------------------------------------------------
-      const p = (t - 10.5) / 1.5;
+    } else if (t < 7.5) {
+      // 6 to 7.5s: Asteroid-belt streak
+      const p = (t - 6.0) / 1.5;
+      const ease = p * p;
+      state.gl.toneMappingExposure = 1.10;
+
+      const beltPos = new THREE.Vector3(75, 4, 15);
+      _startCam.set(95, 6, 25);
+      _endCam.set(65, 3, 5);
+      camera.position.lerpVectors(_startCam, _endCam, ease);
+
+      _lookTgt.copy(beltPos);
+      camera.lookAt(_lookTgt);
+
+    } else if (t < 9.0) {
+      // 7.5 to 9s: Earth crescent glimpse
+      const p = (t - 7.5) / 1.5;
+      const ease = p * p * (3.0 - 2.0 * p);
+      state.gl.toneMappingExposure = 1.12;
+
+      _startCam.copy(_earthVec).add(new THREE.Vector3(-14, 4, 18));
+      _endCam.copy(_earthVec).add(new THREE.Vector3(-10, 2, 12));
+      camera.position.lerpVectors(_startCam, _endCam, ease);
+
+      _lookTgt.copy(_earthVec);
+      camera.lookAt(_lookTgt);
+
+    } else if (t < 13.0) {
+      // 9 to 13s: The Sun rises massive (50 to 60% of frame height) with prominences & rising exposure
+      const p = (t - 9.0) / 4.0;
       const ease = 1 - Math.pow(1 - p, 3);
+      state.gl.toneMappingExposure = 1.05 + Math.sin(p * Math.PI) * 0.25;
 
-      _startCam.set(-155, 62, 160);
+      _startCam.set(0, 18, 160);
+      _endCam.set(-90, 45, 190);
+      camera.position.lerpVectors(_startCam, _endCam, ease);
+
+      _lookTgt.set(0, 0, 0);
+      camera.lookAt(_lookTgt);
+
+    } else if (t < 14.5) {
+      // 13 to 14.5s: Settle into the overview, letterbox opens, UI fades in
+      const p = (t - 13.0) / 1.5;
+      const ease = 1 - Math.pow(1 - p, 3);
+      state.gl.toneMappingExposure = 1.15;
+
+      _startCam.set(-90, 45, 190);
       _endCam.set(-320, 110, 310);
-
       camera.position.lerpVectors(_startCam, _endCam, ease);
 
       _startTgt.set(0, 0, 0);
@@ -178,10 +168,9 @@ export function CinematicPrologueDirector({
       camera.lookAt(_lookTgt);
 
     } else {
-      // Handover to interactive controls at 12s
       if (!isTerminatedRef.current) {
         isTerminatedRef.current = true;
-        logBenchmark();
+        camera.rotation.z = 0;
         if (onComplete) onComplete();
       }
     }
