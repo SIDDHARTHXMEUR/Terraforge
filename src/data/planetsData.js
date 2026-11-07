@@ -252,6 +252,54 @@ export const PLANETS_CONFIG = {
     initialAngle: 3.9,
     hasRings: false,
     description: 'The outermost major planet, radiating deep internal heat that drives supersonic jet streams exceeding 2,100 km/h through high-altitude methane clouds.'
+  },
+  pluto: {
+    id: 'pluto',
+    name: 'Pluto',
+    category: 'Dwarf Planet · Kuiper Belt',
+    tagline: 'Heart of Nitrogen Glaciers',
+    radiusKm: 1188.3,
+    mass: '1.303 × 10²² kg (0.002 Earths)',
+    massKg: 1.303e22,
+    gravity: '0.62 m/s² (0.063 g)',
+    meanTempC: -229,
+    rotationPeriodHours: -153.3, // Retrograde
+    orbitalPeriodDays: 90560.0, // ~248 Earth years
+    axialTiltDeg: 122.53,
+    semiMajorAxisAU: 39.48,
+    eccentricity: 0.2488,
+    atmosphereComposition: 'Nitrogen, Methane, Carbon Monoxide (tenuous)',
+    texture: '/assets/planets/ceres/ceres.jpg',
+    color: '#c4a482',
+    description: 'A dynamic dwarf planet in the Kuiper Belt featuring nitrogen-ice plains (Sputnik Planitia), rugged water-ice mountain ranges, and an eccentric 17° inclined orbit.'
+  },
+  moon: {
+    id: 'moon',
+    name: 'Moon (Luna)',
+    category: 'Earth Satellite',
+    tagline: 'Tidally Locked Pristine Regolith',
+    radiusKm: 1737.4,
+    gravity: '1.62 m/s² (0.166 g)',
+    meanTempC: -20,
+    orbitalPeriodDays: 27.32,
+    axialTiltDeg: 1.54,
+    atmosphereComposition: 'Trace Exosphere (Helium, Neon, Hydrogen)',
+    texture: '/assets/planets/moon/moon.jpg',
+    description: 'Earth’s only natural satellite, tidally locked in synchronous rotation, with basaltic maria plains and heavily cratered highlands preserving billions of years of cosmic impacts.'
+  },
+  titan: {
+    id: 'titan',
+    name: 'Titan',
+    category: 'Saturnian Satellite',
+    tagline: 'Liquid Methane Seas & Nitrogen Haze',
+    radiusKm: 2574.7,
+    gravity: '1.352 m/s² (0.138 g)',
+    meanTempC: -179,
+    orbitalPeriodDays: 15.94,
+    axialTiltDeg: 0.0,
+    atmosphereComposition: 'Nitrogen 95%, Methane 4.9%, Hydrogen trace',
+    texture: '/assets/planets/moons/titan.jpg',
+    description: 'The second-largest moon in the solar system, shrouded in a dense golden nitrogen-methane atmosphere with active weather cycles carving rivers and lakes of liquid hydrocarbons.'
   }
 };
 
@@ -263,7 +311,8 @@ export const SOLAR_SYSTEM_PLANETS = [
   'jupiter',
   'saturn',
   'uranus',
-  'neptune'
+  'neptune',
+  'pluto'
 ];
 
 export const ALL_CELESTIAL_BODIES = [
@@ -271,11 +320,14 @@ export const ALL_CELESTIAL_BODIES = [
   'mercury',
   'venus',
   'earth',
+  'moon',
   'mars',
   'jupiter',
   'saturn',
+  'titan',
   'uranus',
-  'neptune'
+  'neptune',
+  'pluto'
 ];
 
 // Backward compatibility alias for any existing code

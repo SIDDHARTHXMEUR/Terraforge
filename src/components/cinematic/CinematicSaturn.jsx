@@ -201,18 +201,21 @@ const SaturnRingsShader = {
 
 export function CinematicSaturn({
   position = [0, 0, 0],
-  radius = 11.5,
+  radius = 15.0,
   isPlaying = true,
   onClick
 }) {
-  const [saturnMap, ringMap] = useTexture([
+  const [saturnMap, ringMap, titanMap] = useTexture([
     '/assets/planets/saturn/saturn.jpg',
-    '/assets/planets/saturn/saturn_ring.png'
+    '/assets/planets/saturn/saturn_ring.png',
+    '/assets/planets/moons/titan.jpg'
   ]);
 
   const saturnBodyRef = useRef();
   const surfaceShaderRef = useRef();
   const ringShaderRef = useRef();
+  const titanRef = useRef();
+  const titanAngleRef = useRef(1.4);
   const { gl } = useThree();
 
   // Configure high-fidelity anisotropic filtering & mipmaps to prevent moiré aliasing
@@ -252,9 +255,24 @@ export function CinematicSaturn({
   const planetCenterVec = useMemo(() => new THREE.Vector3(...position), [position]);
 
   useFrame((_, delta) => {
-    if (isPlaying && saturnBodyRef.current) {
-      saturnBodyRef.current.rotation.y += delta * 0.16;
+    if (isPlaying) {
+      if (saturnBodyRef.current) {
+        saturnBodyRef.current.rotation.y += delta * 0.16;
+      }
+      titanAngleRef.current += delta * 0.085;
     }
+
+    // Titan Orbit (15.94 days)
+    if (titanRef.current) {
+      const titanDist = radius * 4.2;
+      titanRef.current.position.set(
+        Math.cos(titanAngleRef.current) * titanDist,
+        Math.sin(titanAngleRef.current) * titanDist * 0.12,
+        Math.sin(titanAngleRef.current) * titanDist
+      );
+      titanRef.current.rotation.y = -titanAngleRef.current;
+    }
+
     const worldPos = new THREE.Vector3();
     if (saturnBodyRef.current) {
       saturnBodyRef.current.getWorldPosition(worldPos);
@@ -317,6 +335,17 @@ export function CinematicSaturn({
           side={THREE.DoubleSide}
           depthWrite={false}
           depthTest={true}
+        />
+      </mesh>
+
+      {/* 3. Titan - Massive Dense Nitrogen Atmosphere Moon */}
+      <mesh ref={titanRef} castShadow receiveShadow>
+        <sphereGeometry args={[radius * 0.088, 32, 32]} />
+        <meshStandardMaterial
+          map={titanMap}
+          roughness={0.7}
+          metalness={0.05}
+          color="#dca266"
         />
       </mesh>
     </group>

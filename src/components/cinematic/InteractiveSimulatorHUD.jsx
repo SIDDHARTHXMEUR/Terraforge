@@ -12,7 +12,8 @@ import {
   ChevronRight,
   HelpCircle,
   X,
-  Clock
+  Clock,
+  Camera
 } from 'lucide-react';
 import { PLANETS_CONFIG } from '../../data/planetsData';
 import { useEarthSurfaceStore, EARTH_LANDMARKS } from '../../state/useEarthSurfaceStore';
@@ -24,11 +25,13 @@ const CELESTIAL_LIST = [
   { id: 'mercury', name: 'Mercury' },
   { id: 'venus', name: 'Venus' },
   { id: 'earth', name: 'Earth' },
+  { id: 'moon', name: 'Moon' },
   { id: 'mars', name: 'Mars' },
   { id: 'jupiter', name: 'Jupiter' },
   { id: 'saturn', name: 'Saturn' },
   { id: 'uranus', name: 'Uranus' },
-  { id: 'neptune', name: 'Neptune' }
+  { id: 'neptune', name: 'Neptune' },
+  { id: 'pluto', name: 'Pluto' }
 ];
 
 const SPEED_PRESETS = [1, 5, 25, 100, 500];
@@ -220,12 +223,36 @@ export function InteractiveSimulatorHUD({
             >
               SCIENTIFIC
             </button>
+            <button
+              onClick={() => {
+                if (setViewMode) setViewMode('lineup');
+                if (selectedBody !== 'overview') onSelectBody('overview');
+              }}
+              title="Scale Lineup Mode: Compare planetary scale side-by-side"
+              className={`pb-0.5 border-b cursor-pointer transition-all ${
+                viewMode === 'lineup'
+                  ? 'text-white border-white font-medium'
+                  : 'text-white/40 hover:text-white/80 border-transparent'
+              }`}
+            >
+              LINEUP
+            </button>
           </div>
 
           <span className="text-white/20">|</span>
 
           {/* Quick utility icons */}
           <div className="flex items-center space-x-2 text-white/40">
+            <button
+              onClick={() => {
+                // Dispatch 'p' key to toggle photo mode
+                window.dispatchEvent(new KeyboardEvent('keydown', { key: 'p' }));
+              }}
+              className="hover:text-cyan-300 transition-colors cursor-pointer p-1"
+              title="Astrophotography Mode (P)"
+            >
+              <Camera className="w-3.5 h-3.5" />
+            </button>
             <button
               onClick={() => setUiVisible((v) => !v)}
               className="hover:text-white transition-colors cursor-pointer p-1"
@@ -546,6 +573,10 @@ export function InteractiveSimulatorHUD({
               <div className="flex items-center justify-between p-2 rounded-lg bg-white/5 border border-white/5">
                 <span className="text-white/80">Toggle Orbits</span>
                 <kbd className="px-2 py-0.5 rounded bg-white/10 border border-white/20 font-mono text-[11px] text-cyan-300">O</kbd>
+              </div>
+              <div className="flex items-center justify-between p-2 rounded-lg bg-white/5 border border-white/5">
+                <span className="text-white/80">Astrophotography Mode</span>
+                <kbd className="px-2 py-0.5 rounded bg-white/10 border border-white/20 font-mono text-[11px] text-cyan-300">P</kbd>
               </div>
               <div className="flex items-center justify-between p-2 rounded-lg bg-white/5 border border-white/5">
                 <span className="text-white/80">Toggle Labels</span>

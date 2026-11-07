@@ -9,6 +9,7 @@ import { CinematicJupiter } from './CinematicJupiter';
 import { CinematicSaturn } from './CinematicSaturn';
 import { CinematicUranus } from './CinematicUranus';
 import { CinematicNeptune } from './CinematicNeptune';
+import { CinematicPluto } from './CinematicPluto';
 import { AsteroidBelt } from './AsteroidBelt';
 import { DeepSpaceSkybox } from './DeepSpaceSkybox';
 import { InteractiveSolarCamera } from './InteractiveSolarCamera';
@@ -17,6 +18,19 @@ import { CelestialLabels } from './CelestialLabels';
 import { CinematicPrologueDirector } from './CinematicPrologueDirector';
 import { DISPLAY_RADII, DISPLAY_ORBIT_RADII, ORBIT_SPEEDS } from '../../data/displayScale';
 import { useQualityStore } from '../../state/useQualityStore';
+
+const LINEUP_POSITIONS = {
+  sun: [-130, 0, 0],
+  jupiter: [-35, 0, 0],
+  saturn: [18, 0, 0],
+  uranus: [58, 0, 0],
+  neptune: [86, 0, 0],
+  earth: [108, 0, 0],
+  venus: [124, 0, 0],
+  mars: [138, 0, 0],
+  mercury: [150, 0, 0],
+  pluto: [160, 0, 0]
+};
 
 export function SolarSystemEngine({
   selectedBody = 'overview',
@@ -57,7 +71,8 @@ export function SolarSystemEngine({
     jupiter: 0.9,
     saturn: 2.5,
     uranus: 5.1,
-    neptune: 3.8
+    neptune: 3.8,
+    pluto: 1.4
   });
 
   // Mutable real-time world positions of planets (zero per-frame React state re-renders!)
@@ -72,7 +87,8 @@ export function SolarSystemEngine({
     jupiter: [Math.cos(0.9) * DISPLAY_ORBIT_RADII.jupiter, 0, Math.sin(0.9) * DISPLAY_ORBIT_RADII.jupiter],
     saturn: [Math.cos(2.5) * DISPLAY_ORBIT_RADII.saturn, 0, Math.sin(2.5) * DISPLAY_ORBIT_RADII.saturn],
     uranus: [Math.cos(5.1) * DISPLAY_ORBIT_RADII.uranus, 0, Math.sin(5.1) * DISPLAY_ORBIT_RADII.uranus],
-    neptune: [Math.cos(3.8) * DISPLAY_ORBIT_RADII.neptune, 0, Math.sin(3.8) * DISPLAY_ORBIT_RADII.neptune]
+    neptune: [Math.cos(3.8) * DISPLAY_ORBIT_RADII.neptune, 0, Math.sin(3.8) * DISPLAY_ORBIT_RADII.neptune],
+    pluto: [Math.cos(1.4) * DISPLAY_ORBIT_RADII.pluto, 20.0, Math.sin(1.4) * DISPLAY_ORBIT_RADII.pluto]
   });
 
   const mercuryGroupRef = useRef();
@@ -84,6 +100,7 @@ export function SolarSystemEngine({
   const saturnGroupRef = useRef();
   const uranusGroupRef = useRef();
   const neptuneGroupRef = useRef();
+  const plutoGroupRef = useRef();
 
   // Rolling FPS monitor for dynamic quality auto-scaling
   const fpsFrameCount = useRef(0);
@@ -114,6 +131,29 @@ export function SolarSystemEngine({
     anglesRef.current.saturn += advance * ORBIT_SPEEDS.saturn;
     anglesRef.current.uranus += advance * ORBIT_SPEEDS.uranus;
     anglesRef.current.neptune += advance * ORBIT_SPEEDS.neptune;
+    anglesRef.current.pluto += advance * ORBIT_SPEEDS.pluto;
+
+    if (viewMode === 'lineup') {
+      const bMap = {
+        mercury: mercuryGroupRef,
+        venus: venusGroupRef,
+        earth: earthGroupRef,
+        mars: marsGroupRef,
+        jupiter: jupiterGroupRef,
+        saturn: saturnGroupRef,
+        uranus: uranusGroupRef,
+        neptune: neptuneGroupRef,
+        pluto: plutoGroupRef
+      };
+      Object.keys(bMap).forEach((b) => {
+        const lp = LINEUP_POSITIONS[b];
+        if (lp) {
+          positionsRef.current[b] = [lp[0], lp[1], lp[2]];
+          if (bMap[b].current) bMap[b].current.position.set(lp[0], lp[1], lp[2]);
+        }
+      });
+      return;
+    }
 
     const ceresR = DISPLAY_ORBIT_RADII.ceres;
 
@@ -170,6 +210,19 @@ export function SolarSystemEngine({
     positionsRef.current.neptune[0] = nX;
     positionsRef.current.neptune[2] = nZ;
     if (neptuneGroupRef.current) neptuneGroupRef.current.position.set(nX, 0, nZ);
+
+    // Pluto (17.16° inclination, e = 0.2488 eccentric Keplerian orbit)
+    const plutoInclination = (17.16 * Math.PI) / 180;
+    const plutoA = DISPLAY_ORBIT_RADII.pluto;
+    const plutoE = 0.2488;
+    const plutoR = (plutoA * (1 - plutoE * plutoE)) / (1 + plutoE * Math.cos(anglesRef.current.pluto));
+    const pX = Math.cos(anglesRef.current.pluto) * plutoR;
+    const pZ = Math.sin(anglesRef.current.pluto) * plutoR * Math.cos(plutoInclination);
+    const pY = Math.sin(anglesRef.current.pluto) * plutoR * Math.sin(plutoInclination);
+    positionsRef.current.pluto[0] = pX;
+    positionsRef.current.pluto[1] = pY;
+    positionsRef.current.pluto[2] = pZ;
+    if (plutoGroupRef.current) plutoGroupRef.current.position.set(pX, pY, pZ);
   });
 
   return (
@@ -336,6 +389,35 @@ export function SolarSystemEngine({
           }}
         />
       </group>
+
+      {/* 15. Pluto (Eccentric, 17° Inclination Dwarf Planet) */}
+      <group ref={plutoGroupRef} position={positionsRef.current.pluto}>
+        <CinematicPluto
+          position={[0, 0, 0]}
+          radius={DISPLAY_RADII.pluto}
+          isPlaying={!isPaused}
+          onClick={(e) => {
+            e.stopPropagation();
+            if (onSelectBody) onSelectBody('pluto');
+          }}
+        />
+      </group>
+
+      {/* 16. Scale Lineup Mode Ground Comparative Ruler & Scale Bar */}
+      {viewMode === 'lineup' && (
+        <group position={[20, -58, 0]}>
+          {/* Subtle Comparative Base Platform */}
+          <mesh rotation={[-Math.PI / 2, 0, 0]}>
+            <planeGeometry args={[360, 40]} />
+            <meshBasicMaterial color="#ffffff" transparent opacity={0.04} side={THREE.DoubleSide} />
+          </mesh>
+          {/* Linear Reference Axis Line */}
+          <mesh position={[0, 0.1, 0]}>
+            <boxGeometry args={[340, 0.4, 0.4]} />
+            <meshBasicMaterial color="#00e5ff" transparent opacity={0.4} />
+          </mesh>
+        </group>
+      )}
     </>
   );
 }

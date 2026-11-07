@@ -93,6 +93,19 @@ const BODY_VIEW_CONFIGS = {
     elevAngle: 18,
     minDist: 11.0,
     maxDist: 500
+  },
+  pluto: {
+    distance: 9.2,
+    terminatorAngle: 36,
+    elevAngle: 18,
+    minDist: 3.5,
+    maxDist: 180
+  },
+  lineup: {
+    offset: [20, 22, 220],
+    target: [20, 0, 0],
+    minDist: 30,
+    maxDist: 900
   }
 };
 

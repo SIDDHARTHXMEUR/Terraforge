@@ -106,14 +106,16 @@ const JupiterSurfaceShader = {
 
 export function CinematicJupiter({
   position = [0, 0, 0],
-  radius = 13.5,
+  radius = 18.0,
   isPlaying = true,
   onClick
 }) {
-  const [jupiterMap, ioMap, europaMap] = useTexture([
+  const [jupiterMap, ioMap, europaMap, ganymedeMap, callistoMap] = useTexture([
     '/assets/planets/jupiter/jupiter.jpg',
     '/assets/planets/moons/io.jpg',
-    '/assets/planets/moons/europa.jpg'
+    '/assets/planets/moons/europa.jpg',
+    '/assets/planets/ceres/ceres.jpg',
+    '/assets/planets/moon/moon.jpg'
   ]);
 
   useEffect(() => {
@@ -128,8 +130,12 @@ export function CinematicJupiter({
   const shaderRef = useRef();
   const ioRef = useRef();
   const europaRef = useRef();
+  const ganymedeRef = useRef();
+  const callistoRef = useRef();
   const ioAngleRef = useRef(0.5);
   const europaAngleRef = useRef(2.1);
+  const ganymedeAngleRef = useRef(3.8);
+  const callistoAngleRef = useRef(5.2);
 
   const ioWorldPosRef = useRef(new THREE.Vector3());
 
@@ -167,9 +173,11 @@ export function CinematicJupiter({
       }
       ioAngleRef.current += delta * 0.42;
       europaAngleRef.current += delta * 0.21;
+      ganymedeAngleRef.current += delta * 0.105;
+      callistoAngleRef.current += delta * 0.045;
     }
 
-    // Io Orbit
+    // Io Orbit (1.77 days)
     if (ioRef.current) {
       const ioDist = radius * 2.2;
       ioRef.current.position.set(
@@ -180,7 +188,7 @@ export function CinematicJupiter({
       ioRef.current.rotation.y = -ioAngleRef.current;
     }
 
-    // Europa Orbit
+    // Europa Orbit (3.55 days)
     if (europaRef.current) {
       const euDist = radius * 3.4;
       europaRef.current.position.set(
@@ -189,6 +197,28 @@ export function CinematicJupiter({
         Math.sin(europaAngleRef.current) * euDist
       );
       europaRef.current.rotation.y = -europaAngleRef.current;
+    }
+
+    // Ganymede Orbit (7.15 days)
+    if (ganymedeRef.current) {
+      const ganDist = radius * 4.8;
+      ganymedeRef.current.position.set(
+        Math.cos(ganymedeAngleRef.current) * ganDist,
+        -0.15,
+        Math.sin(ganymedeAngleRef.current) * ganDist
+      );
+      ganymedeRef.current.rotation.y = -ganymedeAngleRef.current;
+    }
+
+    // Callisto Orbit (16.69 days)
+    if (callistoRef.current) {
+      const calDist = radius * 6.4;
+      callistoRef.current.position.set(
+        Math.cos(callistoAngleRef.current) * calDist,
+        0.3,
+        Math.sin(callistoAngleRef.current) * calDist
+      );
+      callistoRef.current.rotation.y = -callistoAngleRef.current;
     }
   });
 
@@ -220,7 +250,7 @@ export function CinematicJupiter({
         />
       </mesh>
 
-      {/* Io (Volcanic Sulfur Moon) */}
+      {/* 1. Io (Volcanic Sulfur Moon) */}
       <mesh ref={ioRef} castShadow receiveShadow>
         <sphereGeometry args={[ioRadiusVal, 32, 32]} />
         <meshStandardMaterial
@@ -230,13 +260,35 @@ export function CinematicJupiter({
         />
       </mesh>
 
-      {/* Europa (Subsurface Ice Ocean Moon) */}
+      {/* 2. Europa (Subsurface Ice Ocean Moon) */}
       <mesh ref={europaRef} castShadow receiveShadow>
         <sphereGeometry args={[radius * 0.055, 32, 32]} />
         <meshStandardMaterial
           map={europaMap}
           roughness={0.5}
           metalness={0.15}
+        />
+      </mesh>
+
+      {/* 3. Ganymede (Largest Moon in Solar System) */}
+      <mesh ref={ganymedeRef} castShadow receiveShadow>
+        <sphereGeometry args={[radius * 0.076, 32, 32]} />
+        <meshStandardMaterial
+          map={ganymedeMap}
+          roughness={0.7}
+          metalness={0.05}
+          color="#cfd3d8"
+        />
+      </mesh>
+
+      {/* 4. Callisto (Ancient Heavily Cratered Moon) */}
+      <mesh ref={callistoRef} castShadow receiveShadow>
+        <sphereGeometry args={[radius * 0.068, 32, 32]} />
+        <meshStandardMaterial
+          map={callistoMap}
+          roughness={0.85}
+          metalness={0.0}
+          color="#8c8278"
         />
       </mesh>
     </group>

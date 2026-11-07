@@ -10,6 +10,7 @@ import { DeepSpaceSkybox } from './components/cinematic/DeepSpaceSkybox';
 import { OrbitControls } from '@react-three/drei';
 import { SceneErrorBoundary } from './components/common/SceneErrorBoundary';
 import { useQualityStore } from './state/useQualityStore';
+import { CinematicPhotoMode } from './components/cinematic/CinematicPhotoMode';
 
 const KEY_TO_BODY = {
   '1': 'sun',
@@ -60,6 +61,7 @@ export default function App() {
   const [showLabels, setShowLabels] = useState(true);
   const [uiVisible, setUiVisible] = useState(true);
   const [showHelpSheet, setShowHelpSheet] = useState(false);
+  const [isPhotoMode, setIsPhotoMode] = useState(false);
   const [isUserInteracting, setIsUserInteracting] = useState(false);
 
   // Dynamic DPR from quality store
@@ -131,6 +133,8 @@ export default function App() {
         setShowOrbits((v) => !v);
       } else if (e.key === 'l' || e.key === 'L') {
         setShowLabels((v) => !v);
+      } else if (e.key === 'p' || e.key === 'P') {
+        setIsPhotoMode((m) => !m);
       } else if (e.key === 'h' || e.key === 'H') {
         setUiVisible((v) => !v);
       } else if (e.key === 'f' || e.key === 'F') {
@@ -262,12 +266,18 @@ export default function App() {
         setShowOrbits={setShowOrbits}
         showLabels={showLabels}
         setShowLabels={setShowLabels}
-        uiVisible={!isPrologueActive && uiVisible}
+        uiVisible={!isPrologueActive && !isPhotoMode && uiVisible}
         setUiVisible={setUiVisible}
         onResetCamera={handleResetCamera}
         onReplayIntro={handleReplayIntro}
         showHelpSheet={showHelpSheet}
         setShowHelpSheet={setShowHelpSheet}
+      />
+
+      {/* 5. Professional Cinematic Astrophotography Mode */}
+      <CinematicPhotoMode
+        isActive={isPhotoMode}
+        onClose={() => setIsPhotoMode(false)}
       />
     </div>
   );

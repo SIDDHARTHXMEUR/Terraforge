@@ -46,7 +46,8 @@ export const DISPLAY_RADII = {
   uranus: 9.2,
   uranusRingsInner: 12.0,
   uranusRingsOuter: 18.5,
-  neptune: 8.8
+  neptune: 8.8,
+  pluto: 2.2
 };
 
 export const DISPLAY_ORBIT_RADII = {
@@ -61,7 +62,8 @@ export const DISPLAY_ORBIT_RADII = {
   jupiter: 306,
   saturn: 394,
   uranus: 484,
-  neptune: 572
+  neptune: 572,
+  pluto: 648
 };
 
 export const ORBIT_SPEEDS = {
@@ -73,7 +75,8 @@ export const ORBIT_SPEEDS = {
   jupiter: 0.22,
   saturn: 0.14,
   uranus: 0.08,
-  neptune: 0.05
+  neptune: 0.05,
+  pluto: 0.035
 };
 
 // Camera framing limits tailored to display radii
@@ -153,6 +156,19 @@ export const DISPLAY_CAMERA_LIMITS = {
     elevAngle: 18,
     minDist: 11.0,
     maxDist: 500
+  },
+  pluto: {
+    distance: 9.2,
+    terminatorAngle: -28,
+    elevAngle: 18,
+    minDist: 3.5,
+    maxDist: 180
+  },
+  lineup: {
+    cinematicOffset: [20, 22, 220],
+    cinematicTarget: [20, 0, 0],
+    minDist: 30,
+    maxDist: 900
   }
 };
 
