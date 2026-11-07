@@ -37,3 +37,4 @@
 2. **0°/360° Meridian Seam**: Verified seamless pixel transition at left and right boundaries; zero vertical seam artifacts.
 3. **Polar Pinch Suppression**: High latitude lines are filtered smoothly by Three.js `LinearMipmapLinearFilter` with anisotropic filtering enabled ($16\times$).
 4. **Ring Alpha Radial Accuracy**: Saturn's ring texture is mapped radially using normalized radius $u = \frac{r - r_{\text{inner}}}{r_{\text{outer}} - r_{\text{inner}}}$ along the 1D ring opacity profile.
+

@@ -4,10 +4,10 @@ import { useTexture } from '@react-three/drei';
 import * as THREE from 'three';
 
 // -----------------------------------------------------------------------------
-// Uranus Methane Ice Giant Shader
-// Features: Methane absorption (selective red light depletion -> serene pale cyan),
-// subtle zonal atmospheric banding, high-altitude photochemical haze,
-// 97.77° sideways roll tilt, and faint ice ring system.
+// Uranus Sideways Ice Giant Atmosphere Shader
+// Features: 97.77° axial tilt, deep methane red-light absorption
+// (aquamarine/cyan color palette), subtle latitudinal zonal bands,
+// supersonic ice clouds, and delicate vertical ice rings with planet shadow.
 // -----------------------------------------------------------------------------
 const UranusAtmosphereShader = {
   vertexShader: `
@@ -42,10 +42,9 @@ const UranusAtmosphereShader = {
 
       vec3 texColor = texture2D(uAlbedo, vUv).rgb;
 
-      // Authentic Uranus Pale Cyan-Aquamarine Palette
-      // Deep methane absorbs red wavelength (619nm, 727nm)
-      vec3 uranusCyan = vec3(0.52, 0.76, 0.82);
-      vec3 baseColor = mix(texColor, uranusCyan, 0.65);
+      // Authentic Voyager 2 / Hubble cyan-aquamarine methane coloration
+      vec3 uranusCyan = vec3(0.52, 0.84, 0.92);
+      vec3 baseColor = mix(texColor, uranusCyan, 0.35);
 
       // Subtle zonal atmospheric bands (latitudinal variation)
       float latBand = sin(vUv.y * 38.0) * 0.025;
@@ -91,6 +90,58 @@ const UranusHaloShader = {
   `
 };
 
+// Dedicated Uranus Ring Shader with Planet-on-Ring Shadow Projection
+const UranusRingShader = {
+  vertexShader: `
+    varying vec2 vUv;
+    varying vec3 vWorldPosition;
+    varying vec3 vViewPosition;
+
+    void main() {
+      vUv = uv;
+      vec4 worldPos = modelMatrix * vec4(position, 1.0);
+      vWorldPosition = worldPos.xyz;
+      vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+      vViewPosition = -mvPosition.xyz;
+      gl_Position = projectionMatrix * mvPosition;
+    }
+  `,
+  fragmentShader: `
+    varying vec2 vUv;
+    varying vec3 vWorldPosition;
+    varying vec3 vViewPosition;
+
+    uniform vec3 uSunDirection;
+    uniform vec3 uPlanetCenter;
+    uniform float uPlanetRadius;
+
+    void main() {
+      // Radial coordinate in ring geometry (Uv range 0 to 1)
+      float r = length(vUv - vec2(0.5)) * 2.0;
+      if (r < 0.60 || r > 0.98) discard;
+
+      // Faint icy ring opacity band (Epsilon ring and main rings)
+      float band = sin(r * 45.0) * 0.5 + 0.5;
+      float alpha = (0.2 + band * 0.3) * smoothstep(0.60, 0.68, r) * smoothstep(0.98, 0.90, r);
+
+      vec3 ringColor = vec3(0.65, 0.90, 0.96);
+
+      // Planet shadow on rings
+      vec3 toSun = normalize(uSunDirection);
+      vec3 ringToPlanet = vWorldPosition - uPlanetCenter;
+      float sunProj = dot(ringToPlanet, toSun);
+      if (sunProj < 0.0) {
+        vec3 perp = ringToPlanet - toSun * sunProj;
+        if (length(perp) < uPlanetRadius * 1.02) {
+          alpha *= 0.15;
+        }
+      }
+
+      gl_FragColor = vec4(ringColor, alpha * 0.45);
+    }
+  `
+};
+
 export function CinematicUranus({
   position = [0, 0, 0],
   radius = 2.8,
@@ -101,6 +152,9 @@ export function CinematicUranus({
   const albedoMap = useTexture('/assets/planets/uranus/uranus.jpg');
   const bodyRef = useRef();
   const shaderRef = useRef();
+  const ringShaderRef = useRef();
+
+  const planetCenterVec = useMemo(() => new THREE.Vector3(...position), [position]);
 
   const computedSunDir = useMemo(() => {
     const pos = new THREE.Vector3(...position);
@@ -124,6 +178,10 @@ export function CinematicUranus({
     }
     if (shaderRef.current) {
       shaderRef.current.uniforms.uSunDirection.value = computedSunDir;
+    }
+    if (ringShaderRef.current) {
+      ringShaderRef.current.uniforms.uSunDirection.value = computedSunDir;
+      ringShaderRef.current.uniforms.uPlanetCenter.value.set(...position);
     }
   });
 
@@ -154,20 +212,24 @@ export function CinematicUranus({
         />
       </mesh>
 
-      {/* 3. Faint Vertical Ice Rings */}
+      {/* 3. Faint Vertical Ice Rings with Dedicated Shader & Shadow */}
       <mesh
         geometry={ringGeometry}
         rotation={[-Math.PI / 2, 0, 0]}
         castShadow
         receiveShadow
       >
-        <meshStandardMaterial
-          color="#a8e2f0"
+        <shaderMaterial
+          ref={ringShaderRef}
+          args={[UranusRingShader]}
+          uniforms={{
+            uSunDirection: { value: computedSunDir },
+            uPlanetCenter: { value: planetCenterVec },
+            uPlanetRadius: { value: radius }
+          }}
           transparent={true}
-          opacity={0.35}
           side={THREE.DoubleSide}
           depthWrite={false}
-          roughness={0.65}
         />
       </mesh>
     </group>

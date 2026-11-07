@@ -1,18 +1,110 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Html } from '@react-three/drei';
 
 const CELESTIAL_BODIES = [
-  { id: 'sun', label: 'SOL', color: '#ffaa00' },
-  { id: 'mercury', label: 'MERCURY', color: '#cbd5e1' },
-  { id: 'venus', label: 'VENUS', color: '#fbbf24' },
-  { id: 'earth', label: 'EARTH', color: '#38bdf8' },
-  { id: 'mars', label: 'MARS', color: '#fb923c' },
-  { id: 'asteroids', label: 'ASTEROID BELT', color: '#a8a29e' },
-  { id: 'jupiter', label: 'JUPITER', color: '#fde047' },
-  { id: 'saturn', label: 'SATURN', color: '#fef08a' },
-  { id: 'uranus', label: 'URANUS', color: '#67e8f9' },
-  { id: 'neptune', label: 'NEPTUNE', color: '#60a5fa' }
+  { id: 'sun', label: 'SOL', offset: [50, -40], yLift: 12.0 },
+  { id: 'mercury', label: 'MERCURY', offset: [36, -26], yLift: 1.5 },
+  { id: 'venus', label: 'VENUS', offset: [40, -30], yLift: 2.2 },
+  { id: 'earth', label: 'EARTH', offset: [42, -32], yLift: 2.5 },
+  { id: 'mars', label: 'MARS', offset: [38, -28], yLift: 1.8 },
+  { id: 'asteroids', label: 'ASTEROIDS', offset: [45, -35], yLift: 2.0 },
+  { id: 'jupiter', label: 'JUPITER', offset: [55, -45], yLift: 6.0 },
+  { id: 'saturn', label: 'SATURN', offset: [60, -50], yLift: 5.0 },
+  { id: 'uranus', label: 'URANUS', offset: [44, -34], yLift: 3.5 },
+  { id: 'neptune', label: 'NEPTUNE', offset: [44, -34], yLift: 3.5 }
 ];
+
+function CelestialLabelItem({
+  id,
+  label,
+  offset,
+  yLift,
+  position,
+  isSelected,
+  onSelect
+}) {
+  const [isHovered, setIsHovered] = useState(false);
+  const [offsetX, offsetY] = offset;
+
+  // Leader line geometry: from anchor (0, 0) up-right to (offsetX, offsetY)
+  // Length of horizontal tick
+  const tickLength = 16;
+  const endX = offsetX + (offsetX > 0 ? tickLength : -tickLength);
+
+  return (
+    <group position={[position[0], position[1] + yLift, position[2]]}>
+      <Html
+        center={false}
+        position={[0, 0, 0]}
+        pointerEvents="auto"
+        style={{
+          pointerEvents: 'auto',
+          transform: 'translate3d(0, 0, 0)',
+          willChange: 'transform'
+        }}
+      >
+        <div
+          className="relative group cursor-pointer select-none"
+          onMouseEnter={() => setIsHovered(true)}
+          onMouseLeave={() => setIsHovered(false)}
+          onClick={(e) => {
+            e.stopPropagation();
+            if (onSelect) onSelect(id);
+          }}
+          style={{ width: '1px', height: '1px' }}
+        >
+          {/* Thin Leader Line: delicate aerospace aesthetic */}
+          <svg
+            className="absolute overflow-visible pointer-events-none transition-opacity duration-300"
+            style={{
+              top: 0,
+              left: 0,
+              opacity: isHovered || isSelected ? 0.95 : 0.25
+            }}
+          >
+            {/* Anchor tick dot at planet position */}
+            <circle
+              cx="0"
+              cy="0"
+              r={isHovered ? 1.5 : 1.0}
+              fill="rgba(255, 255, 255, 0.85)"
+            />
+            {/* Angled leader line extending outward */}
+            <polyline
+              points={`0,0 ${offsetX},${offsetY} ${endX},${offsetY}`}
+              fill="none"
+              stroke="rgba(255, 255, 255, 0.75)"
+              strokeWidth={isHovered ? '1.0' : '0.65'}
+              strokeDasharray={isHovered ? 'none' : '2 2'}
+            />
+          </svg>
+
+          {/* Plain, Understated Swiss Editorial Label Text */}
+          <div
+            className="absolute whitespace-nowrap transition-all duration-300"
+            style={{
+              left: `${endX + (offsetX > 0 ? 6 : -6)}px`,
+              top: `${offsetY}px`,
+              transform: `translate(${offsetX > 0 ? '0' : '-100%'}, -50%)`
+            }}
+          >
+            <span
+              className={`font-mono uppercase transition-all duration-300 block ${
+                isSelected
+                  ? 'text-white text-[10px] tracking-[0.3em] font-medium drop-shadow-[0_0_8px_rgba(255,255,255,0.6)]'
+                  : isHovered
+                  ? 'text-white text-[10px] tracking-[0.25em] font-normal drop-shadow-[0_0_6px_rgba(255,255,255,0.4)]'
+                  : 'text-white/50 hover:text-white/80 text-[9px] tracking-[0.22em] font-light'
+              }`}
+            >
+              {label}
+            </span>
+          </div>
+        </div>
+      </Html>
+    </group>
+  );
+}
 
 export function CelestialLabels({
   bodyPositions = {},
@@ -22,41 +114,27 @@ export function CelestialLabels({
 }) {
   if (!visible) return null;
 
-  // When focusing on an individual planet, hide labels so the view is pristine and unobstructed
+  // In close-up view of an individual planet, hide all planetary labels so cinematic view is 100% pristine and unobstructed
   const isOverview = selectedBody === 'overview';
+  if (!isOverview) return null;
 
   return (
     <group>
-      {CELESTIAL_BODIES.map(({ id, label, color }) => {
-        // If inspecting an individual body, only show labels if in overview, or never on the focused body
-        if (!isOverview && selectedBody === id) return null;
-
+      {CELESTIAL_BODIES.map(({ id, label, offset, yLift }) => {
         const pos = bodyPositions[id] || [0, 0, 0];
         const isSelected = selectedBody === id;
 
         return (
-          <group key={id} position={[pos[0], pos[1] + (id === 'sun' ? 14 : 3.5), pos[2]]}>
-            <Html center pointerEvents="auto">
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (onSelectBody) onSelectBody(id);
-                }}
-                className={`flex items-center space-x-1.5 px-2 py-0.5 rounded-full text-[10px] font-mono tracking-widest uppercase transition-all duration-300 backdrop-blur-md cursor-pointer whitespace-nowrap select-none ${
-                  isSelected
-                    ? 'bg-white/20 text-white border border-white/40 shadow-[0_0_12px_rgba(255,255,255,0.4)] scale-105'
-                    : 'bg-black/70 text-white/70 hover:text-white border border-white/10 hover:border-white/30 hover:bg-black/90'
-                }`}
-                style={{ transform: isOverview ? 'scale(1)' : 'scale(0.85)' }}
-              >
-                <span
-                  className="w-1.5 h-1.5 rounded-full"
-                  style={{ backgroundColor: color }}
-                />
-                <span>{label}</span>
-              </button>
-            </Html>
-          </group>
+          <CelestialLabelItem
+            key={id}
+            id={id}
+            label={label}
+            offset={offset}
+            yLift={yLift}
+            position={pos}
+            isSelected={isSelected}
+            onSelect={onSelectBody}
+          />
         );
       })}
     </group>

@@ -79,8 +79,8 @@ const MercurySurfaceShader = {
       // Blend Lommel-Seeliger with subtle Lambertian diffuse
       float illumination = mix(cosI, lommelSeeliger * 1.8, 0.65) * terminatorMask;
 
-      // Dark basaltic regolith color grading
-      vec3 surfaceColor = adjustedAlbedo * illumination * 2.1;
+      // Dark basaltic regolith color grading (calibrated to preserve crater detail under harsh solar flux)
+      vec3 surfaceColor = adjustedAlbedo * illumination * 1.25;
 
       // Deep space ambient fill on unlit side (starlight only, 0.008)
       vec3 nightSide = albedo * 0.006;
