@@ -107,6 +107,7 @@ const SaturnRingsShader = {
   vertexShader: `
     varying vec2 vUv;
     varying vec3 vWorldPosition;
+    varying vec3 vViewPosition;
     varying vec3 vLocalPosition;
 
     void main() {
@@ -114,12 +115,15 @@ const SaturnRingsShader = {
       vLocalPosition = position;
       vec4 worldPos = modelMatrix * vec4(position, 1.0);
       vWorldPosition = worldPos.xyz;
-      gl_Position = projectionMatrix * viewMatrix * worldPos;
+      vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+      vViewPosition = -mvPosition.xyz;
+      gl_Position = projectionMatrix * mvPosition;
     }
   `,
   fragmentShader: `
     varying vec2 vUv;
     varying vec3 vWorldPosition;
+    varying vec3 vViewPosition;
     varying vec3 vLocalPosition;
 
     uniform sampler2D uRingMap;
@@ -152,8 +156,13 @@ const SaturnRingsShader = {
         }
       }
 
-      // Ring illumination: double-sided scattering with transparency
-      vec3 ringColor = ringTex.rgb * vec3(1.0, 0.95, 0.84) * shadow * 1.6;
+      // Backlit forward-scattering (Cassini high phase angle translucent glow)
+      vec3 viewDir = normalize(vViewPosition);
+      float forwardFactor = pow(max(0.0, dot(viewDir, toSun)), 4.0);
+      vec3 forwardGlow = vec3(1.0, 0.92, 0.72) * forwardFactor * 1.2;
+
+      // Ring illumination: double-sided scattering with transparency and forward glow
+      vec3 ringColor = (ringTex.rgb * vec3(1.0, 0.95, 0.84) + forwardGlow) * shadow * 1.5;
       float alpha = ringTex.a * 0.92;
 
       if (alpha < 0.02) discard;
