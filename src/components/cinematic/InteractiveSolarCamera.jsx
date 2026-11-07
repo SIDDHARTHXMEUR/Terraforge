@@ -26,72 +26,72 @@ const BODY_VIEW_CONFIGS = {
     maxDist: 3500
   },
   sun: {
-    offset: [0, 8, 168],
+    offset: [0, 12, 220],
     target: [0, 0, 0],
     minDist: 65,
     maxDist: 1500
   },
   mercury: {
-    distance: 10.8,
-    terminatorAngle: 24, // Sunlit crescent orientation (fixes black disc)
+    distance: 24.0,
+    terminatorAngle: 26, // Sunlit crescent orientation (fixes black disc)
     elevAngle: 14,
-    minDist: 4.8,
+    minDist: 6.0,
     maxDist: 220
   },
   venus: {
-    distance: 14.5,
-    terminatorAngle: 32, // Sunlit crescent
+    distance: 28.0,
+    terminatorAngle: 30, // Sunlit crescent
     elevAngle: 16,
-    minDist: 6.2,
+    minDist: 7.5,
     maxDist: 260
   },
   earth: {
-    distance: 16.5,
+    distance: 30.0,
     terminatorAngle: 34,
     elevAngle: 14,
     minDist: 5.2002, // Relaxed minimum distance for continuous Earth surface zoom
     maxDist: 280
   },
   mars: {
-    distance: 12.0,
-    terminatorAngle: 36,
+    distance: 24.0,
+    terminatorAngle: 34,
     elevAngle: 16,
-    minDist: 5.2,
+    minDist: 6.5,
     maxDist: 240
   },
   asteroids: {
-    distance: 8.5,
+    distance: 14.0,
     terminatorAngle: 32,
     elevAngle: 16,
-    minDist: 2.8,
+    minDist: 3.5,
     maxDist: 150
   },
   jupiter: {
-    distance: 42.0,
-    terminatorAngle: 28, // Clear sunlit framing
+    distance: 90.0,
+    terminatorAngle: 24, // Clear sunlit framing, never dark side first
     elevAngle: 12,
-    minDist: 18.0,
+    minDist: 24.0,
     maxDist: 750
   },
   saturn: {
-    distance: 48.0,
-    terminatorAngle: 46,
+    distance: 120.0,
+    terminatorAngle: 42,
     elevAngle: 22,
-    minDist: 22.0,
+    minDist: 35.0,
     maxDist: 850
   },
   uranus: {
-    distance: 25.5,
-    terminatorAngle: 36,
-    elevAngle: 24,
-    minDist: 11.5,
+    distance: 48.0,
+    terminatorAngle: 34,
+    elevAngle: 22,
+    minDist: 14.5,
     maxDist: 500
   },
   neptune: {
-    distance: 24.5,
-    terminatorAngle: 34,
+    distance: 46.0,
+    terminatorAngle: 32,
     elevAngle: 18,
-    minDist: 11.0,
+    minDist: 14.0,
     maxDist: 500
   }
 };
@@ -131,21 +131,30 @@ function getCinematicBodyCamOffset(selectedBody, bodyPos, cfg, viewMode = 'cinem
 
 function getCinematicBodyCamTarget(selectedBody, bodyPos, cfg, camOffset) {
   if (selectedBody === 'overview' || !cfg.distance) {
-    return cfg.target ? new THREE.Vector3(...cfg.target) : new THREE.Vector3(0, 0, 0);
+    const baseTarget = cfg.target ? new THREE.Vector3(...cfg.target) : new THREE.Vector3(0, 0, 0);
+    if (selectedBody === 'sun' && camOffset) {
+      const camDir = camOffset.clone().normalize();
+      const up = new THREE.Vector3(0, 1, 0);
+      const trueCamRight = new THREE.Vector3().crossVectors(up, camDir).normalize();
+      baseTarget.addScaledVector(trueCamRight, -75.0);
+    }
+    return baseTarget;
   }
 
   const targetVec = new THREE.Vector3(...bodyPos);
 
-  // Offset camera look-at target to the left so every planet sits comfortably framed on the right third
-  // on the sunlit crescent side, completely clear of text and left-side HUD info blocks
+  // Offset camera look-at target to the left so every planet sits comfortably framed in the right third (X ~ 1450px)
+  // on the sunlit crescent side, completely clear of text and left-side HUD info blocks (X <= 580px)
   if (selectedBody !== 'overview' && selectedBody !== 'sun' && camOffset) {
     const camDir = camOffset.clone().normalize();
     const up = new THREE.Vector3(0, 1, 0);
-    const camRight = new THREE.Vector3().crossVectors(camDir, up).normalize();
-    const R = DISPLAY_RADII[selectedBody] || 5.0;
-    // Calibrated lateral shift: frames body squarely in the right third of the viewport
-    const lateralShift = selectedBody === 'neptune' ? -R * 0.35 : (selectedBody === 'uranus' ? -R * 0.35 : (selectedBody === 'jupiter' ? -R * 0.38 : -R * 0.42));
-    targetVec.addScaledVector(camRight, lateralShift);
+    // up x camDir produces camera's TRUE local right vector (+X in camera view space)
+    const trueCamRight = new THREE.Vector3().crossVectors(up, camDir).normalize();
+    const D = cfg.distance;
+    // Shifting target leftwards (-trueCamRight) moves planet firmly into the right third of the viewport
+    // providing > 550 px of pure dark space clearance to the text block
+    const lateralShiftRatio = selectedBody === 'saturn' ? -0.42 : -0.38;
+    targetVec.addScaledVector(trueCamRight, D * lateralShiftRatio);
   }
 
   return targetVec;
