@@ -615,6 +615,10 @@ export function InteractiveSolarCamera({
       maxDistance={cfg.maxDist || 1800}
       rotateSpeed={0.6}
       zoomSpeed={0.8}
+      touches={{
+        ONE: THREE.TOUCH.ROTATE,
+        TWO: THREE.TOUCH.DOLLY_PAN
+      }}
     />
   );
 }

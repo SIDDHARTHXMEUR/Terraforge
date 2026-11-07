@@ -24,27 +24,50 @@ const KEY_TO_BODY = {
   '0': 'neptune'
 };
 
-export default function App() {
-  const [selectedBody, setSelectedBody] = useState('overview');
-  const [viewMode, setViewMode] = useState('cinematic'); // 'cinematic' or 'scientific'
-  const [isPaused, setIsPaused] = useState(false);
-  const [timeMultiplier, setTimeMultiplier] = useState(1.0);
-  const [showOrbits, setShowOrbits] = useState(true);
-  const [showLabels, setShowLabels] = useState(true);
-  const [uiVisible, setUiVisible] = useState(true);
-  const [isUserInteracting, setIsUserInteracting] = useState(false);
+const SPEED_STEPS = [1, 5, 25, 100, 500];
 
-  // Check URL query parameters
+export default function App() {
+  // Check URL query parameters for deep linking
   const queryParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
   const benchmarkMode = queryParams?.get('benchmark'); // 'v1' or 'enhanced'
   const isSafeMode = queryParams?.get('safe') === '1';
+  const urlBody = queryParams?.get('body');
+  const urlView = queryParams?.get('view');
+  const urlTime = queryParams?.get('time');
+
+  const [selectedBody, setSelectedBody] = useState(() => {
+    if (urlBody && (KEY_TO_BODY[urlBody] || Object.values(KEY_TO_BODY).includes(urlBody.toLowerCase()))) {
+      return urlBody.toLowerCase();
+    }
+    return 'overview';
+  });
+
+  const [viewMode, setViewMode] = useState(() => {
+    if (urlView === 'scientific' || urlView === 'cinematic') return urlView;
+    return 'cinematic';
+  });
+
+  const [isPaused, setIsPaused] = useState(() => {
+    return urlTime === 'paused';
+  });
+
+  const [timeMultiplier, setTimeMultiplier] = useState(() => {
+    if (urlTime && !isNaN(parseFloat(urlTime))) return parseFloat(urlTime);
+    return 1.0;
+  });
+
+  const [showOrbits, setShowOrbits] = useState(true);
+  const [showLabels, setShowLabels] = useState(true);
+  const [uiVisible, setUiVisible] = useState(true);
+  const [showHelpSheet, setShowHelpSheet] = useState(false);
+  const [isUserInteracting, setIsUserInteracting] = useState(false);
 
   // Dynamic DPR from quality store
   const dpr = useQualityStore((s) => s.dpr);
 
-  // LocalStorage-backed prologue state: skip on return visits, never show in safe mode
+  // LocalStorage-backed prologue state: skip on return visits or if deep link provided or in safe mode
   const [isPrologueActive, setIsPrologueActive] = useState(() => {
-    if (isSafeMode) return false;
+    if (isSafeMode || urlBody || urlView || urlTime) return false;
     try {
       return localStorage.getItem('terraforge_prologue_seen') !== 'true';
     } catch {
@@ -85,7 +108,25 @@ export default function App() {
         e.preventDefault();
         setIsPaused((p) => !p);
       } else if (e.key === 'Escape') {
-        setSelectedBody('overview');
+        if (showHelpSheet) {
+          setShowHelpSheet(false);
+        } else {
+          setSelectedBody('overview');
+        }
+      } else if (e.key === '?' || e.key === '/') {
+        setShowHelpSheet((s) => !s);
+      } else if (e.key === '[' || e.key === '{') {
+        setTimeMultiplier((cur) => {
+          const idx = SPEED_STEPS.indexOf(cur);
+          if (idx > 0) return SPEED_STEPS[idx - 1];
+          return SPEED_STEPS[0];
+        });
+      } else if (e.key === ']' || e.key === '}') {
+        setTimeMultiplier((cur) => {
+          const idx = SPEED_STEPS.indexOf(cur);
+          if (idx !== -1 && idx < SPEED_STEPS.length - 1) return SPEED_STEPS[idx + 1];
+          return SPEED_STEPS[SPEED_STEPS.length - 1];
+        });
       } else if (e.key === 'o' || e.key === 'O') {
         setShowOrbits((v) => !v);
       } else if (e.key === 'l' || e.key === 'L') {
@@ -107,7 +148,7 @@ export default function App() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [showHelpSheet]);
 
   const handleResetCamera = () => {
     setSelectedBody('overview');
@@ -225,6 +266,8 @@ export default function App() {
         setUiVisible={setUiVisible}
         onResetCamera={handleResetCamera}
         onReplayIntro={handleReplayIntro}
+        showHelpSheet={showHelpSheet}
+        setShowHelpSheet={setShowHelpSheet}
       />
     </div>
   );
