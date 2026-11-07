@@ -9,6 +9,8 @@ import { EarthBaselineComparator } from './components/test/EarthBaselineComparat
 import { DeepSpaceSkybox } from './components/cinematic/DeepSpaceSkybox';
 import { OrbitControls } from '@react-three/drei';
 
+const CELESTIAL_ORDER = ['sun', 'mercury', 'venus', 'earth', 'mars', 'jupiter', 'saturn', 'uranus', 'neptune'];
+
 const KEY_TO_BODY = {
   '1': 'sun',
   '2': 'mercury',
@@ -120,6 +122,20 @@ export default function App() {
         }
       } else if (e.key === 'r' || e.key === 'R') {
         setSelectedBody('overview');
+      } else if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        setSelectedBody((current) => {
+          const idx = CELESTIAL_ORDER.indexOf(current);
+          if (idx === -1 || idx === 0) return CELESTIAL_ORDER[CELESTIAL_ORDER.length - 1];
+          return CELESTIAL_ORDER[idx - 1];
+        });
+      } else if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        setSelectedBody((current) => {
+          const idx = CELESTIAL_ORDER.indexOf(current);
+          if (idx === -1 || idx === CELESTIAL_ORDER.length - 1) return CELESTIAL_ORDER[0];
+          return CELESTIAL_ORDER[idx + 1];
+        });
       } else if (KEY_TO_BODY[e.key]) {
         setSelectedBody(KEY_TO_BODY[e.key]);
       }

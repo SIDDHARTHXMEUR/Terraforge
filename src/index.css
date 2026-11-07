@@ -4,8 +4,43 @@
   .font-outfit {
     font-family: 'Outfit', sans-serif;
   }
+  .font-wordmark {
+    font-family: 'League Gothic', sans-serif;
+  }
+  .font-serif {
+    font-family: 'Cormorant Garamond', Georgia, serif;
+  }
   .font-sans {
-    font-family: 'Inter', sans-serif;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  }
+  .font-mono {
+    font-family: 'JetBrains Mono', monospace;
+  }
+}
+
+@keyframes planetInfoBlurIn {
+  0% {
+    filter: blur(10px);
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  100% {
+    filter: blur(0px);
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.planet-blur-transition {
+  animation: planetInfoBlurIn 500ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .planet-blur-transition {
+    animation: none;
+    filter: none !important;
+    opacity: 1 !important;
+    transform: none !important;
   }
 }
 
