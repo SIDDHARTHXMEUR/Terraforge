@@ -1,16 +1,41 @@
-import React, { useRef, useEffect, Suspense } from 'react';
+import React, { useRef, useEffect, useState, Suspense } from 'react';
 import { Canvas } from '@react-three/fiber';
 import * as THREE from 'three';
 import { LandingScene } from './LandingScene';
 import { LandingHeroOverlay } from './LandingHeroOverlay';
 import { ChapterOverlay, CHAPTERS_DATA } from './ChapterOverlay';
+import { NonWebGLFallback } from './NonWebGLFallback';
+
+function checkWebGLSupport() {
+  if (typeof window === 'undefined') return true;
+  try {
+    const canvas = document.createElement('canvas');
+    return !!(window.WebGLRenderingContext && (canvas.getContext('webgl') || canvas.getContext('experimental-webgl')));
+  } catch (_) {
+    return false;
+  }
+}
 
 export function LandingPage() {
+  const [hasWebGL] = useState(checkWebGLSupport);
   const scrollContainerRef = useRef(null);
   const scrollProgressRef = useRef(0);
   const targetProgressRef = useRef(0);
 
-  // Smooth inertial scroll tracker in code (no external library, ref-based, zero React re-renders)
+  // Detect prefers-reduced-motion
+  const [reducedMotion, setReducedMotion] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  });
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const onChange = (e) => setReducedMotion(e.matches);
+    mediaQuery.addEventListener('change', onChange);
+    return () => mediaQuery.removeEventListener('change', onChange);
+  }, []);
+
+  // Smooth inertial scroll tracker in code (disabled under reduced motion for instant cuts)
   useEffect(() => {
     const container = scrollContainerRef.current;
     if (!container) return;
@@ -20,24 +45,29 @@ export function LandingPage() {
       if (maxScroll <= 0) return;
       const progress = (container.scrollTop / maxScroll) * 8.0;
       targetProgressRef.current = progress;
+      if (reducedMotion) {
+        scrollProgressRef.current = progress;
+      }
     };
 
     container.addEventListener('scroll', handleScroll, { passive: true });
 
     let animationId;
-    const loop = () => {
-      const current = scrollProgressRef.current;
-      const target = targetProgressRef.current;
-      scrollProgressRef.current = THREE.MathUtils.lerp(current, target, 0.08);
+    if (!reducedMotion) {
+      const loop = () => {
+        const current = scrollProgressRef.current;
+        const target = targetProgressRef.current;
+        scrollProgressRef.current = THREE.MathUtils.lerp(current, target, 0.08);
+        animationId = requestAnimationFrame(loop);
+      };
       animationId = requestAnimationFrame(loop);
-    };
-    animationId = requestAnimationFrame(loop);
+    }
 
     return () => {
       container.removeEventListener('scroll', handleScroll);
-      cancelAnimationFrame(animationId);
+      if (animationId) cancelAnimationFrame(animationId);
     };
-  }, []);
+  }, [reducedMotion]);
 
   // Keyboard navigation: Down/PageDown/Space to next section, Up/PageUp to previous, End to last
   useEffect(() => {
@@ -50,35 +80,40 @@ export function LandingPage() {
       const viewportH = window.innerHeight;
       const sectionHeight = viewportH * 1.3; // 130vh per section
       const currentSection = Math.round(container.scrollTop / sectionHeight);
+      const scrollBehavior = reducedMotion ? 'auto' : 'smooth';
 
       if (e.code === 'Space' || e.key === 'ArrowDown' || e.key === 'PageDown') {
         e.preventDefault();
         const nextSection = Math.min(8, currentSection + 1);
-        container.scrollTo({ top: nextSection * sectionHeight, behavior: 'smooth' });
+        container.scrollTo({ top: nextSection * sectionHeight, behavior: scrollBehavior });
       } else if (e.key === 'ArrowUp' || e.key === 'PageUp') {
         e.preventDefault();
         const prevSection = Math.max(0, currentSection - 1);
-        container.scrollTo({ top: prevSection * sectionHeight, behavior: 'smooth' });
+        container.scrollTo({ top: prevSection * sectionHeight, behavior: scrollBehavior });
       } else if (e.key === 'End') {
         e.preventDefault();
-        container.scrollTo({ top: 8 * sectionHeight, behavior: 'smooth' });
+        container.scrollTo({ top: 8 * sectionHeight, behavior: scrollBehavior });
       } else if (e.key === 'Home') {
         e.preventDefault();
-        container.scrollTo({ top: 0, behavior: 'smooth' });
+        container.scrollTo({ top: 0, behavior: scrollBehavior });
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [reducedMotion]);
 
   const handleScrollToHash = (hash) => {
     if (!scrollContainerRef.current) return;
     const target = scrollContainerRef.current.querySelector(hash);
     if (target) {
-      target.scrollIntoView({ behavior: 'smooth' });
+      target.scrollIntoView({ behavior: reducedMotion ? 'auto' : 'smooth' });
     }
   };
+
+  if (!hasWebGL) {
+    return <NonWebGLFallback />;
+  }
 
   return (
     <div className="relative w-screen h-screen bg-deep-space text-cream overflow-hidden select-none">

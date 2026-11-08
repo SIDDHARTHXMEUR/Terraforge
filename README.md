@@ -1,14 +1,23 @@
-# 🪐 TERRAFORGE — Cinematic 3D Solar System Experience
+# 🪐 TERRAFORGE — Cinematic 3D Solar System Experience & Landing Page v2
 
-> **A Photorealistic, Cinematic 3D Astronomical Solar System Platform**  
+> **A Photorealistic, Cinematic 3D Astronomical Solar System Platform & Scroll-Driven Landing Experience**  
 > Engineered with Three.js, WebGL2 hardware shaders, filmic tone mapping, and NASA planetary observations.  
-> **🚀 Live Experience**: [http://localhost:3000/](http://localhost:3000/)
+> **🚀 Live Experience**: [http://localhost:3000/#/](http://localhost:3000/#/)
 
 [![Three.js](https://img.shields.io/badge/Three.js-r162-black.svg?logo=three.js)](https://threejs.org/)
 [![WebGL2](https://img.shields.io/badge/WebGL2-Hardware--Accelerated-green.svg?logo=webgl)](https://www.khronos.org/webgl/)
 [![React](https://img.shields.io/badge/React-18-blue.svg?logo=react)](https://react.dev/)
 [![Vite](https://img.shields.io/badge/Vite-5.4-purple.svg?logo=vite)](https://vitejs.dev/)
 [![Unit Tests](https://img.shields.io/badge/Tests-16%2F16%20Passed-brightgreen.svg?logo=node.js)](package.json)
+
+---
+
+## 🗺️ Application Architecture & Hash Routing
+
+- `#/`: **Landing Page v2** — 9-section scroll-driven experience with CSS scroll-snap proximity, inertia tracking, 3D depth-tested ghost words occluded $\ge 15\%$ by planet limbs, physical scale lineup, and seamless handoff into the simulation overview.
+- `#/sim`: **Terraforge Simulator** — Complete interactive 3D astronomical simulation in overview mode with telemetry HUD, Keplerian orbits, and time controls.
+- `#/sim/<planet>`: **Focused Simulator** — Opens directly focused on any planet (e.g. `#/sim/mars`, `#/sim/jupiter`).
+- In the Simulator HUD, a plain-text **HOME** link smoothly returns to `#/`.
 
 ---
 
