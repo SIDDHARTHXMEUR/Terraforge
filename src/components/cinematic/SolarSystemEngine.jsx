@@ -29,7 +29,8 @@ export function SolarSystemEngine({
   isPrologueActive = false,
   onCompletePrologue
 }) {
-  const { gl, scene, camera } = useThree();
+  const threeState = useThree();
+  const { gl, scene, camera } = threeState;
   const hasWarmedUpRef = useRef(false);
 
   // Progressive shader compilation and texture uploads during idle time
@@ -38,6 +39,8 @@ export function SolarSystemEngine({
     if (typeof window !== 'undefined') {
       window.__threeScene = scene;
       window.__threeGl = gl;
+      window.__threeCamera = camera;
+      window.__threeState = threeState;
     }
 
     if (hasWarmedUpRef.current) return;

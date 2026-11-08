@@ -32,28 +32,28 @@ const BODY_VIEW_CONFIGS = {
     maxDist: 1500
   },
   mercury: {
-    distance: 24.0,
+    distance: 20.0,
     terminatorAngle: 38, // Sunlit crescent orientation (34° to 70°)
     elevAngle: 14,
     minDist: 6.0,
     maxDist: 220
   },
   venus: {
-    distance: 28.0,
+    distance: 22.0,
     terminatorAngle: 40, // Sunlit crescent
     elevAngle: 16,
     minDist: 7.5,
     maxDist: 260
   },
   earth: {
-    distance: 30.0,
+    distance: 23.5,
     terminatorAngle: 42,
     elevAngle: 14,
     minDist: 5.2002, // Relaxed minimum distance for continuous Earth surface zoom
     maxDist: 280
   },
   mars: {
-    distance: 24.0,
+    distance: 20.0,
     terminatorAngle: 44,
     elevAngle: 16,
     minDist: 6.5,
@@ -67,28 +67,28 @@ const BODY_VIEW_CONFIGS = {
     maxDist: 150
   },
   jupiter: {
-    distance: 90.0,
+    distance: 56.0,
     terminatorAngle: 40, // Clear sunlit framing, never dark side first
     elevAngle: 12,
     minDist: 24.0,
     maxDist: 750
   },
   saturn: {
-    distance: 120.0,
+    distance: 82.0,
     terminatorAngle: 44,
     elevAngle: 22,
     minDist: 35.0,
     maxDist: 850
   },
   uranus: {
-    distance: 48.0,
+    distance: 36.0,
     terminatorAngle: 42,
     elevAngle: 22,
     minDist: 14.5,
     maxDist: 500
   },
   neptune: {
-    distance: 46.0,
+    distance: 34.0,
     terminatorAngle: 42,
     elevAngle: 18,
     minDist: 14.0,
@@ -153,7 +153,7 @@ function getCinematicBodyCamTarget(selectedBody, bodyPos, cfg, camOffset) {
     const D = cfg.distance;
     // Shifting target leftwards (-trueCamRight) moves planet firmly into the right third of the viewport
     // providing > 550 px of pure dark space clearance to the text block
-    const lateralShiftRatio = selectedBody === 'saturn' ? -0.42 : -0.38;
+    const lateralShiftRatio = selectedBody === 'saturn' ? -0.44 : -0.40;
     targetVec.addScaledVector(trueCamRight, D * lateralShiftRatio);
   }
 
@@ -174,10 +174,10 @@ export function InteractiveSolarCamera({
 
   // State Machine: 'OVERVIEW' | 'FLYING' | 'FOCUSED'
   const isInitialOverview = !selectedBody || selectedBody === 'overview';
-  const cameraStateRef = useRef(isInitialOverview ? 'OVERVIEW' : 'FOCUSED');
-  const lastTargetBodyRef = useRef(selectedBody);
-  const lastViewModeRef = useRef(viewMode);
-  const lastEnabledRef = useRef(enabled);
+  const cameraStateRef = useRef(isInitialOverview ? 'OVERVIEW' : 'FLYING');
+  const lastTargetBodyRef = useRef(null);
+  const lastViewModeRef = useRef(null);
+  const lastEnabledRef = useRef(null);
 
   // Flight parameters (time-based, <= 3.0s, guaranteed single-trigger)
   const isTransitioningRef = useRef(false);
@@ -445,7 +445,7 @@ export function InteractiveSolarCamera({
       isTransitioningRef.current = true;
       flightTargetRef.current = selectedBody;
       transitionStartTimeRef.current = performance.now();
-      transitionDurationRef.current = 2200; // <= 3.0s
+      transitionDurationRef.current = 1100; // 900-1200ms motion token
 
       if (inSurfaceMode) {
         setInSurfaceMode(false);
@@ -510,6 +510,7 @@ export function InteractiveSolarCamera({
   useEffect(() => {
     if (typeof window !== 'undefined') {
       window.__threeCamera = camera;
+      window.THREE = THREE;
     }
   }, [camera]);
 
@@ -630,7 +631,10 @@ export function InteractiveSolarCamera({
       controls.enabled = false;
       const elapsed = performance.now() - transitionStartTimeRef.current;
       const t = Math.min(1.0, elapsed / Math.max(1, transitionDurationRef.current));
-      const ease = 1 - Math.pow(1 - t, 4);
+      
+      // Zero-velocity arrival easing (cubic-bezier .22, 1, .36, 1 dynamics)
+      const u = 1 - t;
+      const ease = 1 - u * u * u * (1 + 3 * t);
 
       const targetCamOffset = getCinematicBodyCamOffset(selectedBody, currentBodyVec, cfg, viewMode);
       const destinationCamPos = new THREE.Vector3().addVectors(currentBodyVec, targetCamOffset);
@@ -646,18 +650,30 @@ export function InteractiveSolarCamera({
         const arcPos = new THREE.Vector3().lerpVectors(startPos, destinationCamPos, ease);
         arcPos.addScaledVector(toSun, arcFactor);
         arcPos.y += arcFactor * 0.26;
+
+        // Path avoidance: Never pass within 1.5x the radius of the Sun or any body (clearance >= 82 units)
+        const sunClearance = 82.0;
+        const distToOrigin = arcPos.length();
+        if (distToOrigin < sunClearance) {
+          const pushDir = new THREE.Vector3(arcPos.x, 0, arcPos.z).normalize();
+          if (pushDir.lengthSq() < 0.001) pushDir.set(0, 1, 0);
+          arcPos.addScaledVector(pushDir, (sunClearance - distToOrigin) * 1.1);
+          arcPos.y += (sunClearance - distToOrigin) * 0.65;
+        }
+
         camera.position.copy(arcPos);
       } else {
         camera.position.lerpVectors(transitionStartCamPosRef.current, destinationCamPos, ease);
       }
 
-      // Continuous target tracking keeps destination body in view throughout approach
-      const targetEase = 1 - Math.pow(1 - t, 2.8);
+      // Early destination lock: visible and sunlit by 55% of the flight
+      const lockT = Math.min(1.0, t / 0.55);
+      const targetEase = lockT * lockT * (3 - 2 * lockT);
       const currentLookTarget = new THREE.Vector3().lerpVectors(transitionStartTargetRef.current, destinationTarget, targetEase);
       controls.target.copy(currentLookTarget);
       camera.lookAt(currentLookTarget);
 
-      // On arrival: Camera stops and enters FOCUSED or OVERVIEW
+      // On arrival: Camera stops cleanly with 0 velocity, hands off without a pop
       if (t >= 1.0) {
         camera.position.copy(destinationCamPos);
         controls.target.copy(destinationTarget);
@@ -666,6 +682,12 @@ export function InteractiveSolarCamera({
         isTransitioningRef.current = false;
         cameraStateRef.current = isOverview ? 'OVERVIEW' : 'FOCUSED';
         lastPlanetPosRef.current.copy(currentBodyVec);
+
+        // Clear residual damping inertia to eliminate hand-off shake
+        if (controls) {
+          if (controls.sphericalDelta) controls.sphericalDelta.set(0, 0, 0);
+          if (controls.panOffset) controls.panOffset.set(0, 0, 0);
+        }
 
         controls.enabled = enabled && !inSurfaceMode;
         controls.enableDamping = true;
@@ -676,7 +698,7 @@ export function InteractiveSolarCamera({
     }
 
     // -----------------------------------------------------------------------
-    // C. FOCUSED STATE (OrbitControls Fully Enabled, Delta Follow Preserves Offset)
+    // C. FOCUSED STATE (Non-rotating planet-centred frame, zero jitter)
     // -----------------------------------------------------------------------
     if (cameraStateRef.current === 'FOCUSED' && !isOverview) {
       controls.enabled = enabled && !inSurfaceMode;
@@ -686,17 +708,13 @@ export function InteractiveSolarCamera({
       controls.enableRotate = true;
       controls.enableZoom = true;
 
-      // Apply orbital motion delta to camera position and target
-      if (lastPlanetPosRef.current.lengthSq() > 0.0001) {
-        const deltaP = new THREE.Vector3().subVectors(currentBodyVec, lastPlanetPosRef.current);
-        if (deltaP.lengthSq() < 10000) {
-          camera.position.add(deltaP);
-          controls.target.add(deltaP);
-        }
-      }
+      // In follow mode: camera offset is expressed in a non-rotating planet-centred frame
+      // Update OrbitControls relative to current planet position with 0 latency
+      const camOffset = new THREE.Vector3().subVectors(camera.position, controls.target);
+      controls.target.copy(currentBodyVec);
+      camera.position.copy(currentBodyVec).add(camOffset);
       lastPlanetPosRef.current.copy(currentBodyVec);
 
-      // OrbitControls performs full user rotation, zoom, pan, and damping
       controls.update();
       return;
     }
