@@ -1,60 +1,65 @@
 import React from 'react';
 
-export function LandingHeroOverlay({ onExploreUniverse }) {
+export function LandingHeroOverlay({ progress = 0 }) {
+  // Hero wordmark parallaxes upward slowly (0.5x scroll speed) and fades out by 35% of hero (progress 0.35)
+  // Never clipped by top edge while visible, no scaling
+  const isVisible = progress <= 0.35;
+  const opacity = Math.max(0, 1 - progress / 0.35);
+  const translateY = -progress * 120; // 0.5x slow upward drift
+
   return (
-    <div className="relative w-full h-full flex flex-col items-center justify-center px-6 text-center select-none pointer-events-none">
-      {/* 1. Technical Metadata Micro-label */}
-      <div className="flex items-center space-x-3 mb-6 animate-fade-in pointer-events-auto">
-        <span className="inline-block w-1.5 h-1.5 rounded-full bg-[#7AD1FF] animate-pulse" />
-        <span className="font-sans text-[11px] sm:text-[12px] uppercase tracking-[0.45em] text-[#929BA8]">
-          REAL-TIME 3D SIMULATION
-        </span>
+    <div
+      className="absolute inset-0 flex flex-col items-center justify-center px-6 text-center select-none pointer-events-none"
+      style={{
+        opacity: isVisible ? opacity : 0,
+        visibility: isVisible ? 'visible' : 'hidden',
+        transform: `translate3d(0, ${translateY}px, 0)`
+      }}
+    >
+      {/* 1. Micro-label: Inter 11px uppercase tracking 0.5em 60% opacity */}
+      <div className="micro-label-text mb-6">
+        REAL-TIME SOLAR SYSTEM SIMULATOR
       </div>
 
-      {/* 2. Main Editorial Headline: "EXPLORE THE SOLAR SYSTEM." */}
-      <div className="relative flex flex-col items-center justify-center my-3 max-w-5xl">
-        <h1 className="font-serif text-5xl sm:text-7xl md:text-8xl lg:text-9xl font-light tracking-[0.08em] uppercase text-[#E9EDF2] leading-none select-none">
-          EXPLORE THE SOLAR SYSTEM.
+      {/* 2. Huge wordmark TERRAFORGE in League Gothic, cream, with a faint outline echo 6px above it at 25% opacity */}
+      <div className="relative flex flex-col items-center justify-center my-4">
+        {/* Outline echo 6px above at 25% opacity */}
+        <span
+          className="absolute hero-wordmark-echo select-none pointer-events-none"
+          style={{ opacity: 0.25 }}
+          aria-hidden="true"
+        >
+          TERRAFORGE
+        </span>
+
+        {/* Primary cream wordmark */}
+        <h1 className="hero-wordmark-title text-cream z-10 select-none">
+          TERRAFORGE
         </h1>
       </div>
 
-      {/* 3. Supporting Statement */}
-      <p className="font-sans text-[13px] sm:text-[15px] md:text-[16px] leading-relaxed text-[#929BA8] max-w-2xl mt-6 px-4">
-        An interactive journey through the worlds, motion and mechanics of our cosmic neighbourhood.
+      {/* 3. Tagline: Inter max 34 chars per line, tracking 0.22em, 80% opacity */}
+      <p className="tagline-body-text mt-4">
+        EVERY ORBIT. EVERY WORLD. IN REAL TIME.
       </p>
 
-      {/* 4. Action Buttons (Primary CTA + Secondary CTA) */}
-      <div className="mt-10 flex flex-col sm:flex-row items-center space-y-4 sm:space-y-0 sm:space-x-6 z-20 pointer-events-auto">
-        {/* Primary CTA */}
+      {/* 4. Plain text link: ENTER THE SIMULATOR > */}
+      <div className="mt-8 z-20 pointer-events-auto">
         <a
           href="#/sim"
-          className="inline-flex items-center space-x-3 px-8 py-3.5 bg-[#E9EDF2] text-[#030508] font-sans text-xs uppercase tracking-[0.22em] font-medium transition-all hover:bg-white hover:shadow-[0_0_24px_rgba(233,237,242,0.3)] cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#7AD1FF]"
+          className="inline-flex items-center space-x-2 font-sans text-xs tracking-[0.2em] uppercase text-cream opacity-80 hover:opacity-100 transition-opacity border-b border-transparent hover:border-cream-30 pb-1 cursor-pointer focus:outline-none focus:ring-1 focus:ring-white"
         >
           <span>ENTER THE SIMULATOR</span>
-          <span className="font-mono text-xs">&gt;</span>
+          <span className="ml-1 text-[11px]">&gt;</span>
         </a>
-
-        {/* Secondary CTA */}
-        <button
-          onClick={onExploreUniverse}
-          className="inline-flex items-center space-x-2 px-6 py-3.5 border border-space-25 text-[#E9EDF2] font-sans text-xs uppercase tracking-[0.22em] hover:border-[#E9EDF2] hover:bg-white/5 transition-all cursor-pointer focus:outline-none focus:ring-1 focus:ring-[#E9EDF2]"
-        >
-          <span>EXPLORE THE UNIVERSE</span>
-          <span className="font-mono text-xs opacity-60">&darr;</span>
-        </button>
       </div>
 
-      {/* 5. Supporting Spec Metadata */}
-      <div className="mt-8 font-mono text-[10px] tracking-[0.35em] uppercase text-[#929BA8]/70 pointer-events-auto">
-        8 PLANETS · NATURAL SATELLITES · ORBITAL MOTION
-      </div>
-
-      {/* 6. Subtle Scroll Cue */}
+      {/* 5. Subtle SCROLL cue with a 1px by 24px cream line pulsing slowly at bottom */}
       <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center pointer-events-none select-none z-10">
-        <span className="font-sans text-[9px] tracking-[0.45em] uppercase text-[#929BA8]/60 mb-2">
+        <span className="font-sans text-[10px] tracking-[0.45em] uppercase text-cream-60 mb-2">
           SCROLL
         </span>
-        <div className="w-[1px] h-[24px] bg-[#E9EDF2] animate-scroll-cue" />
+        <div className="w-[1px] h-[24px] bg-[#FFF8E7] animate-scroll-cue" />
       </div>
     </div>
   );

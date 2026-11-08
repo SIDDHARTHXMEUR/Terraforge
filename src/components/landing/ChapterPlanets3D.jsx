@@ -70,39 +70,33 @@ export function ChapterPlanets3D({ scrollProgressRef }) {
 
   // Load Planet Textures
   const [
+    sunTex,
     mercuryTex,
-    venusTex,
     earthTex,
     marsTex,
     jupiterTex,
     saturnTex,
-    saturnRingTex,
-    uranusTex,
-    neptuneTex
+    saturnRingTex
   ] = useTexture([
+    '/assets/planets/sun/sun.jpg',
     '/assets/planets/mercury/mercury.jpg',
-    '/assets/planets/venus/venus.jpg',
     '/assets/planets/earth/earth_albedo.jpg',
     '/assets/planets/mars/mars.jpg',
     '/assets/planets/jupiter/jupiter.jpg',
     '/assets/planets/saturn/saturn.jpg',
-    '/assets/planets/saturn/saturn_ring.png',
-    '/assets/planets/uranus/uranus.jpg',
-    '/assets/planets/neptune/neptune.jpg'
+    '/assets/planets/saturn/saturn_ring.png'
   ]);
 
   // Shared Sun Position (placed forward-left: lit hemisphere faces camera/sun)
   const sharedSunPos = useMemo(() => new THREE.Vector3(-14.0, 4.0, 10.0), []);
 
-  // Refs for axial rotation
+  // Refs for rotation
+  const solRef = useRef();
   const mercuryRef = useRef();
-  const venusRef = useRef();
   const earthRef = useRef();
   const marsRef = useRef();
   const jupiterRef = useRef();
   const saturnRef = useRef();
-  const uranusRef = useRef();
-  const neptuneRef = useRef();
 
   // Uniforms for each planet
   const mercuryUniforms = useMemo(() => ({
@@ -111,13 +105,6 @@ export function ChapterPlanets3D({ scrollProgressRef }) {
     uAtmosphereColor: { value: new THREE.Vector3(0.5, 0.5, 0.55) },
     uAtmosphereStrength: { value: 0.15 }
   }), [mercuryTex, sharedSunPos]);
-
-  const venusUniforms = useMemo(() => ({
-    uTexture: { value: venusTex },
-    uSunPosition: { value: sharedSunPos },
-    uAtmosphereColor: { value: new THREE.Vector3(0.9, 0.75, 0.45) },
-    uAtmosphereStrength: { value: 0.75 }
-  }), [venusTex, sharedSunPos]);
 
   const earthUniforms = useMemo(() => ({
     uTexture: { value: earthTex },
@@ -147,20 +134,6 @@ export function ChapterPlanets3D({ scrollProgressRef }) {
     uAtmosphereStrength: { value: 0.4 }
   }), [saturnTex, sharedSunPos]);
 
-  const uranusUniforms = useMemo(() => ({
-    uTexture: { value: uranusTex },
-    uSunPosition: { value: sharedSunPos },
-    uAtmosphereColor: { value: new THREE.Vector3(0.4, 0.85, 0.8) },
-    uAtmosphereStrength: { value: 0.6 }
-  }), [uranusTex, sharedSunPos]);
-
-  const neptuneUniforms = useMemo(() => ({
-    uTexture: { value: neptuneTex },
-    uSunPosition: { value: sharedSunPos },
-    uAtmosphereColor: { value: new THREE.Vector3(0.25, 0.5, 0.95) },
-    uAtmosphereStrength: { value: 0.7 }
-  }), [neptuneTex, sharedSunPos]);
-
   // Track scroll velocity for rotation response
   const lastScrollP = useRef(0);
 
@@ -171,19 +144,32 @@ export function ChapterPlanets3D({ scrollProgressRef }) {
 
     const rotSpeed = delta * (0.08 + Math.min(velocity * 0.02, 0.35));
 
+    if (solRef.current) solRef.current.rotation.y += rotSpeed * 0.35;
     if (mercuryRef.current) mercuryRef.current.rotation.y += rotSpeed * 0.5;
-    if (venusRef.current) venusRef.current.rotation.y -= rotSpeed * 0.3; // Retrograde
     if (earthRef.current) earthRef.current.rotation.y += rotSpeed * 0.65;
     if (marsRef.current) marsRef.current.rotation.y += rotSpeed * 0.55;
     if (jupiterRef.current) jupiterRef.current.rotation.y += rotSpeed * 0.8;
     if (saturnRef.current) saturnRef.current.rotation.y += rotSpeed * 0.7;
-    if (uranusRef.current) uranusRef.current.rotation.y += rotSpeed * 0.6;
-    if (neptuneRef.current) neptuneRef.current.rotation.y += rotSpeed * 0.65;
   });
 
   return (
     <group ref={groupRef}>
-      {/* 1. MERCURY (scrollP ~ 2.0) */}
+      {/* CHAPTER 1: SOL (scrollP ~ 1.0) */}
+      <ChapterBody
+        chapterIndex={1}
+        scrollProgressRef={scrollProgressRef}
+        planetName="SOL"
+        planetRadius={2.4}
+        position={[2.6, 0.1, 0]}
+        isMobile={isMobile}
+      >
+        <mesh ref={solRef}>
+          <sphereGeometry args={[2.4, 64, 64]} />
+          <meshBasicMaterial map={sunTex} />
+        </mesh>
+      </ChapterBody>
+
+      {/* CHAPTER 2: MERCURY (scrollP ~ 2.0) */}
       <ChapterBody
         chapterIndex={2}
         scrollProgressRef={scrollProgressRef}
@@ -202,28 +188,9 @@ export function ChapterPlanets3D({ scrollProgressRef }) {
         </mesh>
       </ChapterBody>
 
-      {/* 2. VENUS (scrollP ~ 3.0) */}
+      {/* CHAPTER 3: EARTH (scrollP ~ 3.0) */}
       <ChapterBody
         chapterIndex={3}
-        scrollProgressRef={scrollProgressRef}
-        planetName="VENUS"
-        planetRadius={1.9}
-        position={[2.5, 0.0, 0]}
-        isMobile={isMobile}
-      >
-        <mesh ref={venusRef} rotation={[0, 0, (177.36 * Math.PI) / 180]}>
-          <sphereGeometry args={[1.9, 64, 64]} />
-          <shaderMaterial
-            vertexShader={ChapterPlanetShader.vertexShader}
-            fragmentShader={ChapterPlanetShader.fragmentShader}
-            uniforms={venusUniforms}
-          />
-        </mesh>
-      </ChapterBody>
-
-      {/* 3. EARTH (scrollP ~ 4.0) */}
-      <ChapterBody
-        chapterIndex={4}
         scrollProgressRef={scrollProgressRef}
         planetName="EARTH"
         planetRadius={2.0}
@@ -240,9 +207,9 @@ export function ChapterPlanets3D({ scrollProgressRef }) {
         </mesh>
       </ChapterBody>
 
-      {/* 4. MARS (scrollP ~ 5.0) */}
+      {/* CHAPTER 4: MARS (scrollP ~ 4.0) */}
       <ChapterBody
-        chapterIndex={5}
+        chapterIndex={4}
         scrollProgressRef={scrollProgressRef}
         planetName="MARS"
         planetRadius={1.8}
@@ -259,9 +226,9 @@ export function ChapterPlanets3D({ scrollProgressRef }) {
         </mesh>
       </ChapterBody>
 
-      {/* 5. JUPITER (scrollP ~ 6.0) */}
+      {/* CHAPTER 5: JUPITER (scrollP ~ 5.0) */}
       <ChapterBody
-        chapterIndex={6}
+        chapterIndex={5}
         scrollProgressRef={scrollProgressRef}
         planetName="JUPITER"
         planetRadius={2.5}
@@ -278,9 +245,9 @@ export function ChapterPlanets3D({ scrollProgressRef }) {
         </mesh>
       </ChapterBody>
 
-      {/* 6. SATURN (scrollP ~ 7.0) */}
+      {/* CHAPTER 6: SATURN (scrollP ~ 6.0) */}
       <ChapterBody
-        chapterIndex={7}
+        chapterIndex={6}
         scrollProgressRef={scrollProgressRef}
         planetName="SATURN"
         planetRadius={2.0}
@@ -308,50 +275,13 @@ export function ChapterPlanets3D({ scrollProgressRef }) {
           </mesh>
         </group>
       </ChapterBody>
-
-      {/* 7. URANUS (scrollP ~ 8.0) */}
-      <ChapterBody
-        chapterIndex={8}
-        scrollProgressRef={scrollProgressRef}
-        planetName="URANUS"
-        planetRadius={1.9}
-        position={[2.5, 0.0, 0]}
-        isMobile={isMobile}
-      >
-        <mesh ref={uranusRef} rotation={[0, 0, (97.77 * Math.PI) / 180]}>
-          <sphereGeometry args={[1.9, 64, 64]} />
-          <shaderMaterial
-            vertexShader={ChapterPlanetShader.vertexShader}
-            fragmentShader={ChapterPlanetShader.fragmentShader}
-            uniforms={uranusUniforms}
-          />
-        </mesh>
-      </ChapterBody>
-
-      {/* 8. NEPTUNE (scrollP ~ 9.0) */}
-      <ChapterBody
-        chapterIndex={9}
-        scrollProgressRef={scrollProgressRef}
-        planetName="NEPTUNE"
-        planetRadius={1.9}
-        position={[2.5, 0.0, 0]}
-        isMobile={isMobile}
-      >
-        <mesh ref={neptuneRef} rotation={[0, 0, (28.32 * Math.PI) / 180]}>
-          <sphereGeometry args={[1.9, 64, 64]} />
-          <shaderMaterial
-            vertexShader={ChapterPlanetShader.vertexShader}
-            fragmentShader={ChapterPlanetShader.fragmentShader}
-            uniforms={neptuneUniforms}
-          />
-        </mesh>
-      </ChapterBody>
     </group>
   );
 }
 
 /**
- * ChapterBody: Renders active planet and depth-tested ghost word
+ * ChapterBody: Only renders active planet and its ghost word
+ * Handles diagonal entrance drift, anchored pose, and exit drift
  */
 function ChapterBody({
   chapterIndex,
@@ -369,7 +299,7 @@ function ChapterBody({
     const scrollP = scrollProgressRef?.current || 0;
     const deltaP = scrollP - chapterIndex;
 
-    // Active window: within 0.5 of chapter index
+    // Strict active window: within 0.5 of chapter index so only 1 planet is rendered at a time
     if (Math.abs(deltaP) > 0.5) {
       groupRef.current.visible = false;
       return;
@@ -377,11 +307,15 @@ function ChapterBody({
 
     groupRef.current.visible = true;
 
-    // Smooth diagonal entrance/exit
+    // Diagonal drift motion:
+    // When entering (deltaP < 0): drifts from upper-right
+    // When exiting (deltaP > 0): drifts to lower-left
     const driftX = deltaP * 1.5;
     const driftY = -deltaP * 1.0;
 
-    const targetPos = isMobile ? [0, -1.4, 1.0] : position;
+    const targetPos = isMobile
+      ? [0, -1.4, 1.0]
+      : position;
 
     groupRef.current.position.set(
       targetPos[0] - driftX,
@@ -390,6 +324,8 @@ function ChapterBody({
     );
   });
 
+  // Calculate 3D ghost word position:
+  // Offset behind planet so the planet's spherical silhouette occludes >= 15% of the text
   const ghostWordScale = isMobile
     ? [planetRadius * 2.2, planetRadius * 4.2, 1]
     : [planetRadius * 4.6, planetRadius * 1.25, 1];
@@ -400,7 +336,7 @@ function ChapterBody({
 
   return (
     <group ref={groupRef} visible={false}>
-      {/* 3D Depth-Tested Ghost Word */}
+      {/* 3D Depth-Tested Ghost Word (behind planet) */}
       <GhostWord3D
         text={planetName}
         position={ghostWordPos}
