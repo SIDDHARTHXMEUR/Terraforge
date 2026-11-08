@@ -1,5 +1,5 @@
 import React, { useRef, useMemo } from 'react';
-import { useFrame } from '@react-three/fiber';
+import { useFrame, useThree } from '@react-three/fiber';
 import { useTexture } from '@react-three/drei';
 import * as THREE from 'three';
 import { GhostWord3D } from './GhostWord3D';
@@ -64,6 +64,8 @@ const ChapterPlanetShader = {
 };
 
 export function ChapterPlanets3D({ scrollProgressRef }) {
+  const { size } = useThree();
+  const isMobile = size.width <= 768;
   const groupRef = useRef();
 
   // Load Planet Textures
@@ -159,6 +161,7 @@ export function ChapterPlanets3D({ scrollProgressRef }) {
         planetName="SOL"
         planetRadius={2.4}
         position={[2.6, 0.1, 0]}
+        isMobile={isMobile}
       >
         <mesh ref={solRef}>
           <sphereGeometry args={[2.4, 64, 64]} />
@@ -173,6 +176,7 @@ export function ChapterPlanets3D({ scrollProgressRef }) {
         planetName="MERCURY"
         planetRadius={1.7}
         position={[2.5, 0.0, 0]}
+        isMobile={isMobile}
       >
         <mesh ref={mercuryRef}>
           <sphereGeometry args={[1.7, 64, 64]} />
@@ -191,6 +195,7 @@ export function ChapterPlanets3D({ scrollProgressRef }) {
         planetName="EARTH"
         planetRadius={2.0}
         position={[2.5, 0.0, 0]}
+        isMobile={isMobile}
       >
         <mesh ref={earthRef} rotation={[0, 0, (23.44 * Math.PI) / 180]}>
           <sphereGeometry args={[2.0, 64, 64]} />
@@ -209,6 +214,7 @@ export function ChapterPlanets3D({ scrollProgressRef }) {
         planetName="MARS"
         planetRadius={1.8}
         position={[2.5, 0.0, 0]}
+        isMobile={isMobile}
       >
         <mesh ref={marsRef} rotation={[0, 0, (25.19 * Math.PI) / 180]}>
           <sphereGeometry args={[1.8, 64, 64]} />
@@ -227,6 +233,7 @@ export function ChapterPlanets3D({ scrollProgressRef }) {
         planetName="JUPITER"
         planetRadius={2.5}
         position={[2.7, 0.1, 0]}
+        isMobile={isMobile}
       >
         <mesh ref={jupiterRef} rotation={[0, 0, (3.13 * Math.PI) / 180]}>
           <sphereGeometry args={[2.5, 64, 64]} />
@@ -245,6 +252,7 @@ export function ChapterPlanets3D({ scrollProgressRef }) {
         planetName="SATURN"
         planetRadius={2.0}
         position={[2.6, 0.0, 0]}
+        isMobile={isMobile}
       >
         <group rotation={[0.55, -0.4, (26.73 * Math.PI) / 180]}>
           <mesh ref={saturnRef}>
@@ -281,6 +289,7 @@ function ChapterBody({
   planetName,
   planetRadius = 2.0,
   position = [2.5, 0, 0],
+  isMobile = false,
   children
 }) {
   const groupRef = useRef();
@@ -304,17 +313,26 @@ function ChapterBody({
     const driftX = deltaP * 1.5;
     const driftY = -deltaP * 1.0;
 
+    const targetPos = isMobile
+      ? [0, -1.4, 1.0]
+      : position;
+
     groupRef.current.position.set(
-      position[0] - driftX,
-      position[1] - driftY,
-      position[2]
+      targetPos[0] - driftX,
+      targetPos[1] - driftY,
+      targetPos[2]
     );
   });
 
   // Calculate 3D ghost word position:
   // Offset behind planet so the planet's spherical silhouette occludes >= 15% of the text
-  const ghostWordScale = [planetRadius * 4.6, planetRadius * 1.25, 1];
-  const ghostWordPos = [-planetRadius * 0.45, planetRadius * 0.1, -1.6];
+  const ghostWordScale = isMobile
+    ? [planetRadius * 2.2, planetRadius * 4.2, 1]
+    : [planetRadius * 4.6, planetRadius * 1.25, 1];
+
+  const ghostWordPos = isMobile
+    ? [0, 1.1, -1.2]
+    : [-planetRadius * 0.45, planetRadius * 0.1, -1.6];
 
   return (
     <group ref={groupRef} visible={false}>
@@ -324,6 +342,7 @@ function ChapterBody({
         position={ghostWordPos}
         scale={ghostWordScale}
         opacity={0.14}
+        isVertical={isMobile}
       />
 
       {/* 3D Planet Mesh with normal depth buffer write */}

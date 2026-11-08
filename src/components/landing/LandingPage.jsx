@@ -160,36 +160,119 @@ export function LandingPage() {
           </section>
         ))}
 
-        {/* SECTION 8: LINEUP (Placeholder for Stage 3) */}
+        {/* SECTION 8: LINEUP (To Scale - Sizes Only) */}
         <section
           id="lineup"
-          className="landing-section flex items-center justify-center px-6"
+          className="landing-section relative flex flex-col justify-between"
         >
-          <div className="text-center opacity-40">
-            <span className="font-mono text-[10px] text-[#5BB8FF] uppercase tracking-widest">07 / SCALE</span>
-            <h2 className="font-serif text-4xl text-cream mt-1">THE SYSTEM, TO SCALE</h2>
+          <div className="sticky top-0 w-full h-screen flex flex-col justify-between px-6 sm:px-12 md:px-16 pt-24 pb-8 select-none pointer-events-none">
+            {/* Header / Title block */}
+            <div className="z-20 pointer-events-auto max-w-2xl">
+              <div className="flex items-center space-x-3 mb-3">
+                <span className="inline-block w-[2px] h-[14px] bg-[#5BB8FF]" />
+                <span className="font-sans text-[11px] uppercase tracking-[0.5em] text-cream-60">
+                  07 / SCALE
+                </span>
+              </div>
+              <h2 className="font-serif text-4xl sm:text-6xl lg:text-7xl font-normal uppercase tracking-[0.12em] text-cream leading-tight">
+                THE SYSTEM, TO SCALE
+              </h2>
+              <p className="font-sans text-xs tracking-[0.2em] text-cream-60 uppercase mt-2">
+                PHYSICAL RADII PRESERVED // JUPITER IS VISIBLY 11X EARTH // SOL DWARFS ALL
+              </p>
+            </div>
+
+            {/* Right-edge Pager */}
+            <div className="absolute right-6 sm:right-12 top-1/2 -translate-y-1/2 flex flex-col items-end z-20 pointer-events-auto">
+              <div className="font-mono text-xs sm:text-sm tracking-widest text-cream-60 mb-4">
+                08 / 09
+              </div>
+              <button
+                onClick={() => handleScrollToHash('#system')}
+                className="group flex items-center space-x-2 text-right cursor-pointer focus:outline-none"
+              >
+                <span className="font-sans text-[10px] tracking-[0.25em] uppercase text-cream-40 group-hover:text-cream transition-colors">
+                  NEXT: THE SYSTEM
+                </span>
+                <span className="text-cream-40 group-hover:text-cream transition-colors font-mono text-xs">
+                  &gt;
+                </span>
+              </button>
+            </div>
+
+            {/* Bottom Radius Readouts linking to datum line ticks */}
+            <div className="w-full flex items-center justify-between border-t border-cream-14 pt-4 pb-2 z-20 pointer-events-auto bg-black/40 backdrop-blur-sm overflow-x-auto text-[10px] sm:text-xs">
+              <div className="text-center px-2">
+                <span className="font-mono text-amber-400 block">696,340 KM</span>
+                <span className="font-sans text-cream-60 uppercase tracking-widest text-[9px]">SOL</span>
+              </div>
+              <div className="text-center px-2">
+                <span className="font-mono text-[#B8B2A7] block">2,440 KM</span>
+                <span className="font-sans text-cream-60 uppercase tracking-widest text-[9px]">MERCURY</span>
+              </div>
+              <div className="text-center px-2">
+                <span className="font-mono text-[#E8D08A] block">6,052 KM</span>
+                <span className="font-sans text-cream-60 uppercase tracking-widest text-[9px]">VENUS</span>
+              </div>
+              <div className="text-center px-2">
+                <span className="font-mono text-[#5BB8FF] block">6,371 KM</span>
+                <span className="font-sans text-cream-60 uppercase tracking-widest text-[9px]">EARTH</span>
+              </div>
+              <div className="text-center px-2">
+                <span className="font-mono text-[#E2673A] block">3,390 KM</span>
+                <span className="font-sans text-cream-60 uppercase tracking-widest text-[9px]">MARS</span>
+              </div>
+              <div className="text-center px-2">
+                <span className="font-mono text-[#D9A066] block">69,911 KM</span>
+                <span className="font-sans text-cream-60 uppercase tracking-widest text-[9px]">JUPITER</span>
+              </div>
+              <div className="text-center px-2">
+                <span className="font-mono text-[#E8D08A] block">58,232 KM</span>
+                <span className="font-sans text-cream-60 uppercase tracking-widest text-[9px]">SATURN</span>
+              </div>
+              <div className="text-center px-2">
+                <span className="font-mono text-cyan-300 block">25,362 KM</span>
+                <span className="font-sans text-cream-60 uppercase tracking-widest text-[9px]">URANUS</span>
+              </div>
+              <div className="text-center px-2">
+                <span className="font-mono text-blue-400 block">24,622 KM</span>
+                <span className="font-sans text-cream-60 uppercase tracking-widest text-[9px]">NEPTUNE</span>
+              </div>
+            </div>
           </div>
         </section>
 
-        {/* SECTION 9: THE SYSTEM & CTA (Placeholder for Stage 3) */}
+        {/* SECTION 9: THE SYSTEM & CTA */}
         <section
           id="system"
-          className="landing-section flex flex-col items-center justify-center px-6 text-center"
+          className="landing-section relative flex flex-col justify-between"
         >
-          <div className="max-w-md">
-            <span className="font-sans text-[11px] uppercase tracking-[0.5em] text-cream-60 mb-2 block">
-              THE SIMULATOR
-            </span>
-            <h2 className="font-serif text-4xl text-cream mb-4">NINE WORLDS</h2>
-            <p className="font-sans text-[13px] text-cream-85 mb-6">
-              Keplerian orbits. 1:1 astronomical time or up to 10,000x.
-            </p>
-            <a
-              href="#/sim"
-              className="inline-block px-6 py-3 border border-cream-30 hover:border-cream font-sans text-xs uppercase tracking-[0.2em] transition-all hover:bg-white/10"
-            >
-              ENTER THE SIMULATOR &gt;
-            </a>
+          <div className="sticky top-0 w-full h-screen flex flex-col items-center justify-center px-6 text-center select-none">
+            <div className="max-w-xl z-20">
+              <span className="font-sans text-[11px] uppercase tracking-[0.5em] text-cream-60 mb-4 block">
+                THE SIMULATOR
+              </span>
+              <h2 className="font-serif text-5xl sm:text-7xl font-normal uppercase tracking-[0.12em] text-cream mb-4">
+                NINE WORLDS
+              </h2>
+              <p className="font-sans text-[14px] sm:text-[15px] leading-[1.6] text-cream-85 mb-8 max-w-[34ch] mx-auto">
+                Nine worlds. Keplerian orbits. 1:1 astronomical time or up to 10,000x.
+              </p>
+              <a
+                href="#/sim"
+                className="inline-flex items-center space-x-3 px-8 py-4 border border-cream-30 hover:border-cream text-cream font-sans text-xs uppercase tracking-[0.25em] transition-all hover:bg-white/10 shadow-lg cursor-pointer focus:outline-none focus:ring-2 focus:ring-white"
+              >
+                <span>ENTER THE SIMULATOR</span>
+                <span className="text-sm font-mono">&gt;</span>
+              </a>
+            </div>
+
+            {/* Bottom Status Readout */}
+            <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center space-x-6 text-[10px] font-mono tracking-widest text-cream-40 uppercase pointer-events-none">
+              <span>ORBIT IGNITION 100%</span>
+              <span>•</span>
+              <span>STANDBY AT STARTING POSE</span>
+            </div>
           </div>
         </section>
       </main>

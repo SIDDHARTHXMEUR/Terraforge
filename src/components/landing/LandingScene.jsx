@@ -4,6 +4,12 @@ import * as THREE from 'three';
 import { HeroEarthSunrise } from './HeroEarthSunrise';
 import { LandingStarfield } from './LandingStarfield';
 import { ChapterPlanets3D } from './ChapterPlanets3D';
+import { LineupSection3D } from './LineupSection3D';
+import { OverviewSection3D } from './OverviewSection3D';
+
+// Simulator overview pose
+const SIM_CAM_POS = new THREE.Vector3(-320, 110, 310);
+const SIM_CAM_TARGET = new THREE.Vector3(-65, 0, 48);
 
 export function LandingScene({ scrollProgressRef }) {
   const { camera } = useThree();
@@ -19,12 +25,31 @@ export function LandingScene({ scrollProgressRef }) {
       const heroCamZ = 5.0 + scrollP * 1.5;
       camera.position.set(0, heroCamY, heroCamZ);
       camera.lookAt(0, 0.1, 0);
-    } else {
-      // SECTIONS 2 to 7: CHAPTERS (Sol, Mercury, Earth, Mars, Jupiter, Saturn)
+    } else if (scrollP < 6.4) {
+      // SECTIONS 2 to 7: CHAPTERS
       if (heroGroupRef.current) heroGroupRef.current.visible = false;
-      // Camera framed to balance left text (cols 2-5) and right planet (cols 6-12)
       camera.position.set(0, 0, 7.2);
       camera.lookAt(0.7, 0, 0);
+    } else if (scrollP < 7.4) {
+      // SECTION 8: LINEUP HORIZONTAL DOLLY
+      if (heroGroupRef.current) heroGroupRef.current.visible = false;
+      const sub = THREE.MathUtils.clamp((scrollP - 6.4) / 1.0, 0, 1);
+      const camX = THREE.MathUtils.lerp(-4.0, 16.0, sub);
+      camera.position.set(camX, 0, 11.5);
+      camera.lookAt(camX, 0, 0);
+    } else {
+      // SECTION 9: THE SYSTEM (Smooth pull-back landing exactly on simulator overview pose)
+      if (heroGroupRef.current) heroGroupRef.current.visible = false;
+      const t = THREE.MathUtils.clamp((scrollP - 7.4) / 0.6, 0, 1);
+      const easeT = THREE.MathUtils.smootherstep(t, 0, 1);
+
+      // Start from lineup end pose and transition smoothly to simulator overview pose
+      const startPos = new THREE.Vector3(16.0, 0, 11.5);
+      const startTarget = new THREE.Vector3(16.0, 0, 0);
+
+      camera.position.lerpVectors(startPos, SIM_CAM_POS, easeT);
+      const curTarget = new THREE.Vector3().lerpVectors(startTarget, SIM_CAM_TARGET, easeT);
+      camera.lookAt(curTarget);
     }
   });
 
@@ -39,6 +64,12 @@ export function LandingScene({ scrollProgressRef }) {
 
       {/* Chapters 1 to 6 3D Planets & Ghost Words (Sections 2 to 7) */}
       <ChapterPlanets3D scrollProgressRef={scrollProgressRef} />
+
+      {/* Section 8: True Relative Scale Lineup */}
+      <LineupSection3D scrollProgressRef={scrollProgressRef} />
+
+      {/* Section 9: The System & Orbit Ignition */}
+      <OverviewSection3D scrollProgressRef={scrollProgressRef} />
     </>
   );
 }

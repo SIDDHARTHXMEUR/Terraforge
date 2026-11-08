@@ -135,7 +135,7 @@ export function ChapterOverlay({ chapter, onNext }) {
   const pagerIndexStr = `0${chapter.index} / 09`;
 
   return (
-    <div className="sticky top-0 w-full h-screen flex flex-col justify-between px-6 sm:px-12 md:px-16 pt-24 pb-8 select-none pointer-events-none">
+    <div className="sticky top-0 w-full h-screen flex flex-col justify-between px-6 sm:px-12 md:px-16 pt-16 md:pt-24 pb-4 md:pb-8 select-none pointer-events-none">
       {/* Surface Texture Magnified Strip (Mercury & Mars) - 14vw slice on left edge */}
       {chapter.surfaceStrip && (
         <div
