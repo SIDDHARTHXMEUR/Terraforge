@@ -50,12 +50,27 @@ function smoothDamp(current, target, velRef, smoothTime, dt, maxSpeed = 1.05) {
   return output;
 }
 
-export function LandingPage() {
+export function LandingPage({
+  externalCanvas = false,
+  scrollProgressRef: externalProgressRef,
+  onEnterSim
+}) {
   const [hasWebGL] = useState(checkWebGLSupport);
   const containerRef = useRef(null);
-  const scrollProgressRef = useRef(0);
+  const localScrollProgressRef = useRef(0);
+  const scrollProgressRef = externalProgressRef || localScrollProgressRef;
   const targetProgressRef = useRef(0);
   const velocityRef = useRef(0);
+  const [warmupProgress, setWarmupProgress] = useState(() => (typeof window !== 'undefined' ? window.__terraforgeWarmupProgress || 0 : 0));
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (typeof window !== 'undefined' && window.__terraforgeWarmupProgress !== undefined) {
+        setWarmupProgress(window.__terraforgeWarmupProgress);
+      }
+    }, 150);
+    return () => clearInterval(interval);
+  }, []);
 
   // DOM Overlay Refs for compositor-level zero-render animation
   const heroRef = useRef(null);
@@ -309,31 +324,33 @@ export function LandingPage() {
         </a>
       </header>
 
-      {/* Single 3D Canvas fixed behind the document */}
-      <div className="fixed inset-0 z-0 pointer-events-none">
-        <Canvas
-          className="w-full h-full bg-deep-space"
-          style={{ width: '100vw', height: '100vh', position: 'absolute', inset: 0 }}
-          dpr={[1, 1.5]}
-          gl={{
-            antialias: true,
-            alpha: false,
-            powerPreference: 'high-performance',
-            toneMapping: THREE.ACESFilmicToneMapping,
-            toneMappingExposure: 1.15
-          }}
-          camera={{
-            fov: 44,
-            near: 0.1,
-            far: 3000,
-            position: [0, 1.2, 5.0]
-          }}
-        >
-          <Suspense fallback={null}>
-            <LandingScene scrollProgressRef={scrollProgressRef} />
-          </Suspense>
-        </Canvas>
-      </div>
+      {/* Single 3D Canvas fixed behind the document (rendered internally only if not hosted in unified App canvas) */}
+      {!externalCanvas && (
+        <div className="fixed inset-0 z-0 pointer-events-none">
+          <Canvas
+            className="w-full h-full bg-deep-space"
+            style={{ width: '100vw', height: '100vh', position: 'absolute', inset: 0 }}
+            dpr={[1, 1.5]}
+            gl={{
+              antialias: true,
+              alpha: false,
+              powerPreference: 'high-performance',
+              toneMapping: THREE.ACESFilmicToneMapping,
+              toneMappingExposure: 1.15
+            }}
+            camera={{
+              fov: 44,
+              near: 0.1,
+              far: 3000,
+              position: [0, 1.2, 5.0]
+            }}
+          >
+            <Suspense fallback={null}>
+              <LandingScene scrollProgressRef={scrollProgressRef} />
+            </Suspense>
+          </Canvas>
+        </div>
+      )}
 
       {/* Viewport Overlay Layers: All positioned and faded from smoothProgress */}
       <div className="fixed inset-0 z-10 pointer-events-none">
@@ -447,18 +464,33 @@ export function LandingPage() {
               THE SIMULATOR
             </span>
             <h2 className="font-serif text-5xl sm:text-7xl font-normal uppercase tracking-[0.12em] text-cream mb-4">
-              NINE WORLDS
+              EIGHT WORLDS, ONE STAR.
             </h2>
             <p className="font-sans text-[14px] sm:text-[15px] leading-[1.6] text-cream-85 mb-8 max-w-[34ch] mx-auto">
-              Nine worlds. Keplerian orbits. 1:1 astronomical time or up to 10,000x.
+              Eight worlds. Keplerian orbits. 1:1 astronomical time or up to 10,000x.
             </p>
-            <a
-              href="#/sim"
-              className="inline-flex items-center space-x-3 px-8 py-4 border border-cream-30 hover:border-cream text-cream font-sans text-xs uppercase tracking-[0.25em] transition-all hover:bg-white/10 shadow-lg cursor-pointer focus:outline-none focus:ring-2 focus:ring-white"
+            <button
+              onClick={() => {
+                if (onEnterSim) onEnterSim();
+                else window.location.hash = '#/sim';
+              }}
+              className="relative inline-flex items-center space-x-3 px-8 py-4 border border-cream-30 hover:border-cream text-cream font-sans text-xs uppercase tracking-[0.25em] transition-all hover:bg-white/10 shadow-lg cursor-pointer focus:outline-none focus:ring-2 focus:ring-white overflow-hidden group"
             >
-              <span>ENTER THE SIMULATOR</span>
-              <span className="text-sm font-mono">&gt;</span>
-            </a>
+              {warmupProgress < 1.0 ? (
+                <>
+                  <div
+                    className="absolute bottom-0 left-0 h-[2px] bg-cyan-400 transition-all duration-300"
+                    style={{ width: `${Math.round(warmupProgress * 100)}%` }}
+                  />
+                  <span>PREPARING {Math.round(warmupProgress * 100)}%</span>
+                </>
+              ) : (
+                <>
+                  <span>ENTER THE SIMULATOR</span>
+                  <span className="text-sm font-mono">&gt;</span>
+                </>
+              )}
+            </button>
           </div>
 
           {/* Bottom Status Readout */}

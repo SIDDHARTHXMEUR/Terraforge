@@ -11,11 +11,12 @@ import { OverviewSection3D } from './OverviewSection3D';
 const SIM_CAM_POS = new THREE.Vector3(-320, 110, 310);
 const SIM_CAM_TARGET = new THREE.Vector3(-65, 0, 48);
 
-export function LandingScene({ scrollProgressRef }) {
+export function LandingScene({ scrollProgressRef, isActive = true }) {
   const { camera } = useThree();
   const heroGroupRef = useRef();
 
   useFrame(() => {
+    if (!isActive) return;
     const scrollP = scrollProgressRef?.current || 0;
 
     if (scrollP <= 1.0) {
