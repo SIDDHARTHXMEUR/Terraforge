@@ -230,10 +230,20 @@ export function LandingPage() {
     window.addEventListener('touchstart', handleTouchStart, { passive: true });
     window.addEventListener('touchmove', handleTouchMove, { passive: true });
 
+    const onSetProgress = (e) => {
+      if (typeof e.detail === 'number') {
+        targetProgressRef.current = e.detail;
+        scrollProgressRef.current = e.detail;
+        updateOverlays(e.detail);
+      }
+    };
+    window.addEventListener('terraforge-set-progress', onSetProgress);
+
     return () => {
       window.removeEventListener('wheel', handleWheel);
       window.removeEventListener('touchstart', handleTouchStart);
       window.removeEventListener('touchmove', handleTouchMove);
+      window.removeEventListener('terraforge-set-progress', onSetProgress);
     };
   }, []);
 
