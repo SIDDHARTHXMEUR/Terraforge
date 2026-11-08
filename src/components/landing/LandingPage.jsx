@@ -3,6 +3,7 @@ import { Canvas } from '@react-three/fiber';
 import * as THREE from 'three';
 import { LandingScene } from './LandingScene';
 import { LandingHeroOverlay } from './LandingHeroOverlay';
+import { ChapterOverlay, CHAPTERS_DATA } from './ChapterOverlay';
 
 export function LandingPage() {
   const scrollContainerRef = useRef(null);
@@ -71,6 +72,14 @@ export function LandingPage() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
+  const handleScrollToHash = (hash) => {
+    if (!scrollContainerRef.current) return;
+    const target = scrollContainerRef.current.querySelector(hash);
+    if (target) {
+      target.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+
   return (
     <div className="relative w-screen h-screen bg-deep-space text-cream overflow-hidden select-none">
       {/* Hidden-until-focused skip link */}
@@ -137,71 +146,19 @@ export function LandingPage() {
           <LandingHeroOverlay />
         </section>
 
-        {/* SECTION 2: SOL (Placeholder for Stage 2) */}
-        <section
-          id="sol"
-          className="landing-section flex items-center justify-start px-6 sm:px-16"
-        >
-          <div className="max-w-md opacity-40">
-            <span className="font-mono text-[10px] text-[#FFB347] uppercase tracking-widest">01 / STAR</span>
-            <h2 className="font-serif text-4xl text-cream mt-1">SOL</h2>
-          </div>
-        </section>
-
-        {/* SECTION 3: MERCURY (Placeholder for Stage 2) */}
-        <section
-          id="mercury"
-          className="landing-section flex items-center justify-start px-6 sm:px-16"
-        >
-          <div className="max-w-md opacity-40">
-            <span className="font-mono text-[10px] text-[#B8B2A7] uppercase tracking-widest">02 / INNER SYSTEM</span>
-            <h2 className="font-serif text-4xl text-cream mt-1">MERCURY</h2>
-          </div>
-        </section>
-
-        {/* SECTION 4: EARTH (Placeholder for Stage 2) */}
-        <section
-          id="earth"
-          className="landing-section flex items-center justify-start px-6 sm:px-16"
-        >
-          <div className="max-w-md opacity-40">
-            <span className="font-mono text-[10px] text-[#5BB8FF] uppercase tracking-widest">03 / HABITABLE WORLD</span>
-            <h2 className="font-serif text-4xl text-cream mt-1">EARTH</h2>
-          </div>
-        </section>
-
-        {/* SECTION 5: MARS (Placeholder for Stage 2) */}
-        <section
-          id="mars"
-          className="landing-section flex items-center justify-start px-6 sm:px-16"
-        >
-          <div className="max-w-md opacity-40">
-            <span className="font-mono text-[10px] text-[#E2673A] uppercase tracking-widest">04 / THE RED PLANET</span>
-            <h2 className="font-serif text-4xl text-cream mt-1">MARS</h2>
-          </div>
-        </section>
-
-        {/* SECTION 6: JUPITER (Placeholder for Stage 2) */}
-        <section
-          id="jupiter"
-          className="landing-section flex items-center justify-start px-6 sm:px-16"
-        >
-          <div className="max-w-md opacity-40">
-            <span className="font-mono text-[10px] text-[#D9A066] uppercase tracking-widest">05 / GAS GIANT</span>
-            <h2 className="font-serif text-4xl text-cream mt-1">JUPITER</h2>
-          </div>
-        </section>
-
-        {/* SECTION 7: SATURN (Placeholder for Stage 2) */}
-        <section
-          id="saturn"
-          className="landing-section flex items-center justify-start px-6 sm:px-16"
-        >
-          <div className="max-w-md opacity-40">
-            <span className="font-mono text-[10px] text-[#E8D08A] uppercase tracking-widest">06 / RINGED MONARCH</span>
-            <h2 className="font-serif text-4xl text-cream mt-1">SATURN</h2>
-          </div>
-        </section>
+        {/* SECTIONS 2 to 7: PLANET CHAPTERS (Sol, Mercury, Earth, Mars, Jupiter, Saturn) */}
+        {CHAPTERS_DATA.map((chapter) => (
+          <section
+            key={chapter.id}
+            id={chapter.id}
+            className="landing-section flex flex-col justify-between"
+          >
+            <ChapterOverlay
+              chapter={chapter}
+              onNext={handleScrollToHash}
+            />
+          </section>
+        ))}
 
         {/* SECTION 8: LINEUP (Placeholder for Stage 3) */}
         <section
