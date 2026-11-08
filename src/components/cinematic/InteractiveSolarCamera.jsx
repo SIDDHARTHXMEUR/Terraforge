@@ -33,63 +33,63 @@ const BODY_VIEW_CONFIGS = {
   },
   mercury: {
     distance: 24.0,
-    terminatorAngle: 26, // Sunlit crescent orientation (fixes black disc)
+    terminatorAngle: 38, // Sunlit crescent orientation (34° to 70°)
     elevAngle: 14,
     minDist: 6.0,
     maxDist: 220
   },
   venus: {
     distance: 28.0,
-    terminatorAngle: 30, // Sunlit crescent
+    terminatorAngle: 40, // Sunlit crescent
     elevAngle: 16,
     minDist: 7.5,
     maxDist: 260
   },
   earth: {
     distance: 30.0,
-    terminatorAngle: 34,
+    terminatorAngle: 42,
     elevAngle: 14,
     minDist: 5.2002, // Relaxed minimum distance for continuous Earth surface zoom
     maxDist: 280
   },
   mars: {
     distance: 24.0,
-    terminatorAngle: 34,
+    terminatorAngle: 44,
     elevAngle: 16,
     minDist: 6.5,
     maxDist: 240
   },
   asteroids: {
     distance: 14.0,
-    terminatorAngle: 32,
+    terminatorAngle: 40,
     elevAngle: 16,
     minDist: 3.5,
     maxDist: 150
   },
   jupiter: {
     distance: 90.0,
-    terminatorAngle: 24, // Clear sunlit framing, never dark side first
+    terminatorAngle: 40, // Clear sunlit framing, never dark side first
     elevAngle: 12,
     minDist: 24.0,
     maxDist: 750
   },
   saturn: {
     distance: 120.0,
-    terminatorAngle: 42,
+    terminatorAngle: 44,
     elevAngle: 22,
     minDist: 35.0,
     maxDist: 850
   },
   uranus: {
     distance: 48.0,
-    terminatorAngle: 34,
+    terminatorAngle: 42,
     elevAngle: 22,
     minDist: 14.5,
     maxDist: 500
   },
   neptune: {
     distance: 46.0,
-    terminatorAngle: 32,
+    terminatorAngle: 42,
     elevAngle: 18,
     minDist: 14.0,
     maxDist: 500

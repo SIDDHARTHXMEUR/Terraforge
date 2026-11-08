@@ -14,16 +14,15 @@ const MarsSurfaceShader = {
     #include <logdepthbuf_pars_vertex>
 
     varying vec2 vUv;
-    varying vec3 vNormal;
     varying vec3 vWorldNormal;
-    varying vec3 vViewPosition;
+    varying vec3 vWorldPosition;
 
     void main() {
       vUv = uv;
-      vNormal = normalize(normalMatrix * normal);
+      vec4 worldPos = modelMatrix * vec4(position, 1.0);
+      vWorldPosition = worldPos.xyz;
       vWorldNormal = normalize((modelMatrix * vec4(normal, 0.0)).xyz);
-      vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-      vViewPosition = -mvPosition.xyz;
+      vec4 mvPosition = viewMatrix * worldPos;
       gl_Position = projectionMatrix * mvPosition;
 
       #include <logdepthbuf_vertex>
@@ -33,20 +32,18 @@ const MarsSurfaceShader = {
     #include <logdepthbuf_pars_fragment>
 
     varying vec2 vUv;
-    varying vec3 vNormal;
     varying vec3 vWorldNormal;
-    varying vec3 vViewPosition;
+    varying vec3 vWorldPosition;
 
     uniform sampler2D uAlbedo;
-    uniform vec3 uSunDirection;
+    uniform vec3 uSunPosition;
 
     void main() {
       #include <logdepthbuf_fragment>
 
-      vec3 normal = normalize(vNormal);
-      vec3 worldNormal = normalize(vWorldNormal);
-      vec3 viewDir = normalize(vViewPosition);
-      vec3 sunDir = normalize(uSunDirection);
+      vec3 N = normalize(vWorldNormal);
+      vec3 L = normalize(uSunPosition - vWorldPosition);
+      vec3 V = normalize(cameraPosition - vWorldPosition);
 
       vec3 albedo = texture2D(uAlbedo, vUv).rgb;
 
@@ -54,15 +51,15 @@ const MarsSurfaceShader = {
       float lat = abs(vUv.y - 0.5) * 2.0;
       float isPolarCap = smoothstep(0.85, 0.96, lat) * smoothstep(0.45, 0.75, length(albedo));
 
-      // Day / Night illumination
-      float sunDot = dot(worldNormal, sunDir);
-      float diffuse = max(0.0, sunDot);
+      // Day / Night illumination strictly from Sun position
+      float NdotL = dot(N, L);
+      float diffuse = max(0.0, NdotL);
 
-      // Mars crisp terminator with subtle dusty twilight
-      float twilight = smoothstep(0.08, -0.04, sunDot) * smoothstep(-0.08, 0.02, sunDot) * 0.12;
+      // Mars crisp soft terminator with subtle dusty twilight
+      float twilight = smoothstep(0.06, -0.03, NdotL) * smoothstep(-0.06, 0.02, NdotL) * 0.12;
       vec3 twilightColor = vec3(0.85, 0.42, 0.18) * twilight;
 
-      vec3 surfaceDay = albedo * (diffuse * 1.55 + 0.02) + twilightColor;
+      vec3 surfaceDay = albedo * diffuse * 1.50 + twilightColor;
 
       // Polar caps
       if (isPolarCap > 0.01) {
@@ -70,13 +67,13 @@ const MarsSurfaceShader = {
         surfaceDay = mix(surfaceDay, polarIce, isPolarCap * 0.85);
       }
 
-      // Thin Sunlit-Only Atmospheric Dust Scattering (2-3% of radius, zero halo on nightside)
-      float rim = 1.0 - max(0.0, dot(normal, viewDir));
-      float sunlitLimb = pow(rim, 5.5) * smoothstep(0.0, 0.35, sunDot);
-      vec3 limbColor = vec3(0.90, 0.52, 0.28) * sunlitLimb * 0.55;
+      // Thin Sunlit-Only Atmospheric Dust Scattering (zero halo on nightside)
+      float rim = 1.0 - clamp(dot(N, V), 0.0, 1.0);
+      float sunlitLimb = pow(rim, 5.5) * smoothstep(0.0, 0.25, NdotL);
+      vec3 limbColor = vec3(0.90, 0.52, 0.28) * sunlitLimb * 0.50;
 
-      // Dark nightside: pure silhouette in space
-      vec3 nightSide = albedo * 0.003;
+      // Dark nightside: textured ambient at 0.015 (dark but readable)
+      vec3 nightSide = albedo * 0.015;
 
       gl_FragColor = vec4(surfaceDay + limbColor + nightSide, 1.0);
     }
@@ -88,19 +85,14 @@ export function CinematicMars({
   radius = 2.7,
   axialTilt = (25.19 * Math.PI) / 180,
   isPlaying = true,
+  sunPosition = [0, 0, 0],
   onClick
 }) {
   const albedoMap = useTexture('/assets/planets/mars/mars.jpg');
   const marsBodyRef = useRef();
   const shaderRef = useRef();
 
-  const computedSunDir = useMemo(() => {
-    const pos = new THREE.Vector3(...position);
-    if (pos.lengthSq() > 1.0) {
-      return new THREE.Vector3(0, 0, 0).sub(pos).normalize();
-    }
-    return new THREE.Vector3(1, 0.35, 1).normalize();
-  }, [position]);
+  const sunPosVec = useMemo(() => new THREE.Vector3(...sunPosition), [sunPosition]);
 
   useFrame((_, delta) => {
     if (isPlaying && marsBodyRef.current) {
@@ -108,14 +100,7 @@ export function CinematicMars({
       marsBodyRef.current.rotation.y += delta * 0.11;
     }
     if (shaderRef.current) {
-      const worldPos = new THREE.Vector3();
-      if (marsBodyRef.current) {
-        marsBodyRef.current.getWorldPosition(worldPos);
-      }
-      const sunDir = worldPos.lengthSq() > 0.1
-        ? new THREE.Vector3(0, 0, 0).sub(worldPos).normalize()
-        : new THREE.Vector3(1, 0, 0);
-      shaderRef.current.uniforms.uSunDirection.value.copy(sunDir);
+      shaderRef.current.uniforms.uSunPosition.value.copy(sunPosVec);
     }
   });
 
@@ -131,7 +116,7 @@ export function CinematicMars({
           depthTest={true}
           uniforms={{
             uAlbedo: { value: albedoMap },
-            uSunDirection: { value: computedSunDir }
+            uSunPosition: { value: sunPosVec }
           }}
         />
       </mesh>

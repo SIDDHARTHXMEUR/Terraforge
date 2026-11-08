@@ -15,21 +15,17 @@ const SaturnSurfaceShader = {
     #include <logdepthbuf_pars_vertex>
 
     varying vec2 vUv;
-    varying vec3 vNormal;
     varying vec3 vWorldNormal;
     varying vec3 vWorldPosition;
-    varying vec3 vViewPosition;
     varying vec3 vLocalPosition;
 
     void main() {
       vUv = uv;
-      vNormal = normalize(normalMatrix * normal);
-      vWorldNormal = normalize((modelMatrix * vec4(normal, 0.0)).xyz);
+      vLocalPosition = position;
       vec4 worldPos = modelMatrix * vec4(position, 1.0);
       vWorldPosition = worldPos.xyz;
-      vLocalPosition = position;
-      vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-      vViewPosition = -mvPosition.xyz;
+      vWorldNormal = normalize((modelMatrix * vec4(normal, 0.0)).xyz);
+      vec4 mvPosition = viewMatrix * worldPos;
       gl_Position = projectionMatrix * mvPosition;
 
       #include <logdepthbuf_vertex>
@@ -39,84 +35,75 @@ const SaturnSurfaceShader = {
     #include <logdepthbuf_pars_fragment>
 
     varying vec2 vUv;
-    varying vec3 vNormal;
     varying vec3 vWorldNormal;
     varying vec3 vWorldPosition;
-    varying vec3 vViewPosition;
     varying vec3 vLocalPosition;
 
     uniform sampler2D uAlbedo;
-    uniform vec3 uSunDirection;
+    uniform vec3 uSunPosition;
+    uniform vec3 uPlanetCenter;
+    uniform vec3 uRingNormal;
     uniform float uRadius;
 
     void main() {
       #include <logdepthbuf_fragment>
 
-      vec3 normal = normalize(vNormal);
-      vec3 worldNormal = normalize(vWorldNormal);
-      vec3 viewDir = normalize(vViewPosition);
-      vec3 sunDir = normalize(uSunDirection);
+      vec3 N = normalize(vWorldNormal);
+      vec3 L = normalize(uSunPosition - vWorldPosition);
+      vec3 V = normalize(cameraPosition - vWorldPosition);
 
       vec3 texColor = texture2D(uAlbedo, vUv).rgb;
 
-      // Physical Bounded Minnaert Limb Darkening for Gas Giant Atmospheres
-      float cosI = max(0.0, dot(worldNormal, sunDir));
-      float cosE = max(0.0, dot(normal, viewDir));
-      float limbFalloff = pow(clamp(cosE, 0.0, 1.0), 0.35);
-      float diffuse = pow(cosI, 0.95) * (limbFalloff * 0.75 + 0.25);
+      // Physical Bounded Minnaert Limb Darkening strictly from Sun
+      float NdotL = dot(N, L);
+      float diffuse = max(0.0, NdotL);
+      float cosE = clamp(dot(N, V), 0.0, 1.0);
+      float limbFalloff = pow(cosE, 0.25) * 0.70 + 0.30;
 
-      // Subtle warm golden/butterscotch cloud banding
+      // Subtle warm golden cloud banding
       vec3 saturnGold = vec3(0.96, 0.88, 0.68);
       vec3 baseCloud = mix(texColor, saturnGold, 0.25);
 
       // -----------------------------------------------------------------------
-      // Ring-on-Planet Shadow Projection
-      // Check if light ray towards Sun intersects Saturn's ring plane (y = 0)
+      // World-space Ring-on-Planet Shadow Projection
       // -----------------------------------------------------------------------
       float shadowFactor = 1.0;
-      if (abs(sunDir.y) > 0.001) {
-        float t = -vLocalPosition.y / sunDir.y;
+      float dPlane = dot(vWorldPosition - uPlanetCenter, uRingNormal);
+      float Lproj = dot(L, uRingNormal);
+
+      if (abs(Lproj) > 0.001) {
+        float t = -dPlane / Lproj;
         if (t > 0.0) {
-          vec3 ringHit = vLocalPosition + sunDir * t;
-          float hitDist = length(vec2(ringHit.x, ringHit.z));
+          vec3 hitPoint = vWorldPosition + L * t;
+          float hitDist = length(hitPoint - uPlanetCenter);
           float rInner = uRadius * 1.35;
           float rOuter = uRadius * 2.85;
           if (hitDist >= rInner && hitDist <= rOuter) {
-            // Check if hitting the Cassini Division gap (~ 1.95 - 2.02 R)
             float normR = (hitDist - rInner) / (rOuter - rInner);
             bool isCassiniGap = normR > 0.42 && normR < 0.48;
             if (!isCassiniGap) {
-              shadowFactor = 0.22; // Deep shadow of main rings
+              shadowFactor = 0.20;
             }
           }
         }
       }
 
-      // Terminator and diffuse shading
-      float sunDot = dot(worldNormal, sunDir);
-      float dayFactor = smoothstep(-0.15, 0.25, sunDot);
+      // Atmospheric Limb Glow - strictly sunlit, zero rim on nightside
+      float rim = 1.0 - cosE;
+      float sunlitLimb = pow(rim, 5.0) * smoothstep(0.0, 0.25, NdotL);
+      vec3 atmoLimb = vec3(0.98, 0.88, 0.62) * sunlitLimb * 0.45;
 
-      // Atmospheric Limb Glow - strictly sunlit, zero rim on nightside!
-      float rim = 1.0 - max(0.0, dot(normal, viewDir));
-      float sunlitLimb = smoothstep(0.0, 0.30, sunDot);
-      float limbScatter = pow(rim, 4.0) * sunlitLimb;
-      vec3 atmoLimb = vec3(0.98, 0.88, 0.62) * limbScatter * 1.25;
-
-      // Ringshine & Starlight fill on nightside:
-      // Rings sit in equatorial plane (y=0) out to ~2.8 R. The atmosphere receives reflected light from the rings.
+      // Ringshine & dark nightside ambient at 0.015
       float ringProximity = clamp(1.0 - abs(vLocalPosition.y) / uRadius, 0.0, 1.0);
-      vec3 ringshine = vec3(0.92, 0.84, 0.68) * ringProximity * 0.095 * (1.0 - dayFactor);
-      vec3 nightAmbient = baseCloud * 0.032 + ringshine;
+      vec3 ringshine = vec3(0.92, 0.84, 0.68) * ringProximity * 0.06 * smoothstep(0.1, -0.2, NdotL);
+      vec3 nightAmbient = baseCloud * 0.015 + ringshine;
 
-      vec3 finalColor = baseCloud * diffuse * shadowFactor * 1.20 + atmoLimb + nightAmbient;
+      vec3 finalColor = baseCloud * diffuse * limbFalloff * shadowFactor * 1.30 + atmoLimb + nightAmbient;
       gl_FragColor = vec4(finalColor, 1.0);
     }
   `
 };
 
-// -----------------------------------------------------------------------------
-// 2. Saturn Cassini Division Rings with Planet-on-Ring Shadow
-// -----------------------------------------------------------------------------
 const SaturnRingsShader = {
   vertexShader: `
     #include <common>
@@ -124,7 +111,6 @@ const SaturnRingsShader = {
 
     varying vec2 vUv;
     varying vec3 vWorldPosition;
-    varying vec3 vViewPosition;
     varying vec3 vLocalPosition;
 
     void main() {
@@ -132,8 +118,7 @@ const SaturnRingsShader = {
       vLocalPosition = position;
       vec4 worldPos = modelMatrix * vec4(position, 1.0);
       vWorldPosition = worldPos.xyz;
-      vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-      vViewPosition = -mvPosition.xyz;
+      vec4 mvPosition = viewMatrix * worldPos;
       gl_Position = projectionMatrix * mvPosition;
 
       #include <logdepthbuf_vertex>
@@ -144,48 +129,40 @@ const SaturnRingsShader = {
 
     varying vec2 vUv;
     varying vec3 vWorldPosition;
-    varying vec3 vViewPosition;
     varying vec3 vLocalPosition;
 
     uniform sampler2D uRingMap;
-    uniform vec3 uSunDirection;
+    uniform vec3 uSunPosition;
     uniform vec3 uPlanetCenter;
     uniform float uPlanetRadius;
 
     void main() {
       #include <logdepthbuf_fragment>
 
-      // Sample radial ring texture
       vec4 ringTex = texture2D(uRingMap, vUv);
+      vec3 L = normalize(uSunPosition - vWorldPosition);
+      vec3 V = normalize(cameraPosition - vWorldPosition);
 
-      // -----------------------------------------------------------------------
       // Planet-on-Ring Shadow Projection
-      // The iconic dark shadow Saturn casts across its rings behind the planet
-      // -----------------------------------------------------------------------
-      vec3 toSun = normalize(uSunDirection);
       vec3 ringToPlanet = vWorldPosition - uPlanetCenter;
-
-      // Project onto sun ray direction: if behind planet (dot < 0), test distance to shadow cylinder
-      float sunProj = dot(ringToPlanet, toSun);
+      float sunProj = dot(-ringToPlanet, L);
       float shadow = 1.0;
 
-      if (sunProj < 0.0) {
-        // Distance perpendicular to shadow ray
-        vec3 perp = ringToPlanet - toSun * sunProj;
+      if (sunProj > 0.0) {
+        vec3 perp = ringToPlanet + L * sunProj;
         float distToAxis = length(perp);
         if (distToAxis < uPlanetRadius * 1.02) {
-          float penumbra = smoothstep(uPlanetRadius * 0.96, uPlanetRadius * 1.02, distToAxis);
+          float penumbra = smoothstep(uPlanetRadius * 0.95, uPlanetRadius * 1.02, distToAxis);
           shadow = mix(0.04, 1.0, penumbra);
         }
       }
 
-      // Backlit forward-scattering (Cassini phase angle translucent glow - clamped, zero blowout)
-      vec3 viewDir = normalize(vViewPosition);
-      float forwardFactor = pow(max(0.0, dot(viewDir, toSun)), 6.0);
-      vec3 forwardGlow = vec3(0.95, 0.88, 0.70) * forwardFactor * 0.40;
+      // Backlit forward-scattering (Cassini phase angle translucent glow)
+      float cosPhase = dot(L, V);
+      float forwardFactor = pow(clamp(-cosPhase, 0.0, 1.0), 4.5);
+      vec3 forwardGlow = vec3(0.98, 0.90, 0.75) * forwardFactor * 0.65;
 
-      // Ring illumination: double-sided scattering with transparency and soft forward glow
-      vec3 ringColor = clamp((ringTex.rgb * vec3(0.95, 0.90, 0.80) + forwardGlow) * shadow * 1.15, 0.0, 1.25);
+      vec3 ringColor = clamp((ringTex.rgb * vec3(0.95, 0.90, 0.80) + forwardGlow) * shadow * 1.25, 0.0, 1.35);
       float alpha = ringTex.a * 0.92;
 
       if (alpha < 0.02) discard;
@@ -199,6 +176,7 @@ export function CinematicSaturn({
   position = [0, 0, 0],
   radius = 11.5,
   isPlaying = true,
+  sunPosition = [0, 0, 0],
   onClick
 }) {
   const [saturnMap, ringMap] = useTexture([
@@ -226,13 +204,9 @@ export function CinematicSaturn({
   const surfaceShaderRef = useRef();
   const ringShaderRef = useRef();
 
-  const computedSunDir = useMemo(() => {
-    const pos = new THREE.Vector3(...position);
-    if (pos.lengthSq() > 1.0) {
-      return new THREE.Vector3(0, 0, 0).sub(pos).normalize();
-    }
-    return new THREE.Vector3(1, 0.35, 1).normalize();
-  }, [position]);
+  const sunPosVec = useMemo(() => new THREE.Vector3(...sunPosition), [sunPosition]);
+  const planetCenterVec = useRef(new THREE.Vector3());
+  const ringNormalVec = useRef(new THREE.Vector3(0, 1, 0));
 
   // High-density custom Ring Geometry with radial 1D UV mapping
   const ringGeometry = useMemo(() => {
@@ -256,18 +230,25 @@ export function CinematicSaturn({
     return geo;
   }, [radius]);
 
-  const planetCenterVec = useMemo(() => new THREE.Vector3(...position), [position]);
-
   useFrame((_, delta) => {
     if (isPlaying && saturnBodyRef.current) {
       saturnBodyRef.current.rotation.y += delta * 0.16;
     }
+
+    if (saturnBodyRef.current) {
+      saturnBodyRef.current.getWorldPosition(planetCenterVec.current);
+      // Ring normal in world coordinates
+      ringNormalVec.current.set(0, 1, 0).applyQuaternion(saturnBodyRef.current.getWorldQuaternion(new THREE.Quaternion())).normalize();
+    }
+
     if (surfaceShaderRef.current) {
-      surfaceShaderRef.current.uniforms.uSunDirection.value = computedSunDir;
+      surfaceShaderRef.current.uniforms.uSunPosition.value.copy(sunPosVec);
+      surfaceShaderRef.current.uniforms.uPlanetCenter.value.copy(planetCenterVec.current);
+      surfaceShaderRef.current.uniforms.uRingNormal.value.copy(ringNormalVec.current);
     }
     if (ringShaderRef.current) {
-      ringShaderRef.current.uniforms.uSunDirection.value = computedSunDir;
-      ringShaderRef.current.uniforms.uPlanetCenter.value.set(...position);
+      ringShaderRef.current.uniforms.uSunPosition.value.copy(sunPosVec);
+      ringShaderRef.current.uniforms.uPlanetCenter.value.copy(planetCenterVec.current);
     }
   });
 
@@ -289,7 +270,9 @@ export function CinematicSaturn({
           depthTest={true}
           uniforms={{
             uAlbedo: { value: saturnMap },
-            uSunDirection: { value: computedSunDir },
+            uSunPosition: { value: sunPosVec },
+            uPlanetCenter: { value: planetCenterVec.current },
+            uRingNormal: { value: ringNormalVec.current },
             uRadius: { value: radius }
           }}
         />
@@ -308,8 +291,8 @@ export function CinematicSaturn({
           args={[SaturnRingsShader]}
           uniforms={{
             uRingMap: { value: ringMap },
-            uSunDirection: { value: computedSunDir },
-            uPlanetCenter: { value: planetCenterVec },
+            uSunPosition: { value: sunPosVec },
+            uPlanetCenter: { value: planetCenterVec.current },
             uPlanetRadius: { value: radius }
           }}
           transparent={true}

@@ -245,12 +245,16 @@ export function SolarSystemEngine({
         }}
       />
 
+      {/* Shared omnidirectional light source situated at the Sun's world-space origin [0, 0, 0] */}
+      <pointLight position={[0, 0, 0]} intensity={2.0} color="#fff8e7" decay={0} />
+
       {/* Planetary System (Hidden during Sol close-up to prevent floating foreground silhouettes) */}
       <group visible={selectedBody !== 'sun'}>
         {/* 6. Mercury */}
         <group ref={mercuryGroupRef} position={positionsRef.current.mercury}>
           <CinematicMercury
             position={[0, 0, 0]}
+            sunPosition={[0, 0, 0]}
             radius={DISPLAY_RADII.mercury}
             isPlaying={!isPaused}
             onClick={(e) => {
@@ -264,6 +268,7 @@ export function SolarSystemEngine({
         <group ref={venusGroupRef} position={positionsRef.current.venus}>
           <CinematicVenus
             position={[0, 0, 0]}
+            sunPosition={[0, 0, 0]}
             radius={DISPLAY_RADII.venus}
             isPlaying={!isPaused}
             onClick={(e) => {
@@ -277,6 +282,7 @@ export function SolarSystemEngine({
         <group ref={earthGroupRef} position={positionsRef.current.earth}>
           <CinematicEarth
             position={[0, 0, 0]}
+            sunPosition={[0, 0, 0]}
             radius={DISPLAY_RADII.earth}
             isPlaying={!isPaused}
             onClick={(e) => {
@@ -290,6 +296,7 @@ export function SolarSystemEngine({
         <group ref={marsGroupRef} position={positionsRef.current.mars}>
           <CinematicMars
             position={[0, 0, 0]}
+            sunPosition={[0, 0, 0]}
             radius={DISPLAY_RADII.mars}
             isPlaying={!isPaused}
             onClick={(e) => {
@@ -315,6 +322,7 @@ export function SolarSystemEngine({
         <group ref={jupiterGroupRef} position={positionsRef.current.jupiter}>
           <CinematicJupiter
             position={[0, 0, 0]}
+            sunPosition={[0, 0, 0]}
             radius={DISPLAY_RADII.jupiter}
             isPlaying={!isPaused}
             onClick={(e) => {
@@ -328,6 +336,7 @@ export function SolarSystemEngine({
         <group ref={saturnGroupRef} position={positionsRef.current.saturn}>
           <CinematicSaturn
             position={[0, 0, 0]}
+            sunPosition={[0, 0, 0]}
             radius={DISPLAY_RADII.saturn}
             isPlaying={!isPaused}
             onClick={(e) => {
@@ -341,6 +350,7 @@ export function SolarSystemEngine({
         <group ref={uranusGroupRef} position={positionsRef.current.uranus}>
           <CinematicUranus
             position={[0, 0, 0]}
+            sunPosition={[0, 0, 0]}
             radius={DISPLAY_RADII.uranus}
             isPlaying={!isPaused}
             onClick={(e) => {
@@ -354,6 +364,7 @@ export function SolarSystemEngine({
         <group ref={neptuneGroupRef} position={positionsRef.current.neptune}>
           <CinematicNeptune
             position={[0, 0, 0]}
+            sunPosition={[0, 0, 0]}
             radius={DISPLAY_RADII.neptune}
             isPlaying={!isPaused}
             onClick={(e) => {

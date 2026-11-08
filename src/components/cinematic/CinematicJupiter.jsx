@@ -18,19 +18,15 @@ const JupiterSurfaceShader = {
     #include <logdepthbuf_pars_vertex>
 
     varying vec2 vUv;
-    varying vec3 vNormal;
     varying vec3 vWorldNormal;
     varying vec3 vWorldPos;
-    varying vec3 vViewPosition;
 
     void main() {
       vUv = uv;
-      vNormal = normalize(normalMatrix * normal);
       vec4 worldP = modelMatrix * vec4(position, 1.0);
       vWorldPos = worldP.xyz;
       vWorldNormal = normalize((modelMatrix * vec4(normal, 0.0)).xyz);
-      vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-      vViewPosition = -mvPosition.xyz;
+      vec4 mvPosition = viewMatrix * worldP;
       gl_Position = projectionMatrix * mvPosition;
 
       #include <logdepthbuf_vertex>
@@ -40,13 +36,11 @@ const JupiterSurfaceShader = {
     #include <logdepthbuf_pars_fragment>
 
     varying vec2 vUv;
-    varying vec3 vNormal;
     varying vec3 vWorldNormal;
     varying vec3 vWorldPos;
-    varying vec3 vViewPosition;
 
     uniform sampler2D uAlbedo;
-    uniform vec3 uSunDirection;
+    uniform vec3 uSunPosition;
     uniform float uTime;
     uniform vec3 uIoWorldPos;
     uniform float uIoRadius;
@@ -54,10 +48,9 @@ const JupiterSurfaceShader = {
     void main() {
       #include <logdepthbuf_fragment>
 
-      vec3 normal = normalize(vNormal);
-      vec3 worldNormal = normalize(vWorldNormal);
-      vec3 viewDir = normalize(vViewPosition);
-      vec3 sunDir = normalize(uSunDirection);
+      vec3 N = normalize(vWorldNormal);
+      vec3 L = normalize(uSunPosition - vWorldPos);
+      vec3 V = normalize(cameraPosition - vWorldPos);
 
       // Zonal Shear Velocity Profile:
       float lat = (vUv.y - 0.5) * 3.14159;
@@ -78,32 +71,31 @@ const JupiterSurfaceShader = {
 
       // Io Shadow Projection onto Jupiter's cloud deck
       vec3 dIo = uIoWorldPos - vWorldPos;
-      float distAlongSun = dot(dIo, sunDir);
+      float distAlongSun = dot(dIo, L);
       float ioShadow = 1.0;
       if (distAlongSun > 0.0 && uIoRadius > 0.01) {
-        vec3 dPerp = dIo - distAlongSun * sunDir;
+        vec3 dPerp = dIo - distAlongSun * L;
         float shadowDist = length(dPerp);
         ioShadow = smoothstep(uIoRadius * 0.85, uIoRadius * 1.35, shadowDist);
       }
 
-      // Physical Bounded Minnaert Atmospheric Scattering with soft terminator wrap
-      float cosI = dot(worldNormal, sunDir);
-      float cosE = max(0.0, dot(normal, viewDir));
-      float limbFalloff = pow(clamp(cosE, 0.0, 1.0), 0.35);
-      float direct = smoothstep(-0.16, 0.32, cosI) * (limbFalloff * 0.70 + 0.30) * ioShadow;
+      // Physical Bounded Minnaert Atmospheric Scattering strictly from Sun
+      float NdotL = dot(N, L);
+      float diffuse = max(0.0, NdotL);
+      float cosE = clamp(dot(N, V), 0.0, 1.0);
+      float limbDarkening = pow(cosE, 0.25) * 0.70 + 0.30;
+      float direct = diffuse * limbDarkening * ioShadow;
 
-      // Soft ambient interplanetary fill (prevents harsh desaturated grey crescent at deep overview)
-      vec3 ambient = texColor * 0.10 * vec3(0.95, 0.88, 0.80);
+      // Thin Sunlit-Only Atmospheric Limb Scatter (zero halo on nightside)
+      float rim = 1.0 - cosE;
+      float sunlitLimb = pow(rim, 5.5) * smoothstep(0.0, 0.25, NdotL);
+      vec3 jovianLimb = vec3(0.95, 0.82, 0.55) * sunlitLimb * 0.45;
 
-      // Thin Sunlit-Only Atmospheric Limb Scatter (2-3% of radius, zero halo on nightside)
-      float sunDot = dot(worldNormal, sunDir);
-      float rim = 1.0 - max(0.0, dot(normal, viewDir));
-      float sunlitLimb = pow(rim, 5.5) * smoothstep(0.0, 0.35, sunDot);
-      vec3 jovianLimb = vec3(0.95, 0.82, 0.55) * sunlitLimb * 0.55;
+      // Dark nightside ambient at 0.015 (dark but textured)
+      vec3 nightSide = texColor * 0.015;
 
-      // Color saturation preservation at small display scales
       vec3 saturatedColor = mix(texColor, texColor * vec3(1.10, 0.96, 0.86), 0.30);
-      vec3 finalColor = saturatedColor * (direct * 1.15) + ambient + jovianLimb;
+      vec3 finalColor = saturatedColor * (direct * 1.35) + jovianLimb + nightSide;
       gl_FragColor = vec4(finalColor, 1.0);
     }
   `
@@ -113,6 +105,7 @@ export function CinematicJupiter({
   position = [0, 0, 0],
   radius = 18.0,
   isPlaying = true,
+  sunPosition = [0, 0, 0],
   onClick
 }) {
   const [jupiterMap, ioMap, europaMap, ganymedeMap, callistoMap] = useTexture([
@@ -146,28 +139,14 @@ export function CinematicJupiter({
   const callistoAngleRef = useRef(5.2);
 
   const ioWorldPosRef = useRef(new THREE.Vector3());
-
-  const computedSunDir = useMemo(() => {
-    const pos = new THREE.Vector3(...position);
-    if (pos.lengthSq() > 1.0) {
-      return new THREE.Vector3(0, 0, 0).sub(pos).normalize();
-    }
-    return new THREE.Vector3(1, 0.35, 1).normalize();
-  }, [position]);
+  const sunPosVec = useMemo(() => new THREE.Vector3(...sunPosition), [sunPosition]);
 
   useFrame((state, delta) => {
     const elapsed = state.clock.getElapsedTime();
 
     if (shaderRef.current) {
       shaderRef.current.uniforms.uTime.value = elapsed;
-      const worldPos = new THREE.Vector3();
-      if (jupiterRef.current) {
-        jupiterRef.current.getWorldPosition(worldPos);
-      }
-      const sunDir = worldPos.lengthSq() > 0.1
-        ? new THREE.Vector3(0, 0, 0).sub(worldPos).normalize()
-        : new THREE.Vector3(1, 0, 0);
-      shaderRef.current.uniforms.uSunDirection.value.copy(sunDir);
+      shaderRef.current.uniforms.uSunPosition.value.copy(sunPosVec);
       if (ioRef.current) {
         ioRef.current.getWorldPosition(ioWorldPosRef.current);
         shaderRef.current.uniforms.uIoWorldPos.value.copy(ioWorldPosRef.current);
@@ -250,7 +229,7 @@ export function CinematicJupiter({
           depthTest={true}
           uniforms={{
             uAlbedo: { value: jupiterMap },
-            uSunDirection: { value: computedSunDir },
+            uSunPosition: { value: sunPosVec },
             uTime: { value: 0 },
             uIoWorldPos: { value: new THREE.Vector3() },
             uIoRadius: { value: ioRadiusVal }

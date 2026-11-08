@@ -15,16 +15,15 @@ const MercurySurfaceShader = {
     #include <logdepthbuf_pars_vertex>
 
     varying vec2 vUv;
-    varying vec3 vNormal;
     varying vec3 vWorldNormal;
-    varying vec3 vViewPosition;
+    varying vec3 vWorldPosition;
 
     void main() {
       vUv = uv;
-      vNormal = normalize(normalMatrix * normal);
+      vec4 worldPos = modelMatrix * vec4(position, 1.0);
+      vWorldPosition = worldPos.xyz;
       vWorldNormal = normalize((modelMatrix * vec4(normal, 0.0)).xyz);
-      vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-      vViewPosition = -mvPosition.xyz;
+      vec4 mvPosition = viewMatrix * worldPos;
       gl_Position = projectionMatrix * mvPosition;
 
       #include <logdepthbuf_vertex>
@@ -34,12 +33,11 @@ const MercurySurfaceShader = {
     #include <logdepthbuf_pars_fragment>
 
     varying vec2 vUv;
-    varying vec3 vNormal;
     varying vec3 vWorldNormal;
-    varying vec3 vViewPosition;
+    varying vec3 vWorldPosition;
 
     uniform sampler2D uAlbedo;
-    uniform vec3 uSunDirection;
+    uniform vec3 uSunPosition;
 
     // Procedural high-frequency crater micro-relief
     float hash(vec2 p) {
@@ -57,10 +55,9 @@ const MercurySurfaceShader = {
     void main() {
       #include <logdepthbuf_fragment>
 
-      vec3 normal = normalize(vNormal);
-      vec3 worldNormal = normalize(vWorldNormal);
-      vec3 viewDir = normalize(vViewPosition);
-      vec3 sunDir = normalize(uSunDirection);
+      vec3 N = normalize(vWorldNormal);
+      vec3 L = normalize(uSunPosition - vWorldPosition);
+      vec3 V = normalize(cameraPosition - vWorldPosition);
 
       // Base 2K NASA MESSENGER albedo map
       vec3 albedo = texture2D(uAlbedo, vUv).rgb;
@@ -70,27 +67,25 @@ const MercurySurfaceShader = {
       vec3 adjustedAlbedo = albedo * (1.0 + relief * 0.25);
 
       // 1. Airless Lommel-Seeliger Scattering Law:
-      // I = cos(i) / (cos(i) + cos(e))
-      float cosI = max(0.0, dot(worldNormal, sunDir));
-      float cosE = max(0.0, dot(normal, viewDir));
+      float NdotL = dot(N, L);
+      float cosI = max(0.0, NdotL);
+      float cosE = max(0.0, dot(N, V));
 
       float lommelSeeliger = 0.0;
       if (cosI + cosE > 0.001) {
         lommelSeeliger = cosI / (cosI + cosE);
       }
 
-      // Airless terminator: extremely sharp cut-off into total void shadow
-      float sunDot = dot(worldNormal, sunDir);
-      float terminatorMask = smoothstep(-0.02, 0.04, sunDot);
+      // Airless terminator: sharp cut-off into total void shadow
+      float terminatorMask = smoothstep(-0.01, 0.04, NdotL);
 
-      // Blend Lommel-Seeliger with subtle Lambertian diffuse
-      float illumination = mix(cosI, lommelSeeliger * 1.8, 0.65) * terminatorMask;
+      // Blend Lommel-Seeliger with Lambertian diffuse
+      float illumination = mix(cosI, lommelSeeliger * 1.6, 0.60) * terminatorMask;
 
-      // Dark basaltic regolith color grading (calibrated to preserve crater detail under harsh solar flux)
-      vec3 surfaceColor = adjustedAlbedo * illumination * 1.25;
+      vec3 surfaceColor = adjustedAlbedo * illumination * 1.30;
 
-      // Deep space ambient fill on unlit side (starlight only, 0.006) - 100% solid & opaque
-      vec3 nightSide = albedo * 0.006;
+      // Nightside: textured ambient at 0.015 (dark but readable)
+      vec3 nightSide = albedo * 0.015;
 
       gl_FragColor = vec4(surfaceColor + nightSide, 1.0);
     }
@@ -102,20 +97,14 @@ export function CinematicMercury({
   radius = 2.4,
   axialTilt = (0.03 * Math.PI) / 180,
   isPlaying = true,
+  sunPosition = [0, 0, 0],
   onClick
 }) {
   const albedoMap = useTexture('/assets/planets/mercury/mercury.jpg');
   const mercuryMeshRef = useRef();
   const shaderRef = useRef();
 
-  // Dynamic sunlight vector from Mercury position toward Sun at origin
-  const computedSunDir = useMemo(() => {
-    const pos = new THREE.Vector3(...position);
-    if (pos.lengthSq() > 1.0) {
-      return new THREE.Vector3(0, 0, 0).sub(pos).normalize();
-    }
-    return new THREE.Vector3(1, 0.35, 1).normalize();
-  }, [position]);
+  const sunPosVec = useMemo(() => new THREE.Vector3(...sunPosition), [sunPosition]);
 
   useFrame((_, delta) => {
     if (isPlaying && mercuryMeshRef.current) {
@@ -123,14 +112,7 @@ export function CinematicMercury({
       mercuryMeshRef.current.rotation.y += delta * 0.04;
     }
     if (shaderRef.current) {
-      const worldPos = new THREE.Vector3();
-      if (mercuryMeshRef.current) {
-        mercuryMeshRef.current.getWorldPosition(worldPos);
-      }
-      const sunDir = worldPos.lengthSq() > 0.1
-        ? new THREE.Vector3(0, 0, 0).sub(worldPos).normalize()
-        : new THREE.Vector3(1, 0, 0);
-      shaderRef.current.uniforms.uSunDirection.value.copy(sunDir);
+      shaderRef.current.uniforms.uSunPosition.value.copy(sunPosVec);
     }
   });
 
@@ -146,7 +128,7 @@ export function CinematicMercury({
           depthTest={true}
           uniforms={{
             uAlbedo: { value: albedoMap },
-            uSunDirection: { value: computedSunDir }
+            uSunPosition: { value: sunPosVec }
           }}
         />
       </mesh>

@@ -15,16 +15,15 @@ const NeptuneAtmosphereShader = {
     #include <logdepthbuf_pars_vertex>
 
     varying vec2 vUv;
-    varying vec3 vNormal;
     varying vec3 vWorldNormal;
-    varying vec3 vViewPosition;
+    varying vec3 vWorldPosition;
 
     void main() {
       vUv = uv;
-      vNormal = normalize(normalMatrix * normal);
+      vec4 worldPos = modelMatrix * vec4(position, 1.0);
+      vWorldPosition = worldPos.xyz;
       vWorldNormal = normalize((modelMatrix * vec4(normal, 0.0)).xyz);
-      vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-      vViewPosition = -mvPosition.xyz;
+      vec4 mvPosition = viewMatrix * worldPos;
       gl_Position = projectionMatrix * mvPosition;
 
       #include <logdepthbuf_vertex>
@@ -34,21 +33,19 @@ const NeptuneAtmosphereShader = {
     #include <logdepthbuf_pars_fragment>
 
     varying vec2 vUv;
-    varying vec3 vNormal;
     varying vec3 vWorldNormal;
-    varying vec3 vViewPosition;
+    varying vec3 vWorldPosition;
 
     uniform sampler2D uAlbedo;
-    uniform vec3 uSunDirection;
+    uniform vec3 uSunPosition;
     uniform float uTime;
 
     void main() {
       #include <logdepthbuf_fragment>
 
-      vec3 normal = normalize(vNormal);
-      vec3 worldNormal = normalize(vWorldNormal);
-      vec3 viewDir = normalize(vViewPosition);
-      vec3 sunDir = normalize(uSunDirection);
+      vec3 N = normalize(vWorldNormal);
+      vec3 L = normalize(uSunPosition - vWorldPosition);
+      vec3 V = normalize(cameraPosition - vWorldPosition);
 
       vec3 texColor = texture2D(uAlbedo, vUv).rgb;
 
@@ -71,22 +68,19 @@ const NeptuneAtmosphereShader = {
       float subtleBanding = sin(vUv.y * 14.0 + uTime * 0.01) * 0.012;
       baseColor += vec3(0.04, 0.08, 0.16) * subtleBanding;
 
-      // 4. Authentic Methane Rayleigh Haze Optical Depth (volumetric depth at grazing angle)
-      float cosTheta = clamp(dot(normal, viewDir), 0.0, 1.0);
-      float hazeDepth = pow(1.0 - cosTheta, 2.6);
-      vec3 hazeColor = vec3(0.18, 0.55, 0.98);
-      float sunDot = dot(worldNormal, sunDir);
-      baseColor = mix(baseColor, hazeColor, hazeDepth * 0.38 * smoothstep(-0.1, 0.35, sunDot));
+      // Day / Night illumination strictly from Sun
+      float NdotL = dot(N, L);
+      float diffuse = max(0.0, NdotL);
 
-      // Day / Night illumination with soft terminator wrap
-      float diffuse = smoothstep(-0.18, 0.32, sunDot);
+      // Thin Sunlit-Only Azure Limb Scattering (zero halo on nightside)
+      float cosE = clamp(dot(N, V), 0.0, 1.0);
+      float sunlitScatter = pow(1.0 - cosE, 5.5) * smoothstep(0.0, 0.25, NdotL);
+      vec3 azureLimb = vec3(0.22, 0.50, 0.95) * sunlitScatter * 0.50;
 
-      // Thin Sunlit-Only Azure Limb Scattering (2-3% of radius, zero halo on nightside)
-      float rim = 1.0 - max(0.0, dot(normal, viewDir));
-      float sunlitScatter = pow(rim, 5.5) * smoothstep(0.0, 0.35, sunDot);
-      vec3 azureLimb = vec3(0.22, 0.50, 0.95) * sunlitScatter * 0.65;
+      // Dark nightside ambient at 0.015 (dark but textured)
+      vec3 nightSide = baseColor * 0.015;
 
-      vec3 surface = baseColor * (diffuse * 1.08 + 0.03) + azureLimb;
+      vec3 surface = baseColor * diffuse * 1.25 + azureLimb + nightSide;
       gl_FragColor = vec4(surface, 1.0);
     }
   `
@@ -97,26 +91,21 @@ export function CinematicNeptune({
   radius = 6.3,
   axialTilt = (28.32 * Math.PI) / 180,
   isPlaying = true,
+  sunPosition = [0, 0, 0],
   onClick
 }) {
   const albedoMap = useTexture('/assets/planets/neptune/neptune.jpg');
   const bodyRef = useRef();
   const shaderRef = useRef();
 
-  const computedSunDir = useMemo(() => {
-    const pos = new THREE.Vector3(...position);
-    if (pos.lengthSq() > 1.0) {
-      return new THREE.Vector3(0, 0, 0).sub(pos).normalize();
-    }
-    return new THREE.Vector3(1, 0.35, 1).normalize();
-  }, [position]);
+  const sunPosVec = useMemo(() => new THREE.Vector3(...sunPosition), [sunPosition]);
 
   useFrame((state, delta) => {
     const elapsed = state.clock.getElapsedTime();
 
     if (shaderRef.current) {
       shaderRef.current.uniforms.uTime.value = elapsed;
-      shaderRef.current.uniforms.uSunDirection.value = computedSunDir;
+      shaderRef.current.uniforms.uSunPosition.value.copy(sunPosVec);
     }
 
     if (isPlaying && bodyRef.current) {
@@ -138,7 +127,7 @@ export function CinematicNeptune({
           depthTest={true}
           uniforms={{
             uAlbedo: { value: albedoMap },
-            uSunDirection: { value: computedSunDir },
+            uSunPosition: { value: sunPosVec },
             uTime: { value: 0 }
           }}
         />
