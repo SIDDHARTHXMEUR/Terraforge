@@ -16,6 +16,112 @@
   .font-mono {
     font-family: 'JetBrains Mono', monospace;
   }
+  .text-stroke-cream {
+    -webkit-text-stroke: 1px rgba(255, 248, 231, 0.25);
+    color: transparent;
+  }
+  .text-stroke-ghost {
+    -webkit-text-stroke: 1px rgba(255, 248, 231, 0.14);
+    color: transparent;
+  }
+}
+
+/* Terraforge Design System Classes */
+.bg-deep-space {
+  background-color: #04060B !important;
+}
+
+.text-cream {
+  color: #FFF8E7 !important;
+}
+
+.text-cream-85 {
+  color: rgba(255, 248, 231, 0.85) !important;
+}
+
+.text-cream-60 {
+  color: rgba(255, 248, 231, 0.6) !important;
+}
+
+.text-cream-40 {
+  color: rgba(255, 248, 231, 0.4) !important;
+}
+
+.border-cream-14 {
+  border-color: rgba(255, 248, 231, 0.14) !important;
+}
+
+.border-cream-30 {
+  border-color: rgba(255, 248, 231, 0.3) !important;
+}
+
+.landing-section {
+  min-height: 130vh !important;
+  height: 130vh !important;
+  width: 100% !important;
+  scroll-snap-align: start !important;
+  position: relative !important;
+}
+
+.hero-wordmark-title {
+  font-family: 'League Gothic', sans-serif !important;
+  font-size: clamp(80px, 14vw, 210px) !important;
+  letter-spacing: 0.12em !important;
+  line-height: 0.88 !important;
+  text-transform: uppercase !important;
+}
+
+.hero-wordmark-echo {
+  font-family: 'League Gothic', sans-serif !important;
+  font-size: clamp(80px, 14vw, 210px) !important;
+  letter-spacing: 0.12em !important;
+  line-height: 0.88 !important;
+  text-transform: uppercase !important;
+  -webkit-text-stroke: 1px rgba(255, 248, 231, 0.25) !important;
+  color: transparent !important;
+  transform: translateY(-6px) !important;
+}
+
+.micro-label-text {
+  font-family: 'Inter', sans-serif !important;
+  font-size: 11px !important;
+  letter-spacing: 0.5em !important;
+  text-transform: uppercase !important;
+  color: rgba(255, 248, 231, 0.6) !important;
+}
+
+.tagline-body-text {
+  font-family: 'Inter', sans-serif !important;
+  font-size: clamp(12px, 1.2vw, 15px) !important;
+  letter-spacing: 0.22em !important;
+  text-transform: uppercase !important;
+  color: rgba(255, 248, 231, 0.8) !important;
+  max-width: 34ch !important;
+  line-height: 1.6 !important;
+}
+
+.scroll-snap-proximity {
+  scroll-snap-type: y proximity !important;
+}
+
+.scroll-snap-start {
+  scroll-snap-align: start !important;
+}
+
+@keyframes pulseScrollCue {
+  0%, 100% {
+    opacity: 0.25;
+    transform: scaleY(0.65);
+  }
+  50% {
+    opacity: 0.95;
+    transform: scaleY(1.0);
+  }
+}
+
+.animate-scroll-cue {
+  animation: pulseScrollCue 2.2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  transform-origin: top;
 }
 
 @keyframes planetInfoBlurIn {

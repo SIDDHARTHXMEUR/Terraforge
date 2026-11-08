@@ -10,8 +10,22 @@ import { DeepSpaceSkybox } from './components/cinematic/DeepSpaceSkybox';
 import { OrbitControls } from '@react-three/drei';
 import { EarthMapLibreViewer } from './components/cinematic/EarthMapLibreViewer';
 import { useEarthSurfaceStore } from './state/useEarthSurfaceStore';
+import { LandingPage } from './components/landing/LandingPage';
 
 const CELESTIAL_ORDER = ['sun', 'mercury', 'venus', 'earth', 'mars', 'jupiter', 'saturn', 'uranus', 'neptune'];
+
+function parseHashRoute() {
+  if (typeof window === 'undefined') return { mode: 'landing', planet: null };
+  const hash = window.location.hash || '';
+  if (hash.startsWith('#/sim')) {
+    const raw = hash.slice(5).replace(/^\//, '').toLowerCase().trim();
+    return {
+      mode: 'sim',
+      planet: raw || 'overview'
+    };
+  }
+  return { mode: 'landing', planet: null };
+}
 
 const KEY_TO_BODY = {
   '1': 'sun',
@@ -57,7 +71,11 @@ class SceneErrorBoundary extends React.Component {
 }
 
 export default function App() {
-  const [selectedBody, setSelectedBody] = useState('overview');
+  const [route, setRoute] = useState(parseHashRoute);
+  const [selectedBody, setSelectedBody] = useState(() => {
+    const init = parseHashRoute();
+    return init.mode === 'sim' && init.planet ? init.planet : 'overview';
+  });
   const [viewMode, setViewMode] = useState('cinematic'); // 'cinematic' or 'scientific'
   const [isPaused, setIsPaused] = useState(false);
   const [timeMultiplier, setTimeMultiplier] = useState(1.0);
@@ -67,6 +85,29 @@ export default function App() {
   const [isUserInteracting, setIsUserInteracting] = useState(false);
   const isMapLibreActive = useEarthSurfaceStore((s) => s.isMapLibreActive);
   const setIsMapLibreActive = useEarthSurfaceStore((s) => s.setIsMapLibreActive);
+
+  // Sync hash routing changes
+  useEffect(() => {
+    const handleHash = () => {
+      const r = parseHashRoute();
+      setRoute(r);
+      if (r.mode === 'sim') {
+        setSelectedBody(r.planet || 'overview');
+      }
+    };
+    window.addEventListener('hashchange', handleHash);
+    return () => window.removeEventListener('hashchange', handleHash);
+  }, []);
+
+  const handleSelectBody = (body) => {
+    setSelectedBody(body);
+    if (typeof window !== 'undefined' && route.mode === 'sim') {
+      const targetHash = body === 'overview' ? '#/sim' : `#/sim/${body}`;
+      if (window.location.hash !== targetHash) {
+        history.replaceState(null, '', targetHash);
+      }
+    }
+  };
 
   // Check URL query parameters for benchmark mode
   const queryParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
@@ -181,6 +222,11 @@ export default function App() {
     );
   }
 
+  // Render Landing Page at #/ (or empty hash)
+  if (route.mode === 'landing') {
+    return <LandingPage />;
+  }
+
   return (
     <div className="relative w-screen h-screen bg-black overflow-hidden font-sans select-none">
       {/* 1. Interactive 3D WebGL Solar System Canvas with Error Boundary */}
@@ -215,7 +261,7 @@ export default function App() {
               isPaused={isPaused || isMapLibreActive}
               showOrbits={!isMapLibreActive && showOrbits}
               showLabels={!isPrologueActive && !isMapLibreActive && showLabels}
-              onSelectBody={setSelectedBody}
+              onSelectBody={handleSelectBody}
               isUserInteracting={isUserInteracting}
               isPrologueActive={isPrologueActive}
               onCompletePrologue={handleCompletePrologue}
@@ -244,7 +290,7 @@ export default function App() {
       {/* 4. Interactive Solar Simulator HUD */}
       <InteractiveSimulatorHUD
         selectedBody={selectedBody}
-        onSelectBody={setSelectedBody}
+        onSelectBody={handleSelectBody}
         viewMode={viewMode}
         setViewMode={setViewMode}
         isPaused={isPaused}

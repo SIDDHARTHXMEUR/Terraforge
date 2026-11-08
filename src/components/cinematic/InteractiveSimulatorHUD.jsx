@@ -488,15 +488,13 @@ export function InteractiveSimulatorHUD({
             <span className="uppercase">RESET CAMERA</span>
           </button>
 
-          {onReplayIntro && (
-            <button
-              onClick={onReplayIntro}
-              title="Replay Cinematic Flight Intro"
-              className="hover:text-white transition-colors cursor-pointer flex items-center space-x-1"
-            >
-              <span className="uppercase">REPLAY INTRO</span>
-            </button>
-          )}
+          <a
+            href="#/"
+            title="Return to Landing Page"
+            className="hover:text-white transition-colors cursor-pointer flex items-center space-x-1"
+          >
+            <span className="uppercase">HOME</span>
+          </a>
         </div>
       </footer>
     </div>
