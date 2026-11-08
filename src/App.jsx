@@ -213,7 +213,7 @@ export default function App() {
               viewMode={viewMode}
               timeMultiplier={timeMultiplier}
               isPaused={isPaused || isMapLibreActive}
-              showOrbits={!isPrologueActive && !isMapLibreActive && showOrbits}
+              showOrbits={!isMapLibreActive && showOrbits}
               showLabels={!isPrologueActive && !isMapLibreActive && showLabels}
               onSelectBody={setSelectedBody}
               isUserInteracting={isUserInteracting}

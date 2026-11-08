@@ -53,9 +53,13 @@ const OrbitLineShader = {
     uniform float uOpacity;
     uniform vec3 uTargetPos;
     uniform float uTargetRadius;
+    uniform float uProgress;
 
     void main() {
       #include <logdepthbuf_fragment>
+
+      float angleNorm = fract(atan(vWorldPos.z, vWorldPos.x) / 6.2831853 + 0.5);
+      if (angleNorm > uProgress) discard;
 
       float distToTarget = length(vWorldPos - uTargetPos);
       float fade = 1.0;
@@ -94,9 +98,13 @@ const OrbitRibbonShader = {
     uniform float uOpacity;
     uniform vec3 uTargetPos;
     uniform float uTargetRadius;
+    uniform float uProgress;
 
     void main() {
       #include <logdepthbuf_fragment>
+
+      float angleNorm = fract(atan(vWorldPos.z, vWorldPos.x) / 6.2831853 + 0.5);
+      if (angleNorm > uProgress) discard;
 
       float distToTarget = length(vWorldPos - uTargetPos);
       float fade = 1.0;
@@ -115,6 +123,7 @@ const OrbitRibbonShader = {
 
 function OrbitLine({
   radius,
+  bodyKey = 'earth',
   color = '#38bdf8',
   baseOpacity = 0.65,
   ribbonOpacity = 0.20,
@@ -161,11 +170,16 @@ function OrbitLine({
     const tY = bPos ? bPos[1] : 9999;
     const tZ = bPos ? bPos[2] : 9999;
 
+    const progress = (typeof window !== 'undefined' && window.__prologueOrbitProgress && window.__prologueOrbitProgress[bodyKey] !== undefined)
+      ? window.__prologueOrbitProgress[bodyKey]
+      : 1.0;
+
     if (lineShaderRef.current) {
       lineShaderRef.current.uniforms.uColor.value.set(color);
       lineShaderRef.current.uniforms.uOpacity.value = effectiveLineOpacity;
       lineShaderRef.current.uniforms.uTargetPos.value.set(tX, tY, tZ);
       lineShaderRef.current.uniforms.uTargetRadius.value = bRadius;
+      lineShaderRef.current.uniforms.uProgress.value = progress;
     }
 
     if (ribbonShaderRef.current) {
@@ -173,6 +187,7 @@ function OrbitLine({
       ribbonShaderRef.current.uniforms.uOpacity.value = effectiveRibbonOpacity;
       ribbonShaderRef.current.uniforms.uTargetPos.value.set(tX, tY, tZ);
       ribbonShaderRef.current.uniforms.uTargetRadius.value = bRadius;
+      ribbonShaderRef.current.uniforms.uProgress.value = progress;
     }
   });
 
@@ -196,7 +211,8 @@ function OrbitLine({
             uColor: { value: colorVec },
             uOpacity: { value: ribbonOpacity },
             uTargetPos: { value: targetVec },
-            uTargetRadius: { value: 0 }
+            uTargetRadius: { value: 0 },
+            uProgress: { value: 1.0 }
           }}
         />
       </mesh>
@@ -217,7 +233,8 @@ function OrbitLine({
             uColor: { value: colorVec },
             uOpacity: { value: baseOpacity },
             uTargetPos: { value: targetVec },
-            uTargetRadius: { value: 0 }
+            uTargetRadius: { value: 0 },
+            uProgress: { value: 1.0 }
           }}
         />
       </lineLoop>
@@ -286,16 +303,16 @@ export function OrbitGuides({
 
   return (
     <group ref={groupRef}>
-      <OrbitLine radius={radii.mercury} {...getOrbitProps('mercury')} fadeAlphaRef={fadeAlphaRef} bodyPositions={bodyPositions} selectedBody={selectedBody} />
-      <OrbitLine radius={radii.venus} {...getOrbitProps('venus')} fadeAlphaRef={fadeAlphaRef} bodyPositions={bodyPositions} selectedBody={selectedBody} />
-      <OrbitLine radius={radii.earth} {...getOrbitProps('earth')} fadeAlphaRef={fadeAlphaRef} bodyPositions={bodyPositions} selectedBody={selectedBody} />
-      <OrbitLine radius={radii.mars} {...getOrbitProps('mars')} fadeAlphaRef={fadeAlphaRef} bodyPositions={bodyPositions} selectedBody={selectedBody} />
-      <OrbitLine radius={radii.asteroidsInner} {...getOrbitProps('asteroids')} baseOpacity={0.28} ribbonOpacity={0.14} fadeAlphaRef={fadeAlphaRef} bodyPositions={bodyPositions} selectedBody={selectedBody} />
-      <OrbitLine radius={radii.asteroidsOuter} {...getOrbitProps('asteroids')} baseOpacity={0.28} ribbonOpacity={0.14} fadeAlphaRef={fadeAlphaRef} bodyPositions={bodyPositions} selectedBody={selectedBody} />
-      <OrbitLine radius={radii.jupiter} {...getOrbitProps('jupiter')} fadeAlphaRef={fadeAlphaRef} bodyPositions={bodyPositions} selectedBody={selectedBody} />
-      <OrbitLine radius={radii.saturn} {...getOrbitProps('saturn')} fadeAlphaRef={fadeAlphaRef} bodyPositions={bodyPositions} selectedBody={selectedBody} />
-      <OrbitLine radius={radii.uranus} {...getOrbitProps('uranus')} fadeAlphaRef={fadeAlphaRef} bodyPositions={bodyPositions} selectedBody={selectedBody} />
-      <OrbitLine radius={radii.neptune} {...getOrbitProps('neptune')} fadeAlphaRef={fadeAlphaRef} bodyPositions={bodyPositions} selectedBody={selectedBody} />
+      <OrbitLine radius={radii.mercury} bodyKey="mercury" {...getOrbitProps('mercury')} fadeAlphaRef={fadeAlphaRef} bodyPositions={bodyPositions} selectedBody={selectedBody} />
+      <OrbitLine radius={radii.venus} bodyKey="venus" {...getOrbitProps('venus')} fadeAlphaRef={fadeAlphaRef} bodyPositions={bodyPositions} selectedBody={selectedBody} />
+      <OrbitLine radius={radii.earth} bodyKey="earth" {...getOrbitProps('earth')} fadeAlphaRef={fadeAlphaRef} bodyPositions={bodyPositions} selectedBody={selectedBody} />
+      <OrbitLine radius={radii.mars} bodyKey="mars" {...getOrbitProps('mars')} fadeAlphaRef={fadeAlphaRef} bodyPositions={bodyPositions} selectedBody={selectedBody} />
+      <OrbitLine radius={radii.asteroidsInner} bodyKey="asteroids" {...getOrbitProps('asteroids')} baseOpacity={0.28} ribbonOpacity={0.14} fadeAlphaRef={fadeAlphaRef} bodyPositions={bodyPositions} selectedBody={selectedBody} />
+      <OrbitLine radius={radii.asteroidsOuter} bodyKey="asteroids" {...getOrbitProps('asteroids')} baseOpacity={0.28} ribbonOpacity={0.14} fadeAlphaRef={fadeAlphaRef} bodyPositions={bodyPositions} selectedBody={selectedBody} />
+      <OrbitLine radius={radii.jupiter} bodyKey="jupiter" {...getOrbitProps('jupiter')} fadeAlphaRef={fadeAlphaRef} bodyPositions={bodyPositions} selectedBody={selectedBody} />
+      <OrbitLine radius={radii.saturn} bodyKey="saturn" {...getOrbitProps('saturn')} fadeAlphaRef={fadeAlphaRef} bodyPositions={bodyPositions} selectedBody={selectedBody} />
+      <OrbitLine radius={radii.uranus} bodyKey="uranus" {...getOrbitProps('uranus')} fadeAlphaRef={fadeAlphaRef} bodyPositions={bodyPositions} selectedBody={selectedBody} />
+      <OrbitLine radius={radii.neptune} bodyKey="neptune" {...getOrbitProps('neptune')} fadeAlphaRef={fadeAlphaRef} bodyPositions={bodyPositions} selectedBody={selectedBody} />
     </group>
   );
 }

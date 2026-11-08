@@ -479,6 +479,10 @@ export function CinematicSun({
     }
 
     // Auto-exposure: maintain radiant, incandescent brilliance in solar closeup
+    if (typeof window !== 'undefined' && window.__isLivePrologueActive) {
+      return;
+    }
+
     const camDist = camera.position.distanceTo(new THREE.Vector3(...position));
     const normalizedDist = Math.max(0.0, Math.min(1.0, (camDist - radius * 1.3) / (radius * 6.0)));
     // Close up exposure ~1.02, overview ~1.15

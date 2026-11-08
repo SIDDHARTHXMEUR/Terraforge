@@ -736,6 +736,8 @@ export function InteractiveSolarCamera({
     ? 3500
     : Math.max(120, R * 25.0);
 
+  if (!enabled) return null;
+
   return (
     <OrbitControls
       ref={controlsRef}

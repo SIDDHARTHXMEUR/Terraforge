@@ -12,6 +12,7 @@ import { CinematicNeptune } from './CinematicNeptune';
 import { AsteroidBelt } from './AsteroidBelt';
 import { DeepSpaceSkybox } from './DeepSpaceSkybox';
 import { InteractiveSolarCamera } from './InteractiveSolarCamera';
+import { CinematicLivePrologue } from './CinematicLivePrologue';
 import { OrbitGuides } from './OrbitGuides';
 import { CelestialLabels } from './CelestialLabels';
 import { DISPLAY_RADII, DISPLAY_ORBIT_RADII, ORBIT_SPEEDS } from '../../data/displayScale';
@@ -136,8 +137,9 @@ export function SolarSystemEngine({
   useFrame((_, delta) => {
     if (isPaused) return;
 
-    // Base orbital speed scaled by user-selected time multiplier
-    const advance = delta * 0.12 * timeMultiplier;
+    // Base orbital speed scaled by user-selected time multiplier and prologue speed ramp (1x -> 300x -> 1x)
+    const prologueSpeed = (typeof window !== 'undefined' && window.__prologueTimeSpeed) ? window.__prologueTimeSpeed : 1.0;
+    const advance = delta * 0.12 * timeMultiplier * prologueSpeed;
 
     anglesRef.current.mercury += advance * ORBIT_SPEEDS.mercury;
     anglesRef.current.venus += advance * ORBIT_SPEEDS.venus;
@@ -219,6 +221,15 @@ export function SolarSystemEngine({
         isUserInteracting={isUserInteracting}
         enabled={!isPrologueActive}
       />
+
+      {/* 2b. Live 3D WebGL Director & Effects (Active during 14.5s Prologue) */}
+      {isPrologueActive && (
+        <CinematicLivePrologue
+          isActive={isPrologueActive}
+          onComplete={onCompletePrologue}
+          bodyPositions={positionsRef.current}
+        />
+      )}
 
       {/* 3. Subtle Orbital Guides */}
       <OrbitGuides
