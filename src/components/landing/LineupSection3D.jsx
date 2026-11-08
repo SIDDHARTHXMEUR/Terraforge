@@ -66,9 +66,9 @@ export function LineupSection3D({ scrollProgressRef }) {
   useFrame(() => {
     if (!groupRef.current) return;
     const scrollP = scrollProgressRef?.current || 0;
-    // Section 8 is centered at scrollP = 7.0
-    const deltaP = scrollP - 7.0;
-    const isVisible = Math.abs(deltaP) < 0.65;
+    // Section 4 (Lineup & Motion) is active around scrollP = 10.0
+    const deltaP = scrollP - 10.0;
+    const isVisible = Math.abs(deltaP) < 0.75;
     groupRef.current.visible = isVisible;
   });
 
@@ -123,3 +123,4 @@ export function LineupSection3D({ scrollProgressRef }) {
     </group>
   );
 }
+

@@ -26,33 +26,66 @@
   }
 }
 
-/* Terraforge Design System Classes */
+/* Terraforge Master Design System Classes */
 .bg-deep-space {
-  background-color: #04060B !important;
+  background-color: #030508 !important;
 }
 
+.bg-surface-near-black {
+  background-color: #080B10 !important;
+}
+
+.bg-surface-secondary {
+  background-color: #10151C !important;
+}
+
+.text-soft-white {
+  color: #E9EDF2 !important;
+}
+
+.text-muted-space {
+  color: #929BA8 !important;
+}
+
+.text-icy-blue {
+  color: #7AD1FF !important;
+}
+
+.text-solar-gold {
+  color: #F5B942 !important;
+}
+
+.border-space-14 {
+  border-color: rgba(233, 237, 242, 0.14) !important;
+}
+
+.border-space-25 {
+  border-color: rgba(233, 237, 242, 0.25) !important;
+}
+
+/* Backward-compatible cream aliases */
 .text-cream {
-  color: #FFF8E7 !important;
+  color: #E9EDF2 !important;
 }
 
 .text-cream-85 {
-  color: rgba(255, 248, 231, 0.85) !important;
+  color: rgba(233, 237, 242, 0.85) !important;
 }
 
 .text-cream-60 {
-  color: rgba(255, 248, 231, 0.6) !important;
+  color: rgba(146, 155, 168, 0.85) !important;
 }
 
 .text-cream-40 {
-  color: rgba(255, 248, 231, 0.4) !important;
+  color: rgba(146, 155, 168, 0.5) !important;
 }
 
 .border-cream-14 {
-  border-color: rgba(255, 248, 231, 0.14) !important;
+  border-color: rgba(233, 237, 242, 0.14) !important;
 }
 
 .border-cream-30 {
-  border-color: rgba(255, 248, 231, 0.3) !important;
+  border-color: rgba(233, 237, 242, 0.3) !important;
 }
 
 .landing-section {

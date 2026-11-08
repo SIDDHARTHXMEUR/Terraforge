@@ -48,16 +48,16 @@ export function OverviewSection3D({ scrollProgressRef }) {
   useFrame(() => {
     if (!groupRef.current) return;
     const scrollP = scrollProgressRef?.current || 0;
-    // Section 9 is active from scrollP ~ 7.4 to 8.0
-    if (scrollP < 7.35) {
+    // Section 5 & 6 (Simulator preview & Final CTA) from scrollP ~ 10.8 to 12.0
+    if (scrollP < 10.8) {
       groupRef.current.visible = false;
       return;
     }
 
     groupRef.current.visible = true;
 
-    // Fade up opacity as scroll approaches 8.0 (100%)
-    const ignition = THREE.MathUtils.clamp((scrollP - 7.35) / 0.65, 0, 1);
+    // Fade up opacity as scroll approaches 12.0
+    const ignition = THREE.MathUtils.clamp((scrollP - 10.8) / 1.0, 0, 1);
     groupRef.current.traverse((child) => {
       if (child.material) {
         child.material.transparent = true;
@@ -125,3 +125,4 @@ export function OverviewSection3D({ scrollProgressRef }) {
     </group>
   );
 }
+

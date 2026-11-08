@@ -3,8 +3,14 @@ import { Canvas } from '@react-three/fiber';
 import * as THREE from 'three';
 import { LandingScene } from './LandingScene';
 import { LandingHeroOverlay } from './LandingHeroOverlay';
+import { SolarSystemEditorial } from './SolarSystemEditorial';
 import { ChapterOverlay, CHAPTERS_DATA } from './ChapterOverlay';
+import { PlanetaryMotionSection } from './PlanetaryMotionSection';
+import { SimulatorPreviewSection } from './SimulatorPreviewSection';
+import { FinalCTASection } from './FinalCTASection';
 import { NonWebGLFallback } from './NonWebGLFallback';
+
+const TOTAL_SECTIONS_INDEX = 12;
 
 function checkWebGLSupport() {
   if (typeof window === 'undefined') return true;
@@ -43,7 +49,7 @@ export function LandingPage() {
     const handleScroll = () => {
       const maxScroll = container.scrollHeight - container.clientHeight;
       if (maxScroll <= 0) return;
-      const progress = (container.scrollTop / maxScroll) * 8.0;
+      const progress = (container.scrollTop / maxScroll) * TOTAL_SECTIONS_INDEX;
       targetProgressRef.current = progress;
       if (reducedMotion) {
         scrollProgressRef.current = progress;
@@ -84,7 +90,7 @@ export function LandingPage() {
 
       if (e.code === 'Space' || e.key === 'ArrowDown' || e.key === 'PageDown') {
         e.preventDefault();
-        const nextSection = Math.min(8, currentSection + 1);
+        const nextSection = Math.min(TOTAL_SECTIONS_INDEX, currentSection + 1);
         container.scrollTo({ top: nextSection * sectionHeight, behavior: scrollBehavior });
       } else if (e.key === 'ArrowUp' || e.key === 'PageUp') {
         e.preventDefault();
@@ -92,7 +98,7 @@ export function LandingPage() {
         container.scrollTo({ top: prevSection * sectionHeight, behavior: scrollBehavior });
       } else if (e.key === 'End') {
         e.preventDefault();
-        container.scrollTo({ top: 8 * sectionHeight, behavior: scrollBehavior });
+        container.scrollTo({ top: TOTAL_SECTIONS_INDEX * sectionHeight, behavior: scrollBehavior });
       } else if (e.key === 'Home') {
         e.preventDefault();
         container.scrollTo({ top: 0, behavior: scrollBehavior });
@@ -116,26 +122,26 @@ export function LandingPage() {
   }
 
   return (
-    <div className="relative w-screen h-screen bg-deep-space text-cream overflow-hidden select-none">
+    <div className="relative w-screen h-screen bg-deep-space text-[#E9EDF2] overflow-hidden select-none">
       {/* Hidden-until-focused skip link */}
       <a
         href="#/sim"
-        className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 z-50 bg-deep-space border border-cream text-cream px-4 py-2 font-sans text-[11px] uppercase tracking-[0.2em] outline-none ring-2 ring-white"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 z-50 bg-[#080B10] border border-[#E9EDF2] text-[#E9EDF2] px-4 py-2 font-sans text-[11px] uppercase tracking-[0.2em] outline-none ring-2 ring-[#7AD1FF]"
       >
         Skip to simulator
       </a>
 
       {/* Top Fixed Header */}
       <header className="fixed top-0 left-0 right-0 z-40 flex items-center justify-between px-6 sm:px-12 py-6 pointer-events-none">
-        {/* Top-left: plain text TERRAFORGE (League Gothic, cream, 18 px, tracking 0.25em) */}
-        <span className="font-wordmark text-[18px] tracking-[0.25em] text-cream uppercase select-none pointer-events-auto">
+        {/* Top-left: plain text TERRAFORGE (League Gothic, soft white, 18 px, tracking 0.25em) */}
+        <span className="font-wordmark text-[18px] tracking-[0.25em] text-[#E9EDF2] uppercase select-none pointer-events-auto">
           TERRAFORGE
         </span>
 
         {/* Top-right: a single plain text link "SIMULATOR" jumping to #/sim */}
         <a
           href="#/sim"
-          className="pointer-events-auto font-sans text-[11px] uppercase tracking-[0.25em] text-cream opacity-70 hover:opacity-100 transition-opacity focus:outline-none focus:ring-1 focus:ring-white py-1"
+          className="pointer-events-auto font-sans text-[11px] uppercase tracking-[0.25em] text-[#E9EDF2] opacity-75 hover:opacity-100 hover:text-[#7AD1FF] transition-all focus:outline-none focus:ring-1 focus:ring-[#7AD1FF] py-1"
         >
           SIMULATOR
         </a>
@@ -167,21 +173,33 @@ export function LandingPage() {
         </Canvas>
       </div>
 
-      {/* Scrolling document with 9 sections, each 130vh, snap-scroll with CSS scroll-snap proximity */}
+      {/* Scrolling document with 13 sections (min-h-[130vh] each), snap-scroll with CSS scroll-snap proximity */}
       <main
         ref={scrollContainerRef}
         className="relative z-10 w-full h-full overflow-y-auto scroll-snap-proximity outline-none"
         tabIndex={0}
       >
-        {/* SECTION 1: HERO */}
+        {/* SECTION 01: THE OPENING EXPERIENCE (Hero) */}
         <section
           id="hero"
           className="landing-section flex items-center justify-center"
         >
-          <LandingHeroOverlay />
+          <LandingHeroOverlay
+            onExploreUniverse={() => handleScrollToHash('#solarsystem')}
+          />
         </section>
 
-        {/* SECTIONS 2 to 7: PLANET CHAPTERS (Sol, Mercury, Earth, Mars, Jupiter, Saturn) */}
+        {/* SECTION 02: THE SOLAR SYSTEM (Calm Sun Emergence + 8-Planet Architectural Overview) */}
+        <section
+          id="solarsystem"
+          className="landing-section flex items-center justify-center bg-black/35 backdrop-blur-[2px]"
+        >
+          <SolarSystemEditorial
+            onSelectPlanet={(planetKey) => handleScrollToHash(`#${planetKey}`)}
+          />
+        </section>
+
+        {/* SECTION 03: INDIVIDUAL PLANETARY STORIES (Mercury, Venus, Earth, Mars, Jupiter, Saturn, Uranus, Neptune) */}
         {CHAPTERS_DATA.map((chapter) => (
           <section
             key={chapter.id}
@@ -195,120 +213,28 @@ export function LandingPage() {
           </section>
         ))}
 
-        {/* SECTION 8: LINEUP (To Scale - Sizes Only) */}
+        {/* SECTION 04: UNDERSTANDING PLANETARY MOTION (Dynamics) */}
         <section
-          id="lineup"
-          className="landing-section relative flex flex-col justify-between"
+          id="dynamics"
+          className="landing-section flex items-center justify-center bg-black/40 backdrop-blur-sm"
         >
-          <div className="sticky top-0 w-full h-screen flex flex-col justify-between px-6 sm:px-12 md:px-16 pt-24 pb-8 select-none pointer-events-none">
-            {/* Header / Title block */}
-            <div className="z-20 pointer-events-auto max-w-2xl">
-              <div className="flex items-center space-x-3 mb-3">
-                <span className="inline-block w-[2px] h-[14px] bg-[#5BB8FF]" />
-                <span className="font-sans text-[11px] uppercase tracking-[0.5em] text-cream-60">
-                  07 / SCALE
-                </span>
-              </div>
-              <h2 className="font-serif text-4xl sm:text-6xl lg:text-7xl font-normal uppercase tracking-[0.12em] text-cream leading-tight">
-                THE SYSTEM, TO SCALE
-              </h2>
-              <p className="font-sans text-xs tracking-[0.2em] text-cream-60 uppercase mt-2">
-                PHYSICAL RADII PRESERVED // JUPITER IS VISIBLY 11X EARTH // SOL DWARFS ALL
-              </p>
-            </div>
-
-            {/* Right-edge Pager */}
-            <div className="absolute right-6 sm:right-12 top-1/2 -translate-y-1/2 flex flex-col items-end z-20 pointer-events-auto">
-              <div className="font-mono text-xs sm:text-sm tracking-widest text-cream-60 mb-4">
-                08 / 09
-              </div>
-              <button
-                onClick={() => handleScrollToHash('#system')}
-                className="group flex items-center space-x-2 text-right cursor-pointer focus:outline-none"
-              >
-                <span className="font-sans text-[10px] tracking-[0.25em] uppercase text-cream-40 group-hover:text-cream transition-colors">
-                  NEXT: THE SYSTEM
-                </span>
-                <span className="text-cream-40 group-hover:text-cream transition-colors font-mono text-xs">
-                  &gt;
-                </span>
-              </button>
-            </div>
-
-            {/* Bottom Radius Readouts linking to datum line ticks */}
-            <div className="w-full flex items-center justify-between border-t border-cream-14 pt-4 pb-2 z-20 pointer-events-auto bg-black/40 backdrop-blur-sm overflow-x-auto text-[10px] sm:text-xs">
-              <div className="text-center px-2">
-                <span className="font-mono text-amber-400 block">696,340 KM</span>
-                <span className="font-sans text-cream-60 uppercase tracking-widest text-[9px]">SOL</span>
-              </div>
-              <div className="text-center px-2">
-                <span className="font-mono text-[#B8B2A7] block">2,440 KM</span>
-                <span className="font-sans text-cream-60 uppercase tracking-widest text-[9px]">MERCURY</span>
-              </div>
-              <div className="text-center px-2">
-                <span className="font-mono text-[#E8D08A] block">6,052 KM</span>
-                <span className="font-sans text-cream-60 uppercase tracking-widest text-[9px]">VENUS</span>
-              </div>
-              <div className="text-center px-2">
-                <span className="font-mono text-[#5BB8FF] block">6,371 KM</span>
-                <span className="font-sans text-cream-60 uppercase tracking-widest text-[9px]">EARTH</span>
-              </div>
-              <div className="text-center px-2">
-                <span className="font-mono text-[#E2673A] block">3,390 KM</span>
-                <span className="font-sans text-cream-60 uppercase tracking-widest text-[9px]">MARS</span>
-              </div>
-              <div className="text-center px-2">
-                <span className="font-mono text-[#D9A066] block">69,911 KM</span>
-                <span className="font-sans text-cream-60 uppercase tracking-widest text-[9px]">JUPITER</span>
-              </div>
-              <div className="text-center px-2">
-                <span className="font-mono text-[#E8D08A] block">58,232 KM</span>
-                <span className="font-sans text-cream-60 uppercase tracking-widest text-[9px]">SATURN</span>
-              </div>
-              <div className="text-center px-2">
-                <span className="font-mono text-cyan-300 block">25,362 KM</span>
-                <span className="font-sans text-cream-60 uppercase tracking-widest text-[9px]">URANUS</span>
-              </div>
-              <div className="text-center px-2">
-                <span className="font-mono text-blue-400 block">24,622 KM</span>
-                <span className="font-sans text-cream-60 uppercase tracking-widest text-[9px]">NEPTUNE</span>
-              </div>
-            </div>
-          </div>
+          <PlanetaryMotionSection />
         </section>
 
-        {/* SECTION 9: THE SYSTEM & CTA */}
+        {/* SECTION 05: THE SIMULATOR INTRODUCTION (Interactive Engine Preview & Capabilities) */}
         <section
-          id="system"
-          className="landing-section relative flex flex-col justify-between"
+          id="preview"
+          className="landing-section flex items-center justify-center bg-black/50 backdrop-blur-md"
         >
-          <div className="sticky top-0 w-full h-screen flex flex-col items-center justify-center px-6 text-center select-none">
-            <div className="max-w-xl z-20">
-              <span className="font-sans text-[11px] uppercase tracking-[0.5em] text-cream-60 mb-4 block">
-                THE SIMULATOR
-              </span>
-              <h2 className="font-serif text-5xl sm:text-7xl font-normal uppercase tracking-[0.12em] text-cream mb-4">
-                NINE WORLDS
-              </h2>
-              <p className="font-sans text-[14px] sm:text-[15px] leading-[1.6] text-cream-85 mb-8 max-w-[34ch] mx-auto">
-                Nine worlds. Keplerian orbits. 1:1 astronomical time or up to 10,000x.
-              </p>
-              <a
-                href="#/sim"
-                className="inline-flex items-center space-x-3 px-8 py-4 border border-cream-30 hover:border-cream text-cream font-sans text-xs uppercase tracking-[0.25em] transition-all hover:bg-white/10 shadow-lg cursor-pointer focus:outline-none focus:ring-2 focus:ring-white"
-              >
-                <span>ENTER THE SIMULATOR</span>
-                <span className="text-sm font-mono">&gt;</span>
-              </a>
-            </div>
+          <SimulatorPreviewSection />
+        </section>
 
-            {/* Bottom Status Readout */}
-            <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center space-x-6 text-[10px] font-mono tracking-widest text-cream-40 uppercase pointer-events-none">
-              <span>ORBIT IGNITION 100%</span>
-              <span>•</span>
-              <span>STANDBY AT STARTING POSE</span>
-            </div>
-          </div>
+        {/* SECTION 06: FINAL CALL TO ACTION */}
+        <section
+          id="cta"
+          className="landing-section flex items-center justify-center"
+        >
+          <FinalCTASection />
         </section>
       </main>
     </div>

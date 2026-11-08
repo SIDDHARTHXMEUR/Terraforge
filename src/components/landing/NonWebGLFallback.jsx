@@ -105,3 +105,4 @@ export function NonWebGLFallback() {
     </div>
   );
 }
+

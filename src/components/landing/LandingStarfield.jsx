@@ -60,3 +60,4 @@ export function LandingStarfield({ count = 2400 }) {
     </points>
   );
 }
+
