@@ -28,6 +28,18 @@ const CELESTIAL_LIST = [
 ];
 
 const CELESTIAL_ORDER = ['sun', 'mercury', 'venus', 'earth', 'mars', 'jupiter', 'saturn', 'uranus', 'neptune'];
+function formatDayLength(hours) {
+  if (hours === undefined || hours === null) return 'N/A';
+  const abs = Math.abs(hours);
+  const isRet = hours < 0;
+  if (abs >= 48) {
+    return `${(abs / 24).toFixed(1)} DAYS${isRet ? ' (RET)' : ''}`;
+  }
+  const h = Math.floor(abs);
+  const m = Math.round((abs - h) * 60);
+  return `${h}H ${m}M${isRet ? ' (RET)' : ''}`;
+}
+
 const SPEED_PRESETS = [1, 5, 25, 100, 500];
 
 const PLANET_ACCENTS = {
@@ -331,34 +343,36 @@ export function InteractiveSimulatorHUD({
               </p>
 
               {/* Hierarchy Level 5: SpaceX-style 4-column stats strip separated by 1px vertical hairlines */}
-              <div className="grid grid-cols-4 border-t border-b border-white/10 py-3 my-4">
+              <div className="grid grid-cols-2 sm:grid-cols-4 border-t border-b border-white/10 py-3 my-4 gap-y-3 sm:gap-y-0">
                 <div className="pr-3">
                   <span className="text-[9px] uppercase tracking-[0.2em] text-white/40 block mb-1">DISTANCE FROM SUN</span>
                   <span className="font-mono text-xs sm:text-sm tracking-wider" style={{ color: accentColor }}>
                     {distStr}
                   </span>
+                  <span className="font-mono text-[9px] text-white/40 block mt-0.5">{lightTimeStr}</span>
                 </div>
                 <div className="px-3 border-l border-white/10">
-                  <span className="text-[9px] uppercase tracking-[0.2em] text-white/40 block mb-1">ONE-WAY LIGHT TIME</span>
+                  <span className="text-[9px] uppercase tracking-[0.2em] text-white/40 block mb-1">DIAMETER</span>
                   <span className="font-mono text-xs sm:text-sm tracking-wider" style={{ color: accentColor }}>
-                    {lightTimeStr}
+                    {selectedData.radiusKm ? `${Math.round(selectedData.radiusKm * 2).toLocaleString()} KM` : 'N/A'}
+                  </span>
+                  <span className="font-mono text-[9px] text-white/40 block mt-0.5">{typeStr}</span>
+                </div>
+                <div className="px-3 border-l border-white/10">
+                  <span className="text-[9px] uppercase tracking-[0.2em] text-white/40 block mb-1">LENGTH OF DAY</span>
+                  <span className="font-mono text-xs sm:text-sm tracking-wider" style={{ color: accentColor }}>
+                    {formatDayLength(selectedData.rotationPeriodHours)}
                   </span>
                 </div>
-                <div className="px-3 border-l border-white/10">
-                  <span className="text-[9px] uppercase tracking-[0.2em] text-white/40 block mb-1">LENGTH OF YEAR</span>
+                <div className="pl-3 border-l border-white/10">
+                  <span className="text-[9px] uppercase tracking-[0.2em] text-white/40 block mb-1">ORBITAL PERIOD</span>
                   <span className="font-mono text-xs sm:text-sm tracking-wider" style={{ color: accentColor }}>
                     {yearStr}
                   </span>
                 </div>
-                <div className="pl-3 border-l border-white/10">
-                  <span className="text-[9px] uppercase tracking-[0.2em] text-white/40 block mb-1">PLANET TYPE</span>
-                  <span className="font-mono text-xs sm:text-sm tracking-wider" style={{ color: accentColor }}>
-                    {typeStr}
-                  </span>
-                </div>
               </div>
 
-              {/* Hierarchy Level 6: Action buttons ("EXPLORE >" and quiet detail layer) */}
+              {/* Hierarchy Level 6: Action buttons and Technical Specification */}
               <div className="flex items-center space-x-6">
                 <button
                   onClick={() => {
@@ -371,7 +385,7 @@ export function InteractiveSimulatorHUD({
                   className="text-[11px] font-mono uppercase tracking-[0.22em] text-[#4FD1C5] hover:text-cyan-200 transition-colors cursor-pointer flex items-center space-x-1.5"
                   title={`Explore ${selectedData.name}`}
                 >
-                  <span>EXPLORE &gt;</span>
+                  <span>{selectedBody === 'earth' ? 'SURFACE MAP >' : (showDetailLayer ? 'HIDE SPECS ▲' : 'TECH SPECS ▼')}</span>
                 </button>
                 <button
                   onClick={() => onSelectBody('overview')}
@@ -382,35 +396,40 @@ export function InteractiveSimulatorHUD({
                 </button>
               </div>
 
-              {/* Quiet Plain-Text Detail Layer */}
+              {/* SpaceX Aerospace Technical Specification Grid */}
               {showDetailLayer && (
-                <div className="mt-4 p-4 border-l-2 bg-black/50 backdrop-blur-md text-xs font-mono space-y-2 max-w-md rounded-r-lg" style={{ borderColor: accentColor }}>
-                  <div className="flex justify-between">
-                    <span className="text-white/40">MEAN RADIUS:</span>
-                    <span className="text-white/90">{selectedData.radiusKm?.toLocaleString()} KM</span>
+                <div className="mt-4 p-4 border border-white/10 bg-black/60 backdrop-blur-md text-xs font-mono max-w-lg rounded-sm">
+                  <div className="flex items-center justify-between border-b border-white/10 pb-2 mb-3">
+                    <span className="text-[9px] uppercase tracking-[0.25em] text-white/50">TECHNICAL SPECIFICATION // JPL FACT SHEET</span>
+                    <button
+                      onClick={() => setShowDetailLayer(false)}
+                      className="text-[9px] text-white/40 hover:text-white uppercase tracking-widest cursor-pointer"
+                    >
+                      ✕
+                    </button>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-white/40">SURFACE GRAVITY:</span>
-                    <span className="text-white/90">{selectedData.gravity || 'N/A'}</span>
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-2.5 text-[11px]">
+                    <div>
+                      <span className="text-[9px] text-white/40 uppercase block mb-0.5">SURFACE GRAVITY</span>
+                      <span className="text-white/90">{selectedData.gravity || 'N/A'}</span>
+                    </div>
+                    <div>
+                      <span className="text-[9px] text-white/40 uppercase block mb-0.5">MEAN TEMPERATURE</span>
+                      <span className="text-white/90">{selectedData.meanTempC !== undefined ? `${selectedData.meanTempC}°C` : 'N/A'}</span>
+                    </div>
+                    <div>
+                      <span className="text-[9px] text-white/40 uppercase block mb-0.5">AXIAL TILT</span>
+                      <span className="text-white/90">{selectedData.axialTiltDeg !== undefined ? `${selectedData.axialTiltDeg}°` : 'N/A'}</span>
+                    </div>
+                    <div>
+                      <span className="text-[9px] text-white/40 uppercase block mb-0.5">MASS</span>
+                      <span className="text-white/90 truncate block">{selectedData.mass || 'N/A'}</span>
+                    </div>
+                    <div className="col-span-2 pt-1 border-t border-white/10">
+                      <span className="text-[9px] text-white/40 uppercase block mb-0.5">ATMOSPHERIC COMPOSITION</span>
+                      <span className="text-white/80 text-[10px] leading-relaxed block">{selectedData.atmosphereComposition || 'Trace exosphere / vacuum'}</span>
+                    </div>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-white/40">SURFACE TEMP:</span>
-                    <span className="text-white/90">{selectedData.meanTempC !== undefined ? `${selectedData.meanTempC}°C` : 'N/A'}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-white/40">ORBITAL PERIOD:</span>
-                    <span className="text-white/90">{selectedData.orbitalPeriodDays ? `${selectedData.orbitalPeriodDays} Earth Days` : 'HOST STAR'}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-white/40">ATMOSPHERE:</span>
-                    <span className="text-white/90">{selectedData.atmosphereComposition || selectedData.atmosphere || 'Trace gases'}</span>
-                  </div>
-                  <button
-                    onClick={() => setShowDetailLayer(false)}
-                    className="text-[10px] text-white/50 hover:text-white uppercase tracking-widest pt-1 cursor-pointer block"
-                  >
-                    [CLOSE DETAILS]
-                  </button>
                 </div>
               )}
             </div>

@@ -178,8 +178,24 @@ export const ChapterOverlay = forwardRef(function ChapterOverlay(
         </div>
       )}
 
-      {/* Main Chapter Content: Left Column (Cols 2-5) */}
-      <div className="flex-1 flex flex-col justify-start md:justify-center max-w-xl z-20 pointer-events-auto pl-0 xl:pl-56 mt-4 md:mt-0">
+      {/* Mobile Top Content (Clean centered layout matching reference design) */}
+      <div className="flex sm:hidden flex-col items-center text-center mt-16 mb-auto z-20 pointer-events-auto">
+        <div className="flex items-center space-x-2 mb-2">
+          <span className="inline-block w-[2px] h-[12px]" style={{ backgroundColor: chapter.accent }} />
+          <span className="font-sans text-[10px] uppercase tracking-[0.4em] text-cream-60">
+            {chapter.microLabel}
+          </span>
+        </div>
+        <h2 className="font-serif text-4xl font-normal uppercase tracking-[0.14em] text-cream mb-2">
+          {chapter.name}
+        </h2>
+        <p className="font-sans text-[12px] leading-relaxed text-cream-80 max-w-[28ch] mx-auto px-4">
+          {stats.description}
+        </p>
+      </div>
+
+      {/* Main Chapter Content: Left Column for Desktop (Cols 2-5) */}
+      <div className="hidden sm:flex flex-1 flex-col justify-start md:justify-center max-w-xl z-20 pointer-events-auto pl-0 xl:pl-56 mt-4 md:mt-0">
         {/* Micro-label with 2x14px vertical accent bar */}
         <div className="flex items-center space-x-3 mb-3">
           <span
@@ -216,6 +232,22 @@ export const ChapterOverlay = forwardRef(function ChapterOverlay(
             <span>EXPLORE {chapter.name}</span>
             <span className="ml-1 text-[11px]">&gt;</span>
           </a>
+        </div>
+      </div>
+
+      {/* Mobile Bottom Exploration Controls (Matching reference layout) */}
+      <div className="flex sm:hidden flex-col items-center pb-8 z-20 pointer-events-auto">
+        <a
+          href={`#/sim/${chapter.planetKey === 'sun' ? 'overview' : chapter.planetKey}`}
+          className="px-8 py-2.5 rounded-full border border-cream/30 text-cream text-[10px] uppercase tracking-[0.25em] hover:bg-white/10 transition-colors backdrop-blur-sm mb-4"
+        >
+          EXPLORE {chapter.name}
+        </a>
+        {/* Pagination Dots */}
+        <div className="flex items-center space-x-2">
+          <span className={`w-1.5 h-1.5 rounded-full ${chapter.progressKey <= 2 ? 'bg-cream' : 'bg-cream/30'}`} />
+          <span className={`w-1.5 h-1.5 rounded-full ${chapter.progressKey === 3 || chapter.progressKey === 4 ? 'bg-cream' : 'bg-cream/30'}`} />
+          <span className={`w-1.5 h-1.5 rounded-full ${chapter.progressKey >= 5 ? 'bg-cream' : 'bg-cream/30'}`} />
         </div>
       </div>
 

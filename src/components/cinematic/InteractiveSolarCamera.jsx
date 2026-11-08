@@ -736,8 +736,6 @@ export function InteractiveSolarCamera({
         camera.position.x += Math.cos(driftTimeRef.current * 0.06) * delta * driftSpeed;
         camera.position.z += Math.sin(driftTimeRef.current * 0.06) * delta * driftSpeed;
       }
-      const desiredTarget = cfg.target ? new THREE.Vector3(...cfg.target) : new THREE.Vector3(0, 0, 0);
-      controls.target.lerp(desiredTarget, 0.05);
       controls.update();
     }
   });

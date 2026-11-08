@@ -18,6 +18,8 @@ import { CelestialLabels } from './CelestialLabels';
 import { DISPLAY_RADII, DISPLAY_ORBIT_RADII, ORBIT_SPEEDS } from '../../data/displayScale';
 
 export function SolarSystemEngine({
+  isActive = true,
+  isTransitioning = false,
   selectedBody = 'overview',
   viewMode = 'cinematic',
   timeMultiplier = 1.0,
@@ -144,15 +146,19 @@ export function SolarSystemEngine({
     const prologueSpeed = (typeof window !== 'undefined' && window.__prologueTimeSpeed) ? window.__prologueTimeSpeed : 1.0;
     const advance = delta * 0.12 * timeMultiplier * prologueSpeed;
 
-    anglesRef.current.mercury += advance * ORBIT_SPEEDS.mercury;
-    anglesRef.current.venus += advance * ORBIT_SPEEDS.venus;
-    anglesRef.current.earth += advance * ORBIT_SPEEDS.earth;
-    anglesRef.current.mars += advance * ORBIT_SPEEDS.mars;
-    anglesRef.current.asteroids += advance * ORBIT_SPEEDS.asteroids;
-    anglesRef.current.jupiter += advance * ORBIT_SPEEDS.jupiter;
-    anglesRef.current.saturn += advance * ORBIT_SPEEDS.saturn;
-    anglesRef.current.uranus += advance * ORBIT_SPEEDS.uranus;
-    anglesRef.current.neptune += advance * ORBIT_SPEEDS.neptune;
+    // Critical simulation behavior: When a planet is focused, it continues rotating on its axis,
+    // but STOPS revolving around the Sun (maintaining its current X,0,Z position). Returning to overview smoothly restores revolution.
+    const focusedBody = selectedBody === 'overview' ? null : selectedBody;
+
+    if (focusedBody !== 'mercury') anglesRef.current.mercury += advance * ORBIT_SPEEDS.mercury;
+    if (focusedBody !== 'venus') anglesRef.current.venus += advance * ORBIT_SPEEDS.venus;
+    if (focusedBody !== 'earth') anglesRef.current.earth += advance * ORBIT_SPEEDS.earth;
+    if (focusedBody !== 'mars') anglesRef.current.mars += advance * ORBIT_SPEEDS.mars;
+    if (focusedBody !== 'asteroids') anglesRef.current.asteroids += advance * ORBIT_SPEEDS.asteroids;
+    if (focusedBody !== 'jupiter') anglesRef.current.jupiter += advance * ORBIT_SPEEDS.jupiter;
+    if (focusedBody !== 'saturn') anglesRef.current.saturn += advance * ORBIT_SPEEDS.saturn;
+    if (focusedBody !== 'uranus') anglesRef.current.uranus += advance * ORBIT_SPEEDS.uranus;
+    if (focusedBody !== 'neptune') anglesRef.current.neptune += advance * ORBIT_SPEEDS.neptune;
 
     const ceresR = DISPLAY_ORBIT_RADII.ceres;
 
@@ -222,7 +228,7 @@ export function SolarSystemEngine({
         viewMode={viewMode}
         bodyPositions={positionsRef.current}
         isUserInteracting={isUserInteracting}
-        enabled={!isPrologueActive}
+        enabled={isActive && !isPrologueActive && !isTransitioning}
       />
 
       {/* 2b. Live 3D WebGL Director & Effects (Active during 14.5s Prologue) */}

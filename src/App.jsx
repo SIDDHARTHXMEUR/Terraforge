@@ -303,6 +303,8 @@ export default function App() {
             {/* Simulator 3D Scene */}
             <group ref={simSceneRef} visible={route.mode === 'sim' || isTransitioning}>
               <SolarSystemEngine
+                isActive={route.mode === 'sim'}
+                isTransitioning={isTransitioning}
                 selectedBody={selectedBody}
                 viewMode={viewMode}
                 timeMultiplier={timeMultiplier}
