@@ -1,8 +1,21 @@
 import React from 'react';
 
-export function LandingHeroOverlay() {
+export function LandingHeroOverlay({ progress = 0 }) {
+  // Hero wordmark parallaxes upward slowly (0.5x scroll speed) and fades out by 35% of hero (progress 0.35)
+  // Never clipped by top edge while visible, no scaling
+  const isVisible = progress <= 0.35;
+  const opacity = Math.max(0, 1 - progress / 0.35);
+  const translateY = -progress * 120; // 0.5x slow upward drift
+
   return (
-    <div className="relative w-full h-full flex flex-col items-center justify-center px-6 text-center select-none pointer-events-none">
+    <div
+      className="absolute inset-0 flex flex-col items-center justify-center px-6 text-center select-none pointer-events-none"
+      style={{
+        opacity: isVisible ? opacity : 0,
+        visibility: isVisible ? 'visible' : 'hidden',
+        transform: `translate3d(0, ${translateY}px, 0)`
+      }}
+    >
       {/* 1. Micro-label: Inter 11px uppercase tracking 0.5em 60% opacity */}
       <div className="micro-label-text mb-6">
         REAL-TIME SOLAR SYSTEM SIMULATOR

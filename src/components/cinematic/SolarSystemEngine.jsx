@@ -18,6 +18,8 @@ import { CelestialLabels } from './CelestialLabels';
 import { DISPLAY_RADII, DISPLAY_ORBIT_RADII, ORBIT_SPEEDS } from '../../data/displayScale';
 
 export function SolarSystemEngine({
+  isActive = true,
+  isTransitioning = false,
   selectedBody = 'overview',
   viewMode = 'cinematic',
   timeMultiplier = 1.0,
@@ -27,10 +29,10 @@ export function SolarSystemEngine({
   onSelectBody,
   isUserInteracting = false,
   isPrologueActive = false,
-  onCompletePrologue,
-  enabled = true
+  onCompletePrologue
 }) {
-  const { gl, scene, camera } = useThree();
+  const threeState = useThree();
+  const { gl, scene, camera } = threeState;
   const hasWarmedUpRef = useRef(false);
 
   // Progressive shader compilation and texture uploads during idle time
@@ -39,6 +41,8 @@ export function SolarSystemEngine({
     if (typeof window !== 'undefined') {
       window.__threeScene = scene;
       window.__threeGl = gl;
+      window.__threeCamera = camera;
+      window.__threeState = threeState;
     }
 
     if (hasWarmedUpRef.current) return;
@@ -57,20 +61,20 @@ export function SolarSystemEngine({
       }
 
       if (gl && scene && camera) {
-        // Upload textures with max anisotropic filtering (8 to 16)
-        const maxAniso = Math.min(16, gl.capabilities?.getMaxAnisotropy() || 8);
+        // Upload textures progressively to GPU memory
         scene.traverse((obj) => {
           if (obj.isMesh && obj.material) {
             const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
             for (const mat of mats) {
-              ['map', 'normalMap', 'bumpMap', 'roughnessMap'].forEach((key) => {
-                if (mat[key]) {
-                  mat[key].anisotropy = maxAniso;
-                  if (!mat[key].__uploaded) {
-                    try { gl.initTexture(mat[key]); mat[key].__uploaded = true; } catch (_) {}
-                  }
-                }
-              });
+              if (mat.map && !mat.map.__uploaded) {
+                try { gl.initTexture(mat.map); mat.map.__uploaded = true; } catch (_) {}
+              }
+              if (mat.normalMap && !mat.normalMap.__uploaded) {
+                try { gl.initTexture(mat.normalMap); mat.normalMap.__uploaded = true; } catch (_) {}
+              }
+              if (mat.roughnessMap && !mat.roughnessMap.__uploaded) {
+                try { gl.initTexture(mat.roughnessMap); mat.roughnessMap.__uploaded = true; } catch (_) {}
+              }
             }
           }
         });
@@ -142,19 +146,19 @@ export function SolarSystemEngine({
     const prologueSpeed = (typeof window !== 'undefined' && window.__prologueTimeSpeed) ? window.__prologueTimeSpeed : 1.0;
     const advance = delta * 0.12 * timeMultiplier * prologueSpeed;
 
-    // Focused planets stop orbital revolution while preserving axial rotation.
-    // Returning to overview restores orbital revolution smoothly.
-    const isBodyFocused = (body) => selectedBody === body;
+    // Critical simulation behavior: When a planet is focused, it continues rotating on its axis,
+    // but STOPS revolving around the Sun (maintaining its current X,0,Z position). Returning to overview smoothly restores revolution.
+    const focusedBody = selectedBody === 'overview' ? null : selectedBody;
 
-    if (!isBodyFocused('mercury')) anglesRef.current.mercury += advance * ORBIT_SPEEDS.mercury;
-    if (!isBodyFocused('venus')) anglesRef.current.venus += advance * ORBIT_SPEEDS.venus;
-    if (!isBodyFocused('earth')) anglesRef.current.earth += advance * ORBIT_SPEEDS.earth;
-    if (!isBodyFocused('mars')) anglesRef.current.mars += advance * ORBIT_SPEEDS.mars;
-    if (!isBodyFocused('asteroids')) anglesRef.current.asteroids += advance * ORBIT_SPEEDS.asteroids;
-    if (!isBodyFocused('jupiter')) anglesRef.current.jupiter += advance * ORBIT_SPEEDS.jupiter;
-    if (!isBodyFocused('saturn')) anglesRef.current.saturn += advance * ORBIT_SPEEDS.saturn;
-    if (!isBodyFocused('uranus')) anglesRef.current.uranus += advance * ORBIT_SPEEDS.uranus;
-    if (!isBodyFocused('neptune')) anglesRef.current.neptune += advance * ORBIT_SPEEDS.neptune;
+    if (focusedBody !== 'mercury') anglesRef.current.mercury += advance * ORBIT_SPEEDS.mercury;
+    if (focusedBody !== 'venus') anglesRef.current.venus += advance * ORBIT_SPEEDS.venus;
+    if (focusedBody !== 'earth') anglesRef.current.earth += advance * ORBIT_SPEEDS.earth;
+    if (focusedBody !== 'mars') anglesRef.current.mars += advance * ORBIT_SPEEDS.mars;
+    if (focusedBody !== 'asteroids') anglesRef.current.asteroids += advance * ORBIT_SPEEDS.asteroids;
+    if (focusedBody !== 'jupiter') anglesRef.current.jupiter += advance * ORBIT_SPEEDS.jupiter;
+    if (focusedBody !== 'saturn') anglesRef.current.saturn += advance * ORBIT_SPEEDS.saturn;
+    if (focusedBody !== 'uranus') anglesRef.current.uranus += advance * ORBIT_SPEEDS.uranus;
+    if (focusedBody !== 'neptune') anglesRef.current.neptune += advance * ORBIT_SPEEDS.neptune;
 
     const ceresR = DISPLAY_ORBIT_RADII.ceres;
 
@@ -224,7 +228,7 @@ export function SolarSystemEngine({
         viewMode={viewMode}
         bodyPositions={positionsRef.current}
         isUserInteracting={isUserInteracting}
-        enabled={enabled && !isPrologueActive}
+        enabled={isActive && !isPrologueActive && !isTransitioning}
       />
 
       {/* 2b. Live 3D WebGL Director & Effects (Active during 14.5s Prologue) */}

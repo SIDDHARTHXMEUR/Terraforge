@@ -1,10 +1,11 @@
 import React, { useState, useRef } from 'react';
 import { Html } from '@react-three/drei';
-import { useFrame, useThree } from '@react-three/fiber';
-import * as THREE from 'three';
+import { useFrame } from '@react-three/fiber';
 import { DISPLAY_RADII } from '../../data/displayScale';
 
 // Calibrated aerospace editorial label offsets designed to prevent text collisions
+// Alternating quad-direction vectors ensure inner planets (Mercury, Venus, Earth, Mars, Ceres)
+// never collide even during orbital conjunctions.
 const CELESTIAL_BODIES = [
   { id: 'sun', label: 'SOL', offset: [65, -55], yLift: DISPLAY_RADII.sun * 1.05 },
   { id: 'mercury', label: 'MERCURY', offset: [40, -25], yLift: DISPLAY_RADII.mercury * 1.25 },
@@ -32,40 +33,18 @@ function CelestialLabelItem({
   const [isHovered, setIsHovered] = useState(false);
   const groupRef = useRef();
   const [offsetX, offsetY] = offset;
-  const { camera } = useThree();
-  const [isBehindSun, setIsBehindSun] = useState(false);
 
-  // Synchronously update label group position and test Sun disc occlusion
+  // Synchronously update label group position in same frame loop
   useFrame(() => {
     if (groupRef.current && position) {
       groupRef.current.position.set(position[0], position[1] + yLift, position[2]);
     }
-
-    if (id !== 'sun' && position) {
-      const cPos = camera.position;
-      const bVec = new THREE.Vector3(position[0], position[1] + yLift, position[2]);
-      const rayDir = new THREE.Vector3().subVectors(bVec, cPos);
-      const distToBody = rayDir.length();
-      rayDir.normalize();
-
-      // Sun is at [0, 0, 0] with radius DISPLAY_RADII.sun
-      const toSun = new THREE.Vector3(0, 0, 0).sub(cPos);
-      const t = toSun.dot(rayDir);
-
-      if (t > 0 && t < distToBody) {
-        const closestPoint = cPos.clone().addScaledVector(rayDir, t);
-        const distFromSunCenter = closestPoint.length();
-        const occluded = distFromSunCenter < (DISPLAY_RADII.sun * 1.05);
-        if (occluded !== isBehindSun) setIsBehindSun(occluded);
-      } else {
-        if (isBehindSun) setIsBehindSun(false);
-      }
-    }
   });
 
+  // Leader line geometry: from anchor (0, 0) up-right to (offsetX, offsetY)
   const tickLength = 16;
   const endX = offsetX + (offsetX > 0 ? tickLength : -tickLength);
-  const isVisible = (!hoverOnly || isHovered) && isVisibleOverall && !isBehindSun;
+  const isVisible = (!hoverOnly || isHovered) && isVisibleOverall;
 
   return (
     <group ref={groupRef} position={[position[0], position[1] + yLift, position[2]]}>
@@ -73,12 +52,12 @@ function CelestialLabelItem({
         center={false}
         occlude={false}
         position={[0, 0, 0]}
-        pointerEvents={isVisible ? 'auto' : 'none'}
+        pointerEvents={isVisibleOverall ? 'auto' : 'none'}
         style={{
-          pointerEvents: isVisible ? 'auto' : 'none',
+          pointerEvents: isVisibleOverall ? 'auto' : 'none',
           transform: 'translate3d(0, 0, 0)',
           willChange: 'transform',
-          opacity: isVisible ? 1 : 0,
+          opacity: isVisibleOverall ? 1 : 0,
           transition: 'opacity 0.08s linear'
         }}
       >
@@ -101,7 +80,14 @@ function CelestialLabelItem({
               opacity: isHovered ? 0.85 : 0
             }}
           >
-            <circle cx="0" cy="0" r={1.2} fill="rgba(255, 255, 255, 0.9)" />
+            {/* Anchor tick dot at planet position */}
+            <circle
+              cx="0"
+              cy="0"
+              r={1.2}
+              fill="rgba(255, 255, 255, 0.9)"
+            />
+            {/* Angled leader line extending outward */}
             <polyline
               points={`0,0 ${offsetX},${offsetY} ${endX},${offsetY}`}
               fill="none"
@@ -110,7 +96,7 @@ function CelestialLabelItem({
             />
           </svg>
 
-          {/* Understated Text Label */}
+          {/* Plain, Understated 11px Plain Text Label */}
           <div
             className={`absolute whitespace-nowrap transition-all duration-200 ${isVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
             style={{
@@ -145,6 +131,18 @@ export function CelestialLabels({
 }) {
   const isOverview = selectedBody === 'overview';
   const shouldShow = visible && isOverview;
+
+  useFrame(() => {
+    // DEV instrumentation: record toggle latency for labels
+    if (import.meta.env.DEV && typeof window !== 'undefined' && window.__lastToggleClick?.type === 'labels') {
+      const click = window.__lastToggleClick;
+      if ((click.target && shouldShow) || (!click.target && !shouldShow)) {
+        const latency = Math.round(performance.now() - click.time);
+        if (window.__perfMetrics) window.__perfMetrics.toggleLatencies.labels = latency;
+        window.__lastToggleClick = null;
+      }
+    }
+  });
 
   return (
     <group visible={isOverview}>

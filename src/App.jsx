@@ -1,20 +1,18 @@
 import React, { Suspense, useState, useEffect, useRef } from 'react';
 import { Canvas } from '@react-three/fiber';
 import * as THREE from 'three';
-
-if (typeof window !== 'undefined') {
-  window.THREE = THREE;
-}
+import { SolarSystemEngine } from './components/cinematic/SolarSystemEngine';
 import { InteractiveSimulatorHUD } from './components/cinematic/InteractiveSimulatorHUD';
 import { CinematicPrologueOverlay } from './components/cinematic/CinematicPrologueOverlay';
+import { LoadingScreen } from './components/LoadingScreen';
 import { EarthBaselineComparator } from './components/test/EarthBaselineComparator';
 import { DeepSpaceSkybox } from './components/cinematic/DeepSpaceSkybox';
 import { OrbitControls } from '@react-three/drei';
 import { EarthMapLibreViewer } from './components/cinematic/EarthMapLibreViewer';
 import { useEarthSurfaceStore } from './state/useEarthSurfaceStore';
 import { LandingPage } from './components/landing/LandingPage';
-import { UnifiedSolarEngine } from './components/cinematic/UnifiedSolarEngine';
-import { RefinedPreloader } from './components/common/RefinedPreloader';
+import { LandingScene } from './components/landing/LandingScene';
+import { WarmUpController } from './components/cinematic/WarmUpController';
 
 const CELESTIAL_ORDER = ['sun', 'mercury', 'venus', 'earth', 'mars', 'jupiter', 'saturn', 'uranus', 'neptune'];
 
@@ -28,6 +26,13 @@ function parseHashRoute() {
       planet: raw || 'overview'
     };
   }
+  // Check if returning user visited simulator before
+  try {
+    const visited = localStorage.getItem('terraforge_visited_sim');
+    if (visited === 'true' && !hash) {
+      return { mode: 'sim', planet: 'overview' };
+    }
+  } catch (_) {}
   return { mode: 'landing', planet: null };
 }
 
@@ -90,18 +95,36 @@ export default function App() {
   const isMapLibreActive = useEarthSurfaceStore((s) => s.isMapLibreActive);
   const setIsMapLibreActive = useEarthSurfaceStore((s) => s.setIsMapLibreActive);
 
-  // Landing page scroll tracking & persistent asset warmer state
-  const scrollProgressRef = useRef(0);
-  const [preloaderProgress, setPreloaderProgress] = useState(25);
-  const [isPreloaderReady, setIsPreloaderReady] = useState(false);
+  // Transition & Persistent Canvas Refs
+  const landingProgressRef = useRef(0);
+  const simSceneRef = useRef(null);
+  const isReadyRef = useRef(false);
+  const [isTransitioning, setIsTransitioning] = useState(false);
 
-  // Fail-safe preloader dismiss: guaranteed never to block screen longer than 800ms
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setIsPreloaderReady(true);
-    }, 800);
-    return () => clearTimeout(timer);
-  }, []);
+  const handleEnterSim = () => {
+    handleCompletePrologue();
+    try {
+      localStorage.setItem('terraforge_visited_sim', 'true');
+    } catch (_) {}
+    setIsTransitioning(true);
+    // Smooth 900ms dive crossfade (camera is already at overview pose in section 9)
+    setTimeout(() => {
+      setRoute({ mode: 'sim', planet: 'overview' });
+      setSelectedBody('overview');
+      window.location.hash = '#/sim';
+      setIsTransitioning(false);
+    }, 900);
+  };
+
+  const handleGoHome = () => {
+    setIsTransitioning(true);
+    // Reverse crossfade back to landing page
+    setTimeout(() => {
+      setRoute({ mode: 'landing', planet: null });
+      window.location.hash = '#/';
+      setIsTransitioning(false);
+    }, 900);
+  };
 
   // Sync hash routing changes
   useEffect(() => {
@@ -110,6 +133,9 @@ export default function App() {
       setRoute(r);
       if (r.mode === 'sim') {
         setSelectedBody(r.planet || 'overview');
+        if (r.planet && r.planet !== 'overview') {
+          setIsPrologueActive(false);
+        }
       }
     };
     window.addEventListener('hashchange', handleHash);
@@ -118,6 +144,9 @@ export default function App() {
 
   const handleSelectBody = (body) => {
     setSelectedBody(body);
+    if (body && body !== 'overview') {
+      setIsPrologueActive(false);
+    }
     if (typeof window !== 'undefined' && route.mode === 'sim') {
       const targetHash = body === 'overview' ? '#/sim' : `#/sim/${body}`;
       if (window.location.hash !== targetHash) {
@@ -130,8 +159,11 @@ export default function App() {
   const queryParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
   const benchmarkMode = queryParams?.get('benchmark'); // 'v1' or 'enhanced'
 
-  // Prologue plays only when manually requested or if explicitly triggered
-  const [isPrologueActive, setIsPrologueActive] = useState(false);
+  // Prologue plays on user request ("Replay intro" or ?prologue=1)
+  const [isPrologueActive, setIsPrologueActive] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return window.location.search.includes('prologue=1');
+  });
 
   const handleCompletePrologue = () => {
     setIsPrologueActive(false);
@@ -236,20 +268,18 @@ export default function App() {
   }
 
   return (
-    <div className="relative w-screen h-screen bg-[#04060B] overflow-hidden font-sans select-none">
-      {/* 1. Refined Preloader: League Gothic wordmark + 1px progress line */}
-      <RefinedPreloader progress={preloaderProgress} isReady={isPreloaderReady} />
-
-      {/* 2. Persistent 3D WebGL Solar System Canvas (Lives continuously through #/ and #/sim) */}
+    <div className="relative w-screen h-screen bg-black overflow-hidden font-sans select-none">
+      {/* 1. SINGLE PERSISTENT 3D WEBGL SOLAR SYSTEM CANVAS */}
       <SceneErrorBoundary>
         <Canvas
-          className="w-full h-full cursor-grab active:cursor-grabbing bg-[#04060B]"
+          className="w-full h-full cursor-grab active:cursor-grabbing bg-black"
           style={{ width: '100vw', height: '100vh', position: 'absolute', inset: 0 }}
           dpr={[1, 1.5]}
           frameloop={isMapLibreActive ? 'never' : 'always'}
           gl={{
             antialias: true,
             alpha: false,
+            preserveDrawingBuffer: true,
             logarithmicDepthBuffer: true,
             powerPreference: 'high-performance',
             toneMapping: THREE.ACESFilmicToneMapping,
@@ -259,70 +289,98 @@ export default function App() {
             fov: 45,
             near: 0.1,
             far: 25000,
-            position: route.mode === 'sim' ? [-300, 165, 290] : [0, 1.2, 5.0]
+            position: route.mode === 'landing' ? [0, 1.2, 5.0] : [-320, 110, 310]
           }}
           onPointerDown={() => setIsUserInteracting(true)}
           onPointerUp={() => setIsUserInteracting(false)}
         >
           <Suspense fallback={null}>
-            <UnifiedSolarEngine
-              route={route}
-              selectedBody={selectedBody}
-              viewMode={viewMode}
-              timeMultiplier={timeMultiplier}
-              isPaused={isPaused || isMapLibreActive}
-              showOrbits={!isMapLibreActive && showOrbits}
-              showLabels={!isPrologueActive && !isMapLibreActive && showLabels}
-              onSelectBody={handleSelectBody}
-              isUserInteracting={isUserInteracting}
-              scrollProgressRef={scrollProgressRef}
-              onWarmupProgress={(pct) => setPreloaderProgress(pct)}
-              onFirstRender={() => setIsPreloaderReady(true)}
-            />
+            {/* Landing 3D Scene */}
+            <group visible={route.mode === 'landing' || isTransitioning}>
+              <LandingScene scrollProgressRef={landingProgressRef} isActive={route.mode === 'landing'} />
+            </group>
+
+            {/* Simulator 3D Scene */}
+            <group ref={simSceneRef} visible={route.mode === 'sim' || isTransitioning}>
+              <SolarSystemEngine
+                isActive={route.mode === 'sim'}
+                isTransitioning={isTransitioning}
+                selectedBody={selectedBody}
+                viewMode={viewMode}
+                timeMultiplier={timeMultiplier}
+                isPaused={isPaused || isMapLibreActive}
+                showOrbits={!isMapLibreActive && showOrbits}
+                showLabels={!isPrologueActive && !isMapLibreActive && showLabels}
+                onSelectBody={handleSelectBody}
+                isUserInteracting={isUserInteracting}
+                isPrologueActive={isPrologueActive}
+                onCompletePrologue={handleCompletePrologue}
+              />
+            </group>
+
+            {/* Idle Time Asynchronous Texture & Shader WarmUpController */}
+            <WarmUpController simSceneRef={simSceneRef} isReadyRef={isReadyRef} />
           </Suspense>
         </Canvas>
       </SceneErrorBoundary>
 
-      {/* 3. Landing Page DOM Overlay (Active when route.mode === 'landing') */}
-      <LandingPage
-        scrollProgressRef={scrollProgressRef}
-        visible={route.mode === 'landing'}
-        onNavigateSim={(hash) => {
-          window.location.hash = hash;
-        }}
-      />
-
-      {/* 4. Fullscreen MapLibre 3D Vector Map & Mapillary Street View */}
+      {/* 2. Fullscreen MapLibre 3D Vector Map & Mapillary Street View */}
       <EarthMapLibreViewer
         isActive={isMapLibreActive}
         onClose={() => setIsMapLibreActive(false)}
       />
 
-      {/* 5. Directed Christopher Nolan Prologue Overlay (Letterbox + Anamorphic Flare + Title) */}
-      <CinematicPrologueOverlay
-        isActive={route.mode === 'sim' && isPrologueActive}
-        onSkip={handleCompletePrologue}
-      />
+      {/* 3. Directed Christopher Nolan Prologue Overlay */}
+      {route.mode === 'sim' && (
+        <CinematicPrologueOverlay
+          isActive={isPrologueActive}
+          onSkip={handleCompletePrologue}
+        />
+      )}
 
-      {/* 6. Interactive Solar Simulator HUD (Active when route.mode === 'sim') */}
-      <InteractiveSimulatorHUD
-        selectedBody={selectedBody}
-        onSelectBody={handleSelectBody}
-        viewMode={viewMode}
-        setViewMode={setViewMode}
-        isPaused={isPaused}
-        setIsPaused={setIsPaused}
-        timeMultiplier={timeMultiplier}
-        setTimeMultiplier={setTimeMultiplier}
-        showOrbits={showOrbits}
-        setShowOrbits={setShowOrbits}
-        showLabels={showLabels}
-        setShowLabels={setShowLabels}
-        uiVisible={route.mode === 'sim' && !isPrologueActive && !isMapLibreActive && uiVisible}
-        setUiVisible={setUiVisible}
-        onResetCamera={handleResetCamera}
-        onReplayIntro={handleReplayIntro}
-      />
+      {/* 4. LANDING PAGE OVERLAYS (Fluid 900ms crossfade dive) */}
+      <div
+        className={`fixed inset-0 z-10 transition-opacity duration-900 pointer-events-none ${
+          route.mode === 'landing'
+            ? (isTransitioning ? 'opacity-0' : 'opacity-100 pointer-events-auto')
+            : (isTransitioning ? 'opacity-100 pointer-events-auto' : 'opacity-0')
+        }`}
+      >
+        <LandingPage
+          externalCanvas={true}
+          scrollProgressRef={landingProgressRef}
+          onEnterSim={handleEnterSim}
+        />
+      </div>
+
+      {/* 5. INTERACTIVE SIMULATOR HUD OVERLAYS (Fluid 900ms crossfade dive) */}
+      <div
+        className={`fixed inset-0 z-30 transition-opacity duration-900 pointer-events-none ${
+          route.mode === 'sim'
+            ? (isTransitioning ? 'opacity-0' : 'opacity-100 pointer-events-auto')
+            : (isTransitioning ? 'opacity-100 pointer-events-auto' : 'opacity-0')
+        }`}
+      >
+        <InteractiveSimulatorHUD
+          selectedBody={selectedBody}
+          onSelectBody={handleSelectBody}
+          viewMode={viewMode}
+          setViewMode={setViewMode}
+          isPaused={isPaused}
+          setIsPaused={setIsPaused}
+          timeMultiplier={timeMultiplier}
+          setTimeMultiplier={setTimeMultiplier}
+          showOrbits={showOrbits}
+          setShowOrbits={setShowOrbits}
+          showLabels={showLabels}
+          setShowLabels={setShowLabels}
+          uiVisible={!isPrologueActive && !isMapLibreActive && uiVisible}
+          setUiVisible={setUiVisible}
+          onResetCamera={handleResetCamera}
+          onReplayIntro={handleReplayIntro}
+          onGoHome={handleGoHome}
+        />
+      </div>
     </div>
   );
 }

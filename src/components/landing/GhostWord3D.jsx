@@ -2,16 +2,17 @@ import React, { useMemo } from 'react';
 import * as THREE from 'three';
 
 /**
- * 3D Depth-Tested Giant Ghost Word
- * - Rendered at exactly 24% opacity (#FFF8E7 @ 0.24, never 100%)
- * - Partially clipped off screen edge (at least 15% hidden)
- * - Sits behind the planet, depth-tested so planet disc occludes it
+ * 3D Depth-Tested Ghost Word
+ * - Desktop: Horizontal outline ~28vw equivalent in League Gothic
+ * - Mobile: Vertical stacked letters (one per line, e.g. M \n A \n R \n S) behind planet limb
+ * - 1px cream outline at 14% opacity (#FFF8E7 @ 0.14)
+ * - Depth-tested against the planet sphere for natural occlusion
  */
 export function GhostWord3D({
   text = 'MARS',
   position = [0, 0, -2],
   scale = [12, 3.2, 1],
-  opacity = 0.24,
+  opacity = 0.14,
   isVertical = false
 }) {
   const texture = useMemo(() => {
@@ -27,7 +28,7 @@ export function GhostWord3D({
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    ctx.lineWidth = 5;
+    ctx.lineWidth = 4;
     ctx.strokeStyle = `rgba(255, 248, 231, ${opacity})`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';

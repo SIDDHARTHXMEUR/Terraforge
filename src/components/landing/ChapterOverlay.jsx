@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { forwardRef } from 'react';
 import { PLANETS_CONFIG } from '../../data/planetsData';
 
 const SPEED_OF_LIGHT_KM_S = 299792.458;
@@ -6,25 +6,27 @@ const AU_IN_KM = 149597870.7;
 
 export const CHAPTERS_DATA = [
   {
-    index: 2,
+    progressKey: 1, // scrollProgress = 1.0
+    pagerNumber: '02 / 09',
     id: 'sol',
     planetKey: 'sun',
     name: 'SOL',
     microLabel: '01 / HOST STAR',
     accent: '#FFB347',
     nextPlanet: 'MERCURY',
-    nextHash: '#mercury',
+    nextTarget: 2,
     surfaceStrip: null
   },
   {
-    index: 3,
+    progressKey: 2, // scrollProgress = 2.0
+    pagerNumber: '03 / 09',
     id: 'mercury',
     planetKey: 'mercury',
     name: 'MERCURY',
     microLabel: '02 / INNER SYSTEM',
     accent: '#B8B2A7',
     nextPlanet: 'EARTH',
-    nextHash: '#earth',
+    nextTarget: 3,
     surfaceStrip: {
       name: 'CALORIS BASIN',
       coords: '30.5° N, 189.8° W',
@@ -32,25 +34,27 @@ export const CHAPTERS_DATA = [
     }
   },
   {
-    index: 4,
+    progressKey: 3, // scrollProgress = 3.0
+    pagerNumber: '04 / 09',
     id: 'earth',
     planetKey: 'earth',
     name: 'EARTH',
     microLabel: '03 / HABITABLE WORLD',
     accent: '#5BB8FF',
     nextPlanet: 'MARS',
-    nextHash: '#mars',
+    nextTarget: 4,
     surfaceStrip: null
   },
   {
-    index: 5,
+    progressKey: 4, // scrollProgress = 4.0
+    pagerNumber: '05 / 09',
     id: 'mars',
     planetKey: 'mars',
     name: 'MARS',
     microLabel: '04 / RED PLANET',
     accent: '#E2673A',
     nextPlanet: 'JUPITER',
-    nextHash: '#jupiter',
+    nextTarget: 5,
     surfaceStrip: {
       name: 'VALLES MARINERIS',
       coords: '14.0° S, 59.2° W',
@@ -58,25 +62,27 @@ export const CHAPTERS_DATA = [
     }
   },
   {
-    index: 6,
+    progressKey: 5, // scrollProgress = 5.0
+    pagerNumber: '06 / 09',
     id: 'jupiter',
     planetKey: 'jupiter',
     name: 'JUPITER',
     microLabel: '05 / GAS GIANT',
     accent: '#D9A066',
     nextPlanet: 'SATURN',
-    nextHash: '#saturn',
+    nextTarget: 6,
     surfaceStrip: null
   },
   {
-    index: 7,
+    progressKey: 6, // scrollProgress = 6.0
+    pagerNumber: '07 / 09',
     id: 'saturn',
     planetKey: 'saturn',
     name: 'SATURN',
     microLabel: '06 / RINGED MONARCH',
     accent: '#E8D08A',
     nextPlanet: 'LINEUP',
-    nextHash: '#lineup',
+    nextTarget: 7,
     surfaceStrip: null
   }
 ];
@@ -130,12 +136,19 @@ export function computeChapterStats(chapter) {
   };
 }
 
-export function ChapterOverlay({ chapter, onNext }) {
+export const ChapterOverlay = forwardRef(function ChapterOverlay(
+  { chapter, onNext, statsRef },
+  ref
+) {
   const stats = computeChapterStats(chapter);
-  const pagerIndexStr = `0${chapter.index} / 09`;
 
   return (
-    <div className="sticky top-0 w-full h-screen flex flex-col justify-between px-6 sm:px-12 md:px-16 pt-16 md:pt-24 pb-4 md:pb-8 select-none pointer-events-none">
+    <div
+      ref={ref}
+      id={chapter.id}
+      className="absolute inset-0 flex flex-col justify-between px-6 sm:px-12 md:px-16 pt-16 md:pt-24 pb-4 md:pb-8 select-none pointer-events-none transition-none"
+      style={{ opacity: 0, visibility: 'hidden' }}
+    >
       {/* Surface Texture Magnified Strip (Mercury & Mars) - 14vw slice on left edge */}
       {chapter.surfaceStrip && (
         <div
@@ -165,8 +178,24 @@ export function ChapterOverlay({ chapter, onNext }) {
         </div>
       )}
 
-      {/* Main Chapter Content: Left Column (Cols 2-5) */}
-      <div className="flex-1 flex flex-col justify-center max-w-xl z-20 pointer-events-auto pl-0 xl:pl-56">
+      {/* Mobile Top Content (Clean centered layout matching reference design) */}
+      <div className="flex sm:hidden flex-col items-center text-center mt-16 mb-auto z-20 pointer-events-auto">
+        <div className="flex items-center space-x-2 mb-2">
+          <span className="inline-block w-[2px] h-[12px]" style={{ backgroundColor: chapter.accent }} />
+          <span className="font-sans text-[10px] uppercase tracking-[0.4em] text-cream-60">
+            {chapter.microLabel}
+          </span>
+        </div>
+        <h2 className="font-serif text-4xl font-normal uppercase tracking-[0.14em] text-cream mb-2">
+          {chapter.name}
+        </h2>
+        <p className="font-sans text-[12px] leading-relaxed text-cream-80 max-w-[28ch] mx-auto px-4">
+          {stats.description}
+        </p>
+      </div>
+
+      {/* Main Chapter Content: Left Column for Desktop (Cols 2-5) */}
+      <div className="hidden sm:flex flex-1 flex-col justify-start md:justify-center max-w-xl z-20 pointer-events-auto pl-0 xl:pl-56 mt-4 md:mt-0">
         {/* Micro-label with 2x14px vertical accent bar */}
         <div className="flex items-center space-x-3 mb-3">
           <span
@@ -206,14 +235,30 @@ export function ChapterOverlay({ chapter, onNext }) {
         </div>
       </div>
 
+      {/* Mobile Bottom Exploration Controls (Matching reference layout) */}
+      <div className="flex sm:hidden flex-col items-center pb-8 z-20 pointer-events-auto">
+        <a
+          href={`#/sim/${chapter.planetKey === 'sun' ? 'overview' : chapter.planetKey}`}
+          className="px-8 py-2.5 rounded-full border border-cream/30 text-cream text-[10px] uppercase tracking-[0.25em] hover:bg-white/10 transition-colors backdrop-blur-sm mb-4"
+        >
+          EXPLORE {chapter.name}
+        </a>
+        {/* Pagination Dots */}
+        <div className="flex items-center space-x-2">
+          <span className={`w-1.5 h-1.5 rounded-full ${chapter.progressKey <= 2 ? 'bg-cream' : 'bg-cream/30'}`} />
+          <span className={`w-1.5 h-1.5 rounded-full ${chapter.progressKey === 3 || chapter.progressKey === 4 ? 'bg-cream' : 'bg-cream/30'}`} />
+          <span className={`w-1.5 h-1.5 rounded-full ${chapter.progressKey >= 5 ? 'bg-cream' : 'bg-cream/30'}`} />
+        </div>
+      </div>
+
       {/* Right-edge Pager: 0X / 09 and NEXT: <PLANET> with 1px chevron */}
       <div className="absolute right-6 sm:right-12 top-1/2 -translate-y-1/2 flex flex-col items-end z-20 pointer-events-auto">
         <div className="font-mono text-xs sm:text-sm tracking-widest text-cream-60 mb-4">
-          {pagerIndexStr}
+          {chapter.pagerNumber}
         </div>
         {chapter.nextPlanet && (
           <button
-            onClick={() => onNext && onNext(chapter.nextHash)}
+            onClick={() => onNext && onNext(chapter.nextTarget)}
             className="group flex items-center space-x-2 text-right cursor-pointer focus:outline-none"
           >
             <span className="font-sans text-[10px] tracking-[0.25em] uppercase text-cream-40 group-hover:text-cream transition-colors">
@@ -226,8 +271,12 @@ export function ChapterOverlay({ chapter, onNext }) {
         )}
       </div>
 
-      {/* Bottom 4-Column Stats Strip separated by 1px hairlines at 14% white */}
-      <div className="w-full grid grid-cols-2 md:grid-cols-4 border-t border-cream-14 pt-4 pb-2 z-20 pointer-events-auto bg-black/40 backdrop-blur-sm">
+      {/* Bottom 4-Column Stats Strip: Belongs to exactly ONE chapter at a time */}
+      <div
+        ref={statsRef}
+        className="w-full grid grid-cols-2 md:grid-cols-4 border-t border-cream-14 pt-4 pb-2 z-20 pointer-events-auto bg-black/40 backdrop-blur-sm transition-opacity duration-150"
+        style={{ opacity: 0, visibility: 'hidden' }}
+      >
         {/* Col 1: Distance from Sun */}
         <div className="pr-4 md:border-r border-cream-14 mb-3 md:mb-0">
           <div
@@ -282,4 +331,4 @@ export function ChapterOverlay({ chapter, onNext }) {
       </div>
     </div>
   );
-}
+});
