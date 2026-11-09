@@ -97,7 +97,20 @@ export function WarmUpController({ simSceneRef, isReadyRef }) {
       }
     }, 100);
 
-    return () => clearTimeout(timer);
+    // Runtime fail-safe: if no frame rendered or calls stay 0 within 3s, disable warm-up and force ready
+    const failSafeTimer = setTimeout(() => {
+      const calls = gl.info?.render?.calls || 0;
+      if (calls === 0 || !isReadyRef?.current) {
+        console.warn('[Terraforge Fail-Safe] 3s threshold reached with 0 render calls or pending ready gate; forcing ready state and normal rendering.');
+        if (isReadyRef) isReadyRef.current = true;
+        if (typeof window !== 'undefined') window.__terraforgeWarmupProgress = 1.0;
+      }
+    }, 3000);
+
+    return () => {
+      clearTimeout(timer);
+      clearTimeout(failSafeTimer);
+    };
   }, [gl, scene, camera, simSceneRef, isReadyRef]);
 
   return null;

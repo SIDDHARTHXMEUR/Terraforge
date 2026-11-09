@@ -545,7 +545,7 @@ export function InteractiveSimulatorHUD({
             title="Return to Landing Page"
             className="hover:text-white transition-colors cursor-pointer flex items-center space-x-1"
           >
-            <span className="uppercase">HOME</span>
+            <span className="uppercase">LANDING</span>
           </a>
         </div>
       </footer>

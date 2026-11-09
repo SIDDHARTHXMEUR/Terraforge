@@ -24,7 +24,8 @@ const HeroEarthSurfaceShader = {
       vec4 worldPos = modelMatrix * vec4(position, 1.0);
       vWorldPosition = worldPos.xyz;
       vWorldNormal = normalize((modelMatrix * vec4(normal, 0.0)).xyz);
-      gl_Position = projectionMatrix * viewMatrix * worldPos;
+      vec4 mvPosition = viewMatrix * worldPos;
+      gl_Position = projectionMatrix * mvPosition;
 
       #include <logdepthbuf_vertex>
     }
@@ -117,7 +118,8 @@ const AtmosphereGlowShader = {
       vec4 worldPos = modelMatrix * vec4(position, 1.0);
       vWorldPosition = worldPos.xyz;
       vWorldNormal = normalize((modelMatrix * vec4(normal, 0.0)).xyz);
-      gl_Position = projectionMatrix * viewMatrix * worldPos;
+      vec4 mvPosition = viewMatrix * worldPos;
+      gl_Position = projectionMatrix * mvPosition;
 
       #include <logdepthbuf_vertex>
     }
