@@ -142,15 +142,19 @@ export function SolarSystemEngine({
     const prologueSpeed = (typeof window !== 'undefined' && window.__prologueTimeSpeed) ? window.__prologueTimeSpeed : 1.0;
     const advance = delta * 0.12 * timeMultiplier * prologueSpeed;
 
-    anglesRef.current.mercury += advance * ORBIT_SPEEDS.mercury;
-    anglesRef.current.venus += advance * ORBIT_SPEEDS.venus;
-    anglesRef.current.earth += advance * ORBIT_SPEEDS.earth;
-    anglesRef.current.mars += advance * ORBIT_SPEEDS.mars;
-    anglesRef.current.asteroids += advance * ORBIT_SPEEDS.asteroids;
-    anglesRef.current.jupiter += advance * ORBIT_SPEEDS.jupiter;
-    anglesRef.current.saturn += advance * ORBIT_SPEEDS.saturn;
-    anglesRef.current.uranus += advance * ORBIT_SPEEDS.uranus;
-    anglesRef.current.neptune += advance * ORBIT_SPEEDS.neptune;
+    // Focused planets stop orbital revolution while preserving axial rotation.
+    // Returning to overview restores orbital revolution smoothly.
+    const isBodyFocused = (body) => selectedBody === body;
+
+    if (!isBodyFocused('mercury')) anglesRef.current.mercury += advance * ORBIT_SPEEDS.mercury;
+    if (!isBodyFocused('venus')) anglesRef.current.venus += advance * ORBIT_SPEEDS.venus;
+    if (!isBodyFocused('earth')) anglesRef.current.earth += advance * ORBIT_SPEEDS.earth;
+    if (!isBodyFocused('mars')) anglesRef.current.mars += advance * ORBIT_SPEEDS.mars;
+    if (!isBodyFocused('asteroids')) anglesRef.current.asteroids += advance * ORBIT_SPEEDS.asteroids;
+    if (!isBodyFocused('jupiter')) anglesRef.current.jupiter += advance * ORBIT_SPEEDS.jupiter;
+    if (!isBodyFocused('saturn')) anglesRef.current.saturn += advance * ORBIT_SPEEDS.saturn;
+    if (!isBodyFocused('uranus')) anglesRef.current.uranus += advance * ORBIT_SPEEDS.uranus;
+    if (!isBodyFocused('neptune')) anglesRef.current.neptune += advance * ORBIT_SPEEDS.neptune;
 
     const ceresR = DISPLAY_ORBIT_RADII.ceres;
 
