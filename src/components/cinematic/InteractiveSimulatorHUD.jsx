@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { PLANETS_CONFIG } from '../../data/planetsData';
 import { useEarthSurfaceStore } from '../../state/useEarthSurfaceStore';
+import { Wordmark } from '../common/Wordmark';
 
 const CELESTIAL_LIST = [
   { id: 'overview', name: 'Overview' },
@@ -193,16 +194,13 @@ export function InteractiveSimulatorHUD({
       <header className="w-full flex items-center justify-between gap-6 pointer-events-auto whitespace-nowrap overflow-x-auto py-1">
         {/* Brand & Simulation Live Indicator */}
         <div className="flex items-center space-x-3 text-white/90 shrink-0">
-          <button
+          <Wordmark
             onClick={() => {
               if (onGoHome) onGoHome();
               else window.location.hash = '#/';
             }}
-            className="font-wordmark text-3xl sm:text-4xl text-[#FFF8E7] tracking-[0.05em] uppercase leading-none drop-shadow-[0_2px_12px_rgba(0,0,0,0.8)] hover:text-white transition-colors cursor-pointer"
-            title="Return to Home Landing"
-          >
-            TERRAFORGE
-          </button>
+            className="hover:opacity-80 transition-opacity cursor-pointer"
+          />
           <span className="text-white/20">/</span>
           <button
             onClick={() => {

@@ -5,6 +5,7 @@ import { LandingScene } from './LandingScene';
 import { LandingHeroOverlay } from './LandingHeroOverlay';
 import { ChapterOverlay, CHAPTERS_DATA } from './ChapterOverlay';
 import { NonWebGLFallback } from './NonWebGLFallback';
+import { Wordmark } from '../common/Wordmark';
 
 function checkWebGLSupport() {
   if (typeof window === 'undefined') return true;
@@ -332,17 +333,24 @@ export function LandingPage({
 
       {/* Top Fixed Header */}
       <header className="fixed top-0 left-0 right-0 z-40 flex items-center justify-between px-6 sm:px-12 py-6 pointer-events-none">
-        {/* Top-left: plain text TERRAFORGE (League Gothic, cream, 18 px, tracking 0.25em) */}
-        <span className="font-wordmark text-[18px] tracking-[0.25em] text-cream uppercase select-none pointer-events-auto">
-          TERRAFORGE
-        </span>
+        {/* Top-left: standardized Wordmark beside / SIMULATOR in Inter */}
+        <div className="flex items-center space-x-2 pointer-events-auto">
+          <Wordmark />
+          <span className="text-cream/30 font-sans text-[11px]">/</span>
+          <a
+            href="#/sim"
+            className="font-sans text-[11px] uppercase tracking-[0.25em] text-cream opacity-70 hover:opacity-100 transition-opacity focus:outline-none focus:ring-1 focus:ring-white py-1"
+          >
+            SIMULATOR
+          </a>
+        </div>
 
         {/* Top-right: a single plain text link "SIMULATOR" jumping to #/sim */}
         <a
           href="#/sim"
           className="pointer-events-auto font-sans text-[11px] uppercase tracking-[0.25em] text-cream opacity-70 hover:opacity-100 transition-opacity focus:outline-none focus:ring-1 focus:ring-white py-1"
         >
-          SIMULATOR
+          ENTER SIMULATOR &gt;
         </a>
       </header>
 
