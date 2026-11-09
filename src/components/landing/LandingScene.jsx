@@ -11,28 +11,20 @@ import { OverviewSection3D } from './OverviewSection3D';
 const SIM_CAM_POS = new THREE.Vector3(-320, 110, 310);
 const SIM_CAM_TARGET = new THREE.Vector3(-65, 0, 48);
 
-export function LandingScene({ scrollProgressRef, isActive = true }) {
+export function LandingScene({ scrollProgressRef }) {
   const { camera } = useThree();
   const heroGroupRef = useRef();
 
   useFrame(() => {
-    if (!isActive) return;
     const scrollP = scrollProgressRef?.current || 0;
 
-    if (scrollP <= 1.0) {
-      // CONTINUOUS HERO TO SOL CAMERA MOTION (Progress 0.0 -> 1.0)
+    if (scrollP <= 0.85) {
+      // SECTION 1: HERO
       if (heroGroupRef.current) heroGroupRef.current.visible = true;
-      const t = THREE.MathUtils.clamp(scrollP, 0, 1);
-      const easeT = THREE.MathUtils.smootherstep(t, 0, 1);
-
-      const startCamPos = new THREE.Vector3(0, 1.2, 5.0);
-      const endCamPos = new THREE.Vector3(0, 0, 7.2);
-      camera.position.lerpVectors(startCamPos, endCamPos, easeT);
-
-      const startTarget = new THREE.Vector3(0, 0.1, 0);
-      const endTarget = new THREE.Vector3(0.7, 0, 0);
-      const curTarget = new THREE.Vector3().lerpVectors(startTarget, endTarget, easeT);
-      camera.lookAt(curTarget);
+      const heroCamY = 1.2 + scrollP * 0.4;
+      const heroCamZ = 5.0 + scrollP * 1.5;
+      camera.position.set(0, heroCamY, heroCamZ);
+      camera.lookAt(0, 0.1, 0);
     } else if (scrollP < 6.4) {
       // SECTIONS 2 to 7: CHAPTERS
       if (heroGroupRef.current) heroGroupRef.current.visible = false;
@@ -67,7 +59,7 @@ export function LandingScene({ scrollProgressRef, isActive = true }) {
 
       {/* Hero Earth Sunrise (Section 1) */}
       <group ref={heroGroupRef}>
-        <HeroEarthSunrise scrollProgressRef={scrollProgressRef} isVisible={true} />
+        <HeroEarthSunrise isVisible={true} />
       </group>
 
       {/* Chapters 1 to 6 3D Planets & Ghost Words (Sections 2 to 7) */}

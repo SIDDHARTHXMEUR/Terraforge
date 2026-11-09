@@ -125,14 +125,16 @@ function OrbitLine({
   radius,
   bodyKey = 'earth',
   color = '#38bdf8',
-  baseOpacity = 0.32,
+  baseOpacity = 0.65,
+  ribbonOpacity = 0.20,
   fadeAlphaRef,
   bodyPositions,
   selectedBody
 }) {
   const lineShaderRef = useRef();
+  const ribbonShaderRef = useRef();
 
-  // Centerline line loop geometry (512 segments for razor-sharp smoothness)
+  // 1. Centerline line loop geometry (512 segments for razor-sharp smoothness)
   const lineGeometry = useMemo(() => {
     const points = [];
     const segments = 512;
@@ -143,12 +145,19 @@ function OrbitLine({
     return new THREE.BufferGeometry().setFromPoints(points);
   }, [radius]);
 
+  // 2. Physical 3D ring ribbon geometry (thin constant-width, 512 segments)
+  const ribbonGeometry = useMemo(() => {
+    const halfW = Math.max(0.12, radius * 0.0016);
+    return new THREE.RingGeometry(radius - halfW, radius + halfW, 512);
+  }, [radius]);
+
   const colorVec = useMemo(() => new THREE.Color(color), [color]);
   const targetVec = useMemo(() => new THREE.Vector3(9999, 9999, 9999), []);
 
   useFrame(() => {
     const fade = fadeAlphaRef ? fadeAlphaRef.current : 1.0;
     const effectiveLineOpacity = baseOpacity * fade;
+    const effectiveRibbonOpacity = ribbonOpacity * fade;
 
     const bPos = (selectedBody && selectedBody !== 'overview' && bodyPositions && bodyPositions[selectedBody])
       ? bodyPositions[selectedBody]
@@ -172,11 +181,43 @@ function OrbitLine({
       lineShaderRef.current.uniforms.uTargetRadius.value = bRadius;
       lineShaderRef.current.uniforms.uProgress.value = progress;
     }
+
+    if (ribbonShaderRef.current) {
+      ribbonShaderRef.current.uniforms.uColor.value.set(color);
+      ribbonShaderRef.current.uniforms.uOpacity.value = effectiveRibbonOpacity;
+      ribbonShaderRef.current.uniforms.uTargetPos.value.set(tX, tY, tZ);
+      ribbonShaderRef.current.uniforms.uTargetRadius.value = bRadius;
+      ribbonShaderRef.current.uniforms.uProgress.value = progress;
+    }
   });
 
   return (
     <group>
-      {/* Crisp, thin orbital path (NormalBlending prevents white blowout and halo artifacts) */}
+      {/* 3D Luminous Ribbon for solid visibility at all zooms (DoubleSide) */}
+      <mesh
+        geometry={ribbonGeometry}
+        rotation={[-Math.PI / 2, 0, 0]}
+        renderOrder={8}
+      >
+        <shaderMaterial
+          ref={ribbonShaderRef}
+          args={[OrbitRibbonShader]}
+          side={THREE.DoubleSide}
+          transparent={true}
+          blending={THREE.AdditiveBlending}
+          depthWrite={false}
+          depthTest={true}
+          uniforms={{
+            uColor: { value: colorVec },
+            uOpacity: { value: ribbonOpacity },
+            uTargetPos: { value: targetVec },
+            uTargetRadius: { value: 0 },
+            uProgress: { value: 1.0 }
+          }}
+        />
+      </mesh>
+
+      {/* Crisp Centerline */}
       <lineLoop
         geometry={lineGeometry}
         renderOrder={9}
@@ -185,7 +226,7 @@ function OrbitLine({
           ref={lineShaderRef}
           args={[OrbitLineShader]}
           transparent={true}
-          blending={THREE.NormalBlending}
+          blending={THREE.AdditiveBlending}
           depthWrite={false}
           depthTest={true}
           uniforms={{

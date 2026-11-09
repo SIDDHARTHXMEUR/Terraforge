@@ -3,7 +3,6 @@ import { useFrame, useThree } from '@react-three/fiber';
 import { useTexture } from '@react-three/drei';
 import * as THREE from 'three';
 import { GhostWord3D } from './GhostWord3D';
-import { CinematicSun } from '../cinematic/CinematicSun';
 
 // Shared Physically-Based Sun-Driven Shader for Landing Chapter Planets
 const ChapterPlanetShader = {
@@ -155,7 +154,7 @@ export function ChapterPlanets3D({ scrollProgressRef }) {
 
   return (
     <group ref={groupRef}>
-      {/* CHAPTER 1: SOL (Photorealistic SDO 304 Å Sun with granulation & limb darkening) */}
+      {/* CHAPTER 1: SOL (scrollP ~ 1.0) */}
       <ChapterBody
         chapterIndex={1}
         scrollProgressRef={scrollProgressRef}
@@ -164,7 +163,10 @@ export function ChapterPlanets3D({ scrollProgressRef }) {
         position={[2.6, 0.1, 0]}
         isMobile={isMobile}
       >
-        <CinematicSun radius={2.4} position={[0, 0, 0]} />
+        <mesh ref={solRef}>
+          <sphereGeometry args={[2.4, 64, 64]} />
+          <meshBasicMaterial map={sunTex} />
+        </mesh>
       </ChapterBody>
 
       {/* CHAPTER 2: MERCURY (scrollP ~ 2.0) */}
@@ -291,50 +293,25 @@ function ChapterBody({
   children
 }) {
   const groupRef = useRef();
-  const isSol = chapterIndex === 1;
 
   useFrame(() => {
     if (!groupRef.current) return;
     const scrollP = scrollProgressRef?.current || 0;
     const deltaP = scrollP - chapterIndex;
 
-    // Visibility: Sol is visible from 0 to 1.5; other planets within 0.5 of their chapter index
-    const isVisible = isSol ? (scrollP <= 1.5) : (Math.abs(deltaP) <= 0.5);
-    if (!isVisible) {
+    // Strict active window: within 0.5 of chapter index so only 1 planet is rendered at a time
+    if (Math.abs(deltaP) > 0.5) {
       groupRef.current.visible = false;
       return;
     }
 
     groupRef.current.visible = true;
 
-    // Diagonal drift and growth motion:
-    // For Sol: starts at sunrise horizon point (scaled down behind Earth's limb),
-    // grows into full anchored disc as camera rises and Earth recedes (scrollP 0 -> 1)
-    // drifts out to lower-left when scrollP > 1.0
-    let driftX = 0;
-    let driftY = 0;
-    if (isSol) {
-      if (scrollP <= 1.0) {
-        const t = THREE.MathUtils.clamp(scrollP, 0, 1);
-        const easeT = THREE.MathUtils.smootherstep(t, 0, 1);
-        const startPos = new THREE.Vector3(3.1, -0.4, -4.0);
-        const endPos = new THREE.Vector3(2.6, 0.1, 0.0);
-        const curPos = new THREE.Vector3().lerpVectors(startPos, endPos, easeT);
-        const curScale = THREE.MathUtils.lerp(0.28, 1.0, easeT);
-
-        groupRef.current.position.copy(curPos);
-        groupRef.current.scale.setScalar(curScale);
-        return;
-      } else {
-        groupRef.current.scale.setScalar(1.0);
-        driftX = (scrollP - 1.0) * 1.5;
-        driftY = -(scrollP - 1.0) * 1.0;
-      }
-    } else {
-      driftX = deltaP * 1.5;
-      driftY = -deltaP * 1.0;
-      groupRef.current.scale.setScalar(1.0);
-    }
+    // Diagonal drift motion:
+    // When entering (deltaP < 0): drifts from upper-right
+    // When exiting (deltaP > 0): drifts to lower-left
+    const driftX = deltaP * 1.5;
+    const driftY = -deltaP * 1.0;
 
     const targetPos = isMobile
       ? [0, -1.4, 1.0]
@@ -348,6 +325,7 @@ function ChapterBody({
   });
 
   // Calculate 3D ghost word position:
+  // Offset behind planet so the planet's spherical silhouette occludes >= 15% of the text
   const ghostWordScale = isMobile
     ? [planetRadius * 2.2, planetRadius * 4.2, 1]
     : [planetRadius * 4.6, planetRadius * 1.25, 1];
@@ -356,11 +334,6 @@ function ChapterBody({
     ? [0, 1.1, -1.2]
     : [-planetRadius * 0.45, planetRadius * 0.1, -1.6];
 
-  const scrollP = scrollProgressRef?.current || 0;
-  const ghostOpacity = isSol
-    ? THREE.MathUtils.clamp((scrollP - 0.6) / 0.35, 0, 1) * 0.14
-    : 0.14;
-
   return (
     <group ref={groupRef} visible={false}>
       {/* 3D Depth-Tested Ghost Word (behind planet) */}
@@ -368,7 +341,7 @@ function ChapterBody({
         text={planetName}
         position={ghostWordPos}
         scale={ghostWordScale}
-        opacity={ghostOpacity}
+        opacity={0.14}
         isVertical={isMobile}
       />
 

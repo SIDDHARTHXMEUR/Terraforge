@@ -65,7 +65,7 @@ const HeroEarthSurfaceShader = {
 
       // Combine daytime surface with cloud shadowing
       float cloudShadow = 1.0 - cloudVal * 0.4;
-      vec3 daySurface = (albedo * 0.92 + vec3(0.01, 0.03, 0.05)) * dayFactor * cloudShadow;
+      vec3 daySurface = (albedo * 0.9 + vec3(0.02, 0.05, 0.08)) * dayFactor * cloudShadow;
 
       // Night side with city lights
       vec3 litNight = nightLights * nightFactor * 2.2;
@@ -92,10 +92,10 @@ const HeroEarthSurfaceShader = {
       vec3 atmColor = mix(deepBlueAtm, tealAtm, smoothstep(0.1, 0.5, sunriseAngle));
       atmColor = mix(atmColor, goldOrangeAtm, smoothstep(0.45, 0.85, sunriseAngle));
 
-      vec3 atmosphericScattering = atmColor * limb * (sunriseAngle * 1.5 + 0.3);
+      vec3 atmosphericScattering = atmColor * limb * (sunriseAngle * 2.5 + 0.4);
 
       // Cloud layer lit on surface
-      vec3 cloudsColor = vec3(0.92, 0.94, 0.97) * (dayFactor * 0.75 + 0.04) * cloudVal;
+      vec3 cloudsColor = vec3(0.95, 0.97, 1.0) * (dayFactor * 0.85 + 0.04) * cloudVal;
 
       vec3 finalColor = daySurface + litNight + nightAmbient + cloudsColor + atmosphericScattering;
 
@@ -160,9 +160,40 @@ const AtmosphereGlowShader = {
   `
 };
 
-export function HeroEarthSunrise({ scrollProgressRef, isVisible = true }) {
+// Soft radial glare at sunrise point (pure radial mathematical Gaussian falloff, NO sprites, NO flat beams)
+const SolarSunriseGlareShader = {
+  vertexShader: `
+    varying vec2 vUv;
+    void main() {
+      vUv = uv;
+      gl_Position = vec4(position, 1.0);
+    }
+  `,
+  fragmentShader: `
+    varying vec2 vUv;
+    uniform vec2 uSunriseScreenPos; // in UV [0..1]
+    uniform float uIntensity;
+
+    void main() {
+      vec2 d = (vUv - uSunriseScreenPos) * vec2(16.0 / 9.0, 1.0);
+      float dist = length(d);
+
+      // Exponential soft radial falloff
+      float softGlow = exp(-dist * 5.5) * 0.85;
+      float wideGlow = exp(-dist * 2.2) * 0.35;
+      float totalGlow = (softGlow + wideGlow) * uIntensity;
+
+      if (totalGlow < 0.002) discard;
+
+      vec3 glareColor = mix(vec3(1.0, 0.72, 0.35), vec3(1.0, 0.92, 0.78), exp(-dist * 12.0));
+      gl_FragColor = vec4(glareColor * totalGlow, totalGlow * 0.75);
+    }
+  `
+};
+
+export function HeroEarthSunrise({ isVisible = true }) {
   const earthRef = useRef();
-  const earthGroupRef = useRef();
+  const cloudsRef = useRef();
   const earthMatRef = useRef();
 
   // Load NASA Marble textures
@@ -178,8 +209,8 @@ export function HeroEarthSunrise({ scrollProgressRef, isVisible = true }) {
     cloudsMap.wrapS = cloudsMap.wrapT = THREE.RepeatWrapping;
   }, [albedoMap, nightlightsMap, cloudsMap]);
 
-  // Sun positioned at exact world coordinates of Sol in ChapterPlanets3D
-  const sunPos = useMemo(() => new THREE.Vector3(2.6, 0.1, 0.0), []);
+  // Sun positioned so it rises at the right limb (~70% down screen)
+  const sunPos = useMemo(() => new THREE.Vector3(14.0, -1.8, -4.0), []);
 
   const uniforms = useMemo(() => ({
     uAlbedo: { value: albedoMap },
@@ -194,35 +225,25 @@ export function HeroEarthSunrise({ scrollProgressRef, isVisible = true }) {
     uSunPosition: { value: sunPos }
   }), [sunPos]);
 
-  useFrame((state, delta) => {
-    const scrollP = scrollProgressRef?.current || 0;
-    if (scrollP > 1.2) {
-      if (earthGroupRef.current) earthGroupRef.current.visible = false;
-      return;
-    }
-    if (earthGroupRef.current) earthGroupRef.current.visible = true;
+  const glareUniforms = useMemo(() => ({
+    uSunriseScreenPos: { value: new THREE.Vector2(0.82, 0.32) }, // ~70% down right edge in screen coords
+    uIntensity: { value: 0.95 }
+  }), []);
 
+  useFrame((state, delta) => {
+    if (!isVisible) return;
     uniforms.uTime.value += delta;
+    // Slow rotational drift of Earth
     if (earthRef.current) {
       earthRef.current.rotation.y += delta * 0.003;
-    }
-
-    // Continuity: Over hero to SOL scroll, Earth recedes below and behind
-    // Earth's limb is occluding and receding smoothly
-    if (earthGroupRef.current) {
-      const t = THREE.MathUtils.clamp(scrollP, 0, 1);
-      const easeT = THREE.MathUtils.smootherstep(t, 0, 1);
-      const earthY = THREE.MathUtils.lerp(-9.8, -17.5, easeT);
-      const earthZ = THREE.MathUtils.lerp(0.0, -6.0, easeT);
-      earthGroupRef.current.position.set(0, earthY, earthZ);
     }
   });
 
   return (
-    <group ref={earthGroupRef} visible={isVisible}>
+    <group visible={isVisible}>
       {/* Earth Body: curved limb sweeping diagonally across lower frame, tilted ~12° */}
-      <group rotation={[0.08, 0.45, -0.21]}>
-        {/* Main Earth Surface with depth write */}
+      <group position={[0, -9.8, 0]} rotation={[0.08, 0.45, -0.21]}>
+        {/* Main Earth Surface */}
         <mesh ref={earthRef}>
           <sphereGeometry args={[10.0, 96, 96]} />
           <shaderMaterial
@@ -246,6 +267,20 @@ export function HeroEarthSunrise({ scrollProgressRef, isVisible = true }) {
           />
         </mesh>
       </group>
+
+      {/* Fullscreen soft radial glare at sunrise horizon */}
+      <mesh position={[0, 0, -1]}>
+        <planeGeometry args={[2, 2]} />
+        <shaderMaterial
+          vertexShader={SolarSunriseGlareShader.vertexShader}
+          fragmentShader={SolarSunriseGlareShader.fragmentShader}
+          uniforms={glareUniforms}
+          transparent
+          blending={THREE.AdditiveBlending}
+          depthWrite={false}
+          depthTest={false}
+        />
+      </mesh>
     </group>
   );
 }
