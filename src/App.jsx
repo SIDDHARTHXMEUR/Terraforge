@@ -130,12 +130,8 @@ export default function App() {
   const queryParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
   const benchmarkMode = queryParams?.get('benchmark'); // 'v1' or 'enhanced'
 
-  // Prologue plays on first visit only (localStorage)
-  const [isPrologueActive, setIsPrologueActive] = useState(() => {
-    if (typeof window === 'undefined') return false;
-    const seen = localStorage.getItem('terraforge_prologue_seen');
-    return seen !== 'true';
-  });
+  // Prologue plays only when manually requested or if explicitly triggered
+  const [isPrologueActive, setIsPrologueActive] = useState(false);
 
   const handleCompletePrologue = () => {
     setIsPrologueActive(false);

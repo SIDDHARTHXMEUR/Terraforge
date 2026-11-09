@@ -192,17 +192,17 @@ export function UnifiedSolarEngine({
       </group>
 
       {/* Landing Chapters 3D Planets (Sections 2 to 7) */}
-      <group ref={chaptersGroupRef}>
+      <group ref={chaptersGroupRef} visible={false}>
         <ChapterPlanets3D scrollProgressRef={scrollProgressRef} />
       </group>
 
       {/* Landing Section 8 Lineup 3D */}
-      <group ref={lineupGroupRef}>
+      <group ref={lineupGroupRef} visible={false}>
         <LineupSection3D scrollProgressRef={scrollProgressRef} />
       </group>
 
       {/* Landing Section 9 Overview 3D */}
-      <group ref={overviewGroupRef}>
+      <group ref={overviewGroupRef} visible={false}>
         <OverviewSection3D scrollProgressRef={scrollProgressRef} />
       </group>
 

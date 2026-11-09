@@ -24,7 +24,8 @@ const HeroEarthSurfaceShader = {
       vec4 worldPos = modelMatrix * vec4(position, 1.0);
       vWorldPosition = worldPos.xyz;
       vWorldNormal = normalize((modelMatrix * vec4(normal, 0.0)).xyz);
-      gl_Position = projectionMatrix * viewMatrix * worldPos;
+      vec4 mvPosition = viewMatrix * worldPos;
+      gl_Position = projectionMatrix * mvPosition;
 
       #include <logdepthbuf_vertex>
     }
@@ -117,7 +118,8 @@ const AtmosphereGlowShader = {
       vec4 worldPos = modelMatrix * vec4(position, 1.0);
       vWorldPosition = worldPos.xyz;
       vWorldNormal = normalize((modelMatrix * vec4(normal, 0.0)).xyz);
-      gl_Position = projectionMatrix * viewMatrix * worldPos;
+      vec4 mvPosition = viewMatrix * worldPos;
+      gl_Position = projectionMatrix * mvPosition;
 
       #include <logdepthbuf_vertex>
     }
@@ -166,7 +168,7 @@ const SolarSunriseGlareShader = {
     varying vec2 vUv;
     void main() {
       vUv = uv;
-      gl_Position = vec4(position, 1.0);
+      gl_Position = vec4(position.xy, 0.9999, 1.0);
     }
   `,
   fragmentShader: `
@@ -274,7 +276,7 @@ export function HeroEarthSunrise({ isVisible = true }) {
       </group>
 
       {/* Fullscreen soft radial glare at sunrise horizon */}
-      <mesh position={[0, 0, -1]}>
+      <mesh position={[0, 0, 0]} renderOrder={10}>
         <planeGeometry args={[2, 2]} />
         <shaderMaterial
           vertexShader={SolarSunriseGlareShader.vertexShader}
