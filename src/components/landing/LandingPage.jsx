@@ -2,6 +2,7 @@ import React, { useRef, useEffect, useState } from 'react';
 import * as THREE from 'three';
 import { LandingHeroOverlay } from './LandingHeroOverlay';
 import { ChapterOverlay, CHAPTERS_DATA } from './ChapterOverlay';
+import { Wordmark } from '../common/Wordmark';
 
 export function LandingPage({
   scrollProgressRef,
@@ -127,10 +128,8 @@ export function LandingPage({
 
       {/* Top Fixed Header */}
       <header className="fixed top-0 left-0 right-0 z-40 flex items-center justify-between px-6 sm:px-12 py-6 pointer-events-none">
-        {/* Top-left: plain text TERRAFORGE (League Gothic, cream, 18 px, tracking 0.25em) */}
-        <span className="font-wordmark text-[18px] tracking-[0.25em] text-cream uppercase select-none pointer-events-auto">
-          TERRAFORGE
-        </span>
+        {/* Top-left: shared Wordmark component */}
+        <Wordmark href="#/" className="pointer-events-auto" />
 
         {/* Top-right: a single plain text link "SIMULATOR" jumping to #/sim */}
         <a

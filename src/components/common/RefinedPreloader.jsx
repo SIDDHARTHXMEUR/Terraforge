@@ -1,4 +1,5 @@
 import React from 'react';
+import { Wordmark } from './Wordmark';
 
 /**
  * Refined Preloader
@@ -18,10 +19,8 @@ export function RefinedPreloader({ progress = 100, isReady = false }) {
       }}
     >
       <div className="flex flex-col items-center">
-        {/* League Gothic Wordmark */}
-        <span className="font-wordmark text-4xl sm:text-5xl text-[#FFF8E7] tracking-[0.25em] uppercase">
-          TERRAFORGE
-        </span>
+        {/* Shared League Gothic Wordmark */}
+        <Wordmark size="text-4xl sm:text-5xl" />
 
         {/* 1px Progress Line */}
         <div className="w-44 sm:w-56 h-[1px] bg-[#FFF8E7]/15 mt-6 relative overflow-hidden">

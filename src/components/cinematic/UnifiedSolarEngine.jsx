@@ -9,7 +9,7 @@ import { OverviewSection3D } from '../landing/OverviewSection3D';
 import { LandingStarfield } from '../landing/LandingStarfield';
 import { runProgressiveWarmup } from '../../utils/assetWarmer';
 
-const SIM_OVERVIEW_POS = new THREE.Vector3(-320, 110, 310);
+const SIM_OVERVIEW_POS = new THREE.Vector3(-300, 165, 290);
 const SIM_OVERVIEW_TARGET = new THREE.Vector3(-65, 0, 48);
 
 export function UnifiedSolarEngine({

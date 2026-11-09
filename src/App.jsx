@@ -255,7 +255,7 @@ export default function App() {
             fov: 45,
             near: 0.1,
             far: 25000,
-            position: route.mode === 'sim' ? [-320, 110, 310] : [0, 1.2, 5.0]
+            position: route.mode === 'sim' ? [-300, 165, 290] : [0, 1.2, 5.0]
           }}
           onPointerDown={() => setIsUserInteracting(true)}
           onPointerUp={() => setIsUserInteracting(false)}

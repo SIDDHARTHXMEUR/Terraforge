@@ -72,9 +72,9 @@ const EarthSurfaceShader = {
 
       vec3 surfaceDay = albedo * diffuse * cloudShadow;
 
-      // 4. Subtle, physically based twilight gradient along terminator
-      float twilightFactor = smoothstep(0.06, -0.03, NdotL) * smoothstep(-0.06, 0.02, NdotL);
-      vec3 twilightColor = vec3(0.85, 0.45, 0.22) * twilightFactor * 0.25;
+      // 4. Subtle, physically based twilight gradient strictly on sunward terminator (zero nightside halo)
+      float twilightFactor = smoothstep(0.08, 0.005, NdotL) * smoothstep(0.0, 0.03, NdotL);
+      vec3 twilightColor = vec3(0.85, 0.45, 0.22) * twilightFactor * 0.15;
 
       // 5. Ocean Specular Sun Glint (Strictly on water, masked by clouds and land, clamped, sensible roughness)
       vec3 H = normalize(L + V);

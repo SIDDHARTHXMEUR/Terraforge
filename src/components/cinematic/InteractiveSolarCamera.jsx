@@ -8,7 +8,7 @@ import { DISPLAY_RADII } from '../../data/displayScale';
 
 export const BODY_VIEW_CONFIGS = {
   cinematic_overview: {
-    offset: [-320, 110, 310],
+    offset: [-300, 165, 290],
     target: [-65, 0, 48],
     minDist: 50,
     maxDist: 3500
@@ -20,7 +20,7 @@ export const BODY_VIEW_CONFIGS = {
     maxDist: 4000
   },
   overview: {
-    offset: [-320, 110, 310],
+    offset: [-300, 165, 290],
     target: [-65, 0, 48],
     minDist: 50,
     maxDist: 3500
