@@ -136,24 +136,21 @@ function getCinematicBodyCamTarget(selectedBody, bodyPos, cfg, camOffset) {
       const camDir = camOffset.clone().normalize();
       const up = new THREE.Vector3(0, 1, 0);
       const trueCamRight = new THREE.Vector3().crossVectors(up, camDir).normalize();
-      baseTarget.addScaledVector(trueCamRight, -75.0);
+      baseTarget.addScaledVector(trueCamRight, -95.0);
     }
     return baseTarget;
   }
 
   const targetVec = new THREE.Vector3(...bodyPos);
 
-  // Offset camera look-at target to the left so every planet sits comfortably framed in the right third (X ~ 1450px)
-  // on the sunlit crescent side, completely clear of text and left-side HUD info blocks (X <= 580px)
+  // Offset camera look-at target to the left so every planet sits comfortably framed in the right half (X >= 60%)
+  // completely clear of text block on the left (X <= 34ch ~ 280px)
   if (selectedBody !== 'overview' && selectedBody !== 'sun' && camOffset) {
     const camDir = camOffset.clone().normalize();
     const up = new THREE.Vector3(0, 1, 0);
-    // up x camDir produces camera's TRUE local right vector (+X in camera view space)
     const trueCamRight = new THREE.Vector3().crossVectors(up, camDir).normalize();
     const D = cfg.distance;
-    // Shifting target leftwards (-trueCamRight) moves planet firmly into the right third of the viewport
-    // providing > 550 px of pure dark space clearance to the text block
-    const lateralShiftRatio = selectedBody === 'saturn' ? -0.44 : -0.40;
+    const lateralShiftRatio = selectedBody === 'saturn' ? -0.52 : (selectedBody === 'jupiter' ? -0.52 : -0.48);
     targetVec.addScaledVector(trueCamRight, D * lateralShiftRatio);
   }
 

@@ -34,11 +34,11 @@ function formatDayLength(hours) {
   const abs = Math.abs(hours);
   const isRet = hours < 0;
   if (abs >= 48) {
-    return `${(abs / 24).toFixed(1)} DAYS${isRet ? ' (RET)' : ''}`;
+    return `${(abs / 24).toFixed(1)} Earth days${isRet ? ' (retrograde)' : ''}`;
   }
   const h = Math.floor(abs);
   const m = Math.round((abs - h) * 60);
-  return `${h}H ${m}M${isRet ? ' (RET)' : ''}`;
+  return `${h}h ${m}m${isRet ? ' (retrograde)' : ''}`;
 }
 
 const SPEED_PRESETS = [1, 5, 25, 100, 500];
@@ -308,18 +308,20 @@ export function InteractiveSimulatorHUD({
           ? selectedData.semiMajorAxisAU
           : (selectedData.semiMajorAxisAu !== undefined ? selectedData.semiMajorAxisAu : 0);
         const distStr = distAu === 0 ? '0.00 AU' : `${distAu.toFixed(2)} AU`;
-        const lightTimeStr = distAu === 0 ? '0.00 S' : `${(distAu * 499.0 / 60.0).toFixed(1)} MINS`;
-        const yearStr = selectedData.orbitalPeriodDays ? `${selectedData.orbitalPeriodDays} D` : 'HOST STAR';
-        const typeStr = PLANET_TYPES[selectedBody] || selectedData.category || 'TERRESTRIAL';
+        const lightSeconds = Math.round(distAu * 499.0);
+        const lightM = Math.floor(lightSeconds / 60);
+        const lightS = lightSeconds % 60;
+        const lightTimeStr = lightM > 0 ? `${lightM} min ${lightS} s` : `${lightS} s`;
 
         return (
           <main
             key={selectedBody}
-            className="planet-blur-transition max-w-xl pointer-events-auto transition-all my-auto pl-2 sm:pl-4"
+            className="planet-blur-transition self-start pointer-events-auto transition-all my-auto pl-4 sm:pl-8"
+            style={{ maxWidth: '34ch', width: 'fit-content' }}
           >
             {/* Ambient backdrop scrim for readability over bright limb areas */}
             <div className="relative">
-              <div className="absolute -inset-4 bg-black/25 backdrop-blur-[2px] rounded-2xl -z-10 pointer-events-none" />
+              <div className="absolute -inset-4 bg-black/35 backdrop-blur-[2px] rounded-2xl -z-10 pointer-events-none" />
 
               {/* Hierarchy Level 1: Micro-label with accent dot */}
               <div className="flex items-center space-x-2 text-[10px] font-mono uppercase tracking-[0.25em] text-white/50 mb-2">
@@ -336,98 +338,95 @@ export function InteractiveSimulatorHUD({
               <div className="w-10 h-[1px] my-3.5" style={{ backgroundColor: accentColor }} />
 
               {/* Hierarchy Level 4: 1 to 2 sentences of copy */}
-              <p className="font-sans text-[13px] sm:text-[14px] text-white/80 leading-relaxed font-light max-w-lg mb-4 drop-shadow-[0_2px_10px_rgba(0,0,0,0.9)]">
+              <p
+                className="font-sans text-[14px] text-white/80 leading-relaxed font-light mb-4 drop-shadow-[0_2px_10px_rgba(0,0,0,0.9)]"
+                style={{ maxWidth: '34ch' }}
+              >
                 {selectedData.description || selectedData.tagline}
               </p>
 
-              {/* Hierarchy Level 5: SpaceX-style 4-column stats strip separated by 1px vertical hairlines */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 border-t border-b border-white/10 py-3 my-4 gap-y-3 sm:gap-y-0">
-                <div className="pr-3">
-                  <span className="text-[9px] uppercase tracking-[0.2em] text-white/40 block mb-1">DISTANCE FROM SUN</span>
-                  <span className="font-mono text-xs sm:text-sm tracking-wider" style={{ color: accentColor }}>
-                    {distStr}
-                  </span>
-                  <span className="font-mono text-[9px] text-white/40 block mt-0.5">{lightTimeStr}</span>
-                </div>
-                <div className="px-3 border-l border-white/10">
-                  <span className="text-[9px] uppercase tracking-[0.2em] text-white/40 block mb-1">DIAMETER</span>
-                  <span className="font-mono text-xs sm:text-sm tracking-wider" style={{ color: accentColor }}>
-                    {selectedData.radiusKm ? `${Math.round(selectedData.radiusKm * 2).toLocaleString()} KM` : 'N/A'}
-                  </span>
-                  <span className="font-mono text-[9px] text-white/40 block mt-0.5">{typeStr}</span>
-                </div>
-                <div className="px-3 border-l border-white/10">
-                  <span className="text-[9px] uppercase tracking-[0.2em] text-white/40 block mb-1">LENGTH OF DAY</span>
-                  <span className="font-mono text-xs sm:text-sm tracking-wider" style={{ color: accentColor }}>
-                    {formatDayLength(selectedData.rotationPeriodHours)}
+              {/* Hierarchy Level 5: Stacked Plain Lines (No grid, no table, no hairlines) */}
+              <div
+                className="my-5 space-y-2 text-[15px] font-sans font-light text-white/85 leading-relaxed"
+                style={{ maxWidth: '34ch' }}
+              >
+                {selectedBody !== 'sun' && (
+                  <div>
+                    <span>Distance from the Sun: </span>
+                    <span style={{ color: accentColor }}>{distStr}</span>
+                    {distAu > 0 && (
+                      <span>, light takes <span style={{ color: accentColor }}>{lightTimeStr}</span></span>
+                    )}
+                  </div>
+                )}
+                <div>
+                  <span>Diameter: </span>
+                  <span style={{ color: accentColor }}>
+                    {selectedData.radiusKm ? `${Math.round(selectedData.radiusKm * 2).toLocaleString()} km` : 'N/A'}
                   </span>
                 </div>
-                <div className="pl-3 border-l border-white/10">
-                  <span className="text-[9px] uppercase tracking-[0.2em] text-white/40 block mb-1">ORBITAL PERIOD</span>
-                  <span className="font-mono text-xs sm:text-sm tracking-wider" style={{ color: accentColor }}>
-                    {yearStr}
-                  </span>
+                <div>
+                  <span>Length of day: </span>
+                  <span style={{ color: accentColor }}>{formatDayLength(selectedData.rotationPeriodHours)}</span>
                 </div>
+                {selectedBody !== 'sun' && (
+                  <div>
+                    <span>Orbital period: </span>
+                    <span style={{ color: accentColor }}>{selectedData.orbitalPeriodDays ? `${selectedData.orbitalPeriodDays} days` : 'N/A'}</span>
+                  </div>
+                )}
               </div>
 
-              {/* Hierarchy Level 6: Action buttons and Technical Specification */}
-              <div className="flex items-center space-x-6">
+              {/* Hierarchy Level 6: Action buttons with Plain-Text TECH SPECS toggle */}
+              <div className="flex items-center space-x-6 mt-4 text-[13px] font-sans font-light">
+                {selectedBody === 'earth' && (
+                  <button
+                    onClick={() => {
+                      if (useEarthSurfaceStore.getState().openMapAtLocation) {
+                        useEarthSurfaceStore.getState().openMapAtLocation(40.7128, -74.006, 'New York');
+                      }
+                    }}
+                    className="hover:underline transition-colors cursor-pointer text-cyan-300"
+                  >
+                    Surface Map &gt;
+                  </button>
+                )}
                 <button
-                  onClick={() => {
-                    if (selectedBody === 'earth' && useEarthSurfaceStore.getState().openMapAtLocation) {
-                      useEarthSurfaceStore.getState().openMapAtLocation(40.7128, -74.006, 'New York');
-                    } else {
-                      setShowDetailLayer(!showDetailLayer);
-                    }
-                  }}
-                  className="text-[11px] font-mono uppercase tracking-[0.22em] text-[#4FD1C5] hover:text-cyan-200 transition-colors cursor-pointer flex items-center space-x-1.5"
-                  title={`Explore ${selectedData.name}`}
+                  onClick={() => setShowDetailLayer(!showDetailLayer)}
+                  className="hover:underline transition-colors cursor-pointer text-white/70 hover:text-white"
+                  style={{ color: showDetailLayer ? accentColor : undefined }}
                 >
-                  <span>{selectedBody === 'earth' ? 'SURFACE MAP >' : (showDetailLayer ? 'HIDE SPECS ▲' : 'TECH SPECS ▼')}</span>
+                  {showDetailLayer ? 'Hide Tech Specs' : 'Tech Specs'}
                 </button>
                 <button
                   onClick={() => onSelectBody('overview')}
-                  className="text-[11px] font-mono uppercase tracking-[0.22em] text-white/40 hover:text-white transition-colors cursor-pointer"
-                  title="Return to System Overview (Esc)"
+                  className="text-white/40 hover:text-white hover:underline transition-colors cursor-pointer"
                 >
-                  OVERVIEW
+                  Overview
                 </button>
               </div>
 
-              {/* SpaceX Aerospace Technical Specification Grid */}
+              {/* Technical Specifications revealed as flowing sentences */}
               {showDetailLayer && (
-                <div className="mt-4 p-4 border border-white/10 bg-black/60 backdrop-blur-md text-xs font-mono max-w-lg rounded-sm">
-                  <div className="flex items-center justify-between border-b border-white/10 pb-2 mb-3">
-                    <span className="text-[9px] uppercase tracking-[0.25em] text-white/50">TECHNICAL SPECIFICATION // JPL FACT SHEET</span>
-                    <button
-                      onClick={() => setShowDetailLayer(false)}
-                      className="text-[9px] text-white/40 hover:text-white uppercase tracking-widest cursor-pointer"
-                    >
-                      ✕
-                    </button>
-                  </div>
-                  <div className="grid grid-cols-2 gap-x-4 gap-y-2.5 text-[11px]">
-                    <div>
-                      <span className="text-[9px] text-white/40 uppercase block mb-0.5">SURFACE GRAVITY</span>
-                      <span className="text-white/90">{selectedData.gravity || 'N/A'}</span>
-                    </div>
-                    <div>
-                      <span className="text-[9px] text-white/40 uppercase block mb-0.5">MEAN TEMPERATURE</span>
-                      <span className="text-white/90">{selectedData.meanTempC !== undefined ? `${selectedData.meanTempC}°C` : 'N/A'}</span>
-                    </div>
-                    <div>
-                      <span className="text-[9px] text-white/40 uppercase block mb-0.5">AXIAL TILT</span>
-                      <span className="text-white/90">{selectedData.axialTiltDeg !== undefined ? `${selectedData.axialTiltDeg}°` : 'N/A'}</span>
-                    </div>
-                    <div>
-                      <span className="text-[9px] text-white/40 uppercase block mb-0.5">MASS</span>
-                      <span className="text-white/90 truncate block">{selectedData.mass || 'N/A'}</span>
-                    </div>
-                    <div className="col-span-2 pt-1 border-t border-white/10">
-                      <span className="text-[9px] text-white/40 uppercase block mb-0.5">ATMOSPHERIC COMPOSITION</span>
-                      <span className="text-white/80 text-[10px] leading-relaxed block">{selectedData.atmosphereComposition || 'Trace exosphere / vacuum'}</span>
-                    </div>
-                  </div>
+                <div
+                  className="mt-4 pt-3 border-t border-white/10 text-[14px] font-sans font-light text-white/75 leading-relaxed"
+                  style={{ maxWidth: '34ch' }}
+                >
+                  <p>
+                    Surface gravity is <span style={{ color: accentColor }}>{selectedData.gravity || 'N/A'}</span>.
+                    {selectedData.meanTempC !== undefined && (
+                      <span> Mean temperature is <span style={{ color: accentColor }}>{selectedData.meanTempC}°C</span>.</span>
+                    )}
+                    {selectedData.axialTiltDeg !== undefined && (
+                      <span> Axial tilt is <span style={{ color: accentColor }}>{selectedData.axialTiltDeg}°</span>.</span>
+                    )}
+                    {selectedData.mass && (
+                      <span> Mass is <span style={{ color: accentColor }}>{selectedData.mass}</span>.</span>
+                    )}
+                    {selectedData.atmosphereComposition && (
+                      <span> Atmosphere consists of {selectedData.atmosphereComposition}.</span>
+                    )}
+                  </p>
                 </div>
               )}
             </div>
