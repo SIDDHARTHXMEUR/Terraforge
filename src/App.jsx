@@ -1,6 +1,10 @@
 import React, { Suspense, useState, useEffect, useRef } from 'react';
 import { Canvas } from '@react-three/fiber';
 import * as THREE from 'three';
+
+if (typeof window !== 'undefined') {
+  window.THREE = THREE;
+}
 import { InteractiveSimulatorHUD } from './components/cinematic/InteractiveSimulatorHUD';
 import { CinematicPrologueOverlay } from './components/cinematic/CinematicPrologueOverlay';
 import { EarthBaselineComparator } from './components/test/EarthBaselineComparator';

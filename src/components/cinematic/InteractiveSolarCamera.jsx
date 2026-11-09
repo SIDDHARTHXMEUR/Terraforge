@@ -6,7 +6,7 @@ import { useEarthSurfaceStore } from '../../state/useEarthSurfaceStore';
 import { latLonToEarthCoords, earthCoordsToLatLon } from './EarthSurfaceTileEngine';
 import { DISPLAY_RADII } from '../../data/displayScale';
 
-const BODY_VIEW_CONFIGS = {
+export const BODY_VIEW_CONFIGS = {
   cinematic_overview: {
     offset: [-320, 110, 310],
     target: [-65, 0, 48],
@@ -26,138 +26,165 @@ const BODY_VIEW_CONFIGS = {
     maxDist: 3500
   },
   sun: {
-    offset: [0, 12, 220],
+    offset: [0, 15, 180],
     target: [0, 0, 0],
     minDist: 65,
     maxDist: 1500
   },
   mercury: {
-    distance: 24.0,
-    terminatorAngle: 38, // Sunlit crescent orientation (34° to 70°)
+    distance: 22.0,
+    phaseAngle: 52, // Lit fraction = (1 + cos(52°))/2 = 80.8% (55%-85% gibbous)
     elevAngle: 14,
     minDist: 6.0,
     maxDist: 220
   },
   venus: {
-    distance: 28.0,
-    terminatorAngle: 40, // Sunlit crescent
-    elevAngle: 16,
+    distance: 26.0,
+    phaseAngle: 52,
+    elevAngle: 14,
     minDist: 7.5,
     maxDist: 260
   },
   earth: {
-    distance: 30.0,
-    terminatorAngle: 42,
+    distance: 28.0,
+    phaseAngle: 50,
     elevAngle: 14,
-    minDist: 5.2002, // Relaxed minimum distance for continuous Earth surface zoom
+    minDist: 5.2002,
     maxDist: 280
   },
   mars: {
     distance: 24.0,
-    terminatorAngle: 44,
-    elevAngle: 16,
+    phaseAngle: 52,
+    elevAngle: 15,
     minDist: 6.5,
     maxDist: 240
   },
   asteroids: {
     distance: 14.0,
-    terminatorAngle: 40,
+    phaseAngle: 50,
     elevAngle: 16,
     minDist: 3.5,
     maxDist: 150
   },
   jupiter: {
-    distance: 90.0,
-    terminatorAngle: 40, // Clear sunlit framing, never dark side first
+    distance: 88.0,
+    phaseAngle: 52,
     elevAngle: 12,
     minDist: 24.0,
     maxDist: 750
   },
   saturn: {
-    distance: 120.0,
-    terminatorAngle: 44,
-    elevAngle: 22,
+    distance: 110.0,
+    phaseAngle: 50,
+    elevAngle: 18,
     minDist: 35.0,
     maxDist: 850
   },
   uranus: {
-    distance: 48.0,
-    terminatorAngle: 42,
-    elevAngle: 22,
+    distance: 46.0,
+    phaseAngle: 52,
+    elevAngle: 18,
     minDist: 14.5,
     maxDist: 500
   },
   neptune: {
-    distance: 46.0,
-    terminatorAngle: 42,
-    elevAngle: 18,
+    distance: 44.0,
+    phaseAngle: 52,
+    elevAngle: 16,
     minDist: 14.0,
     maxDist: 500
   }
 };
 
-function getCinematicBodyCamOffset(selectedBody, bodyPos, cfg, viewMode = 'cinematic') {
+/**
+ * Computes anchored camera pose in the planet's coordinate frame relative to the Sun.
+ * Uses float64 arithmetic to guarantee zero drift, zero jitter, and constant lit fraction.
+ */
+export function getAnchoredBodyCamPose(selectedBody, bodyPos, cfg, zoomFactor = 1.0, lookYaw = 0.0, lookPitch = 0.0) {
   if (selectedBody === 'overview' || !cfg.distance) {
-    if (selectedBody === 'overview' && viewMode === 'scientific') {
-      return new THREE.Vector3(...BODY_VIEW_CONFIGS.scientific_overview.offset);
-    }
-    return new THREE.Vector3(...(cfg.offset || [-320, 110, 310]));
+    const baseOffset = new THREE.Vector3(...(cfg.offset || [-320, 110, 310]));
+    const baseTarget = new THREE.Vector3(...(cfg.target || [0, 0, 0]));
+    return { camPos: baseOffset, camTarget: baseTarget };
   }
 
-  const toSun = new THREE.Vector3().sub(bodyPos);
-  if (toSun.lengthSq() < 0.1) {
-    return new THREE.Vector3(0, cfg.distance * 0.3, cfg.distance);
+  const pX = Number(bodyPos[0]);
+  const pY = Number(bodyPos[1]);
+  const pZ = Number(bodyPos[2]);
+
+  // Sun direction from planet (Sun is at world origin [0, 0, 0])
+  const distToSun = Math.hypot(pX, pZ);
+  let toSunX = 0, toSunZ = 1;
+  if (distToSun > 0.0001) {
+    toSunX = -pX / distToSun;
+    toSunZ = -pZ / distToSun;
   }
-  toSun.normalize();
+  // Up vector is [0, 1, 0]
+  // Tangent = Up x toSun = [toSunZ, 0, -toSunX]
+  const tanX = toSunZ;
+  const tanZ = -toSunX;
 
-  const up = new THREE.Vector3(0, 1, 0);
-  const tangent = new THREE.Vector3().crossVectors(up, toSun).normalize();
+  const phaseDeg = cfg.phaseAngle || 52;
+  const elevDeg = cfg.elevAngle || 14;
+  const phaseRad = (phaseDeg * Math.PI) / 180.0;
+  const elevRad = (elevDeg * Math.PI) / 180.0;
 
-  const D = cfg.distance;
-  const termDeg = cfg.terminatorAngle || 34;
-  const elevDeg = cfg.elevAngle || 16;
-  const terminatorAngle = (termDeg * Math.PI) / 180;
-  const elevAngle = (elevDeg * Math.PI) / 180;
+  // Base ground direction in orbital plane
+  const gX = toSunX * Math.cos(phaseRad) + tanX * Math.sin(phaseRad);
+  const gZ = toSunZ * Math.cos(phaseRad) + tanZ * Math.sin(phaseRad);
 
-  const groundDir = new THREE.Vector3()
-    .addScaledVector(toSun, Math.cos(terminatorAngle))
-    .addScaledVector(tangent, Math.sin(terminatorAngle))
-    .normalize();
+  // Apply elevation angle
+  const cosElev = Math.cos(elevRad);
+  const sinElev = Math.sin(elevRad);
+  let dirX = gX * cosElev;
+  let dirY = sinElev;
+  let dirZ = gZ * cosElev;
 
-  return new THREE.Vector3()
-    .addScaledVector(groundDir, D * Math.cos(elevAngle))
-    .addScaledVector(up, D * Math.sin(elevAngle));
-}
+  const dirLen = Math.hypot(dirX, dirY, dirZ);
+  dirX /= dirLen;
+  dirY /= dirLen;
+  dirZ /= dirLen;
 
-function getCinematicBodyCamTarget(selectedBody, bodyPos, cfg, camOffset) {
-  if (selectedBody === 'overview' || !cfg.distance) {
-    const baseTarget = cfg.target ? new THREE.Vector3(...cfg.target) : new THREE.Vector3(0, 0, 0);
-    if (selectedBody === 'sun' && camOffset) {
-      const camDir = camOffset.clone().normalize();
-      const up = new THREE.Vector3(0, 1, 0);
-      const trueCamRight = new THREE.Vector3().crossVectors(up, camDir).normalize();
-      baseTarget.addScaledVector(trueCamRight, -75.0);
-    }
-    return baseTarget;
+  // Apply look-around yaw and pitch (tilting camera relative to anchor frame)
+  if (Math.abs(lookYaw) > 0.0001 || Math.abs(lookPitch) > 0.0001) {
+    const cosY = Math.cos(lookYaw);
+    const sinY = Math.sin(lookYaw);
+    const rotX = dirX * cosY - dirZ * sinY;
+    const rotZ = dirX * sinY + dirZ * cosY;
+
+    const cosP = Math.cos(lookPitch);
+    const sinP = Math.sin(lookPitch);
+    dirX = rotX * cosP;
+    dirY = dirY * cosP + sinP;
+    dirZ = rotZ * cosP;
+
+    const newLen = Math.hypot(dirX, dirY, dirZ);
+    dirX /= newLen;
+    dirY /= newLen;
+    dirZ /= newLen;
   }
 
-  const targetVec = new THREE.Vector3(...bodyPos);
+  const effectiveDistance = cfg.distance * zoomFactor;
+  const camX = pX + dirX * effectiveDistance;
+  const camY = pY + dirY * effectiveDistance;
+  const camZ = pZ + dirZ * effectiveDistance;
 
-  // Offset camera look-at target to the left so every planet sits comfortably framed in the right third (X ~ 1450px)
-  // on the sunlit crescent side, completely clear of text and left-side HUD info blocks (X <= 580px)
-  if (selectedBody !== 'overview' && selectedBody !== 'sun' && camOffset) {
-    const camDir = camOffset.clone().normalize();
-    const up = new THREE.Vector3(0, 1, 0);
-    // up x camDir produces camera's TRUE local right vector (+X in camera view space)
-    const trueCamRight = new THREE.Vector3().crossVectors(up, camDir).normalize();
-    const D = cfg.distance;
-    // Shifting target leftwards (-trueCamRight) moves planet firmly into the right third of the viewport
-    // providing > 550 px of pure dark space clearance to the text block
-    const lateralShiftRatio = selectedBody === 'saturn' ? -0.42 : -0.38;
-    targetVec.addScaledVector(trueCamRight, D * lateralShiftRatio);
-  }
+  // Right vector: Up [0, 1, 0] x (Cam to Planet direction)
+  const cRightX = -dirZ;
+  const cRightZ = dirX;
+  const cRightLen = Math.hypot(cRightX, cRightZ);
+  const normRightX = cRightX / (cRightLen || 1);
+  const normRightZ = cRightZ / (cRightLen || 1);
 
-  return targetVec;
+  // Shift target slightly left (-normRight) so planet is framed in the right half (40%-55% from right edge)
+  const shiftAmount = effectiveDistance * 0.12;
+  const targetX = pX - normRightX * shiftAmount;
+  const targetY = pY;
+  const targetZ = pZ - normRightZ * shiftAmount;
+
+  return {
+    camPos: new THREE.Vector3(camX, camY, camZ),
+    camTarget: new THREE.Vector3(targetX, targetY, targetZ)
+  };
 }
 
 export function InteractiveSolarCamera({
@@ -179,31 +206,30 @@ export function InteractiveSolarCamera({
   const lastViewModeRef = useRef(viewMode);
   const lastEnabledRef = useRef(enabled);
 
-  // Flight parameters (time-based, <= 3.0s, guaranteed single-trigger)
+  // Flight parameters (time-based, <= 2.2s, single trigger)
   const isTransitioningRef = useRef(false);
-  const flightTargetRef = useRef(selectedBody);
   const transitionStartTimeRef = useRef(0);
-  const transitionDurationRef = useRef(2200);
+  const transitionDurationRef = useRef(2000);
   const transitionStartCamPosRef = useRef(new THREE.Vector3());
   const transitionStartTargetRef = useRef(new THREE.Vector3());
 
-  // Planet follow vector (per-frame delta follow preserves user rotation & zoom)
-  const lastPlanetPosRef = useRef(new THREE.Vector3());
+  // Cinematic Look-around & Zoom State
+  const lookYawRef = useRef(0.0);       // Clamped +/-25 deg (+/-0.436 rad)
+  const lookPitchRef = useRef(0.0);     // Clamped +/-15 deg (+/-0.262 rad)
+  const zoomFactorRef = useRef(1.0);    // Clamped 0.75 - 1.25 (+/-25%)
+  const isPointerDownRef = useRef(false);
+  const lastPointerRef = useRef({ x: 0, y: 0 });
+
+  // Drift for idle overview
   const driftTimeRef = useRef(0);
 
-  // -------------------------------------------------------------------------
-  // EARTH SURFACE MODE STATE & REFS
-  // -------------------------------------------------------------------------
+  // Earth surface mode support
   const [inSurfaceMode, setInSurfaceMode] = useState(false);
-  const surfaceLatRef = useRef(40.7128); // Default: New York
+  const surfaceLatRef = useRef(40.7128);
   const surfaceLonRef = useRef(-74.0060);
   const surfaceAltKmRef = useRef(1200.0);
-  const surfacePitchRef = useRef(0.85); // 0 = straight down, ~1.4 = horizon grazing
-  const surfaceAzimuthRef = useRef(0.0); // Heading
-  const isDraggingRef = useRef(false);
-  const dragButtonRef = useRef(0);
-  const lastMousePosRef = useRef({ x: 0, y: 0 });
-  const mouseNormRef = useRef({ x: 0, y: 0 });
+  const surfacePitchRef = useRef(0.85);
+  const surfaceAzimuthRef = useRef(0.0);
   const surfaceFlyAnimRef = useRef(null);
 
   const {
@@ -216,223 +242,48 @@ export function InteractiveSolarCamera({
     tier2Status
   } = useEarthSurfaceStore();
 
-  // Handle return to orbit command from HUD
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.__threeCamera = camera;
+    }
+  }, [camera]);
+
+  // Handle Return to Orbit from HUD
   useEffect(() => {
     if (returnToOrbitCounter > 0 && selectedBody === 'earth') {
       setInSurfaceMode(false);
       setIsSurfaceMode(false);
-      isTransitioningRef.current = true;
-      transitionProgressRef.current = 0.0;
-      transitionStartCamPosRef.current.copy(camera.position);
-      if (controlsRef.current) {
-        transitionStartTargetRef.current.copy(controlsRef.current.target);
-      }
     }
-  }, [returnToOrbitCounter, selectedBody, camera, setIsSurfaceMode]);
+  }, [returnToOrbitCounter, selectedBody, setIsSurfaceMode]);
 
-  // Handle fly-to landmark command from HUD
+  // Handle Fly-To Landmark from HUD
   useEffect(() => {
     if (flyToTarget && selectedBody === 'earth') {
-      const startLat = surfaceLatRef.current;
-      const startLon = surfaceLonRef.current;
-      const startAlt = surfaceAltKmRef.current;
-      const targetLat = flyToTarget.lat;
-      const targetLon = flyToTarget.lon;
-      const targetAlt = flyToTarget.altitudeKm || 2.0; // default 2 km
-
       setInSurfaceMode(true);
       setIsSurfaceMode(true);
-
       surfaceFlyAnimRef.current = {
         startTime: performance.now(),
         duration: flyToTarget.duration || 2200,
-        startLat,
-        startLon,
-        startAlt,
-        targetLat,
-        targetLon,
-        targetAlt
+        startLat: surfaceLatRef.current,
+        startLon: surfaceLonRef.current,
+        startAlt: surfaceAltKmRef.current,
+        targetLat: flyToTarget.lat,
+        targetLon: flyToTarget.lon,
+        targetAlt: flyToTarget.altitudeKm || 2.0
       };
       clearFlyTo();
     }
   }, [flyToTarget, selectedBody, clearFlyTo, setIsSurfaceMode]);
 
-  // -------------------------------------------------------------------------
-  // MOUSE & POINTER LISTENERS FOR SURFACE MODE
-  // -------------------------------------------------------------------------
-  const raycastEarthSurface = useCallback(
-    (clientX, clientY) => {
-      const rect = gl.domElement.getBoundingClientRect();
-      const nx = ((clientX - rect.left) / rect.width) * 2 - 1;
-      const ny = -((clientY - rect.top) / rect.height) * 2 + 1;
-
-      const earthMesh = window.__earthBodyMesh;
-      if (!earthMesh) return null;
-
-      const raycaster = new THREE.Raycaster();
-      raycaster.setFromCamera(new THREE.Vector2(nx, ny), camera);
-      const intersects = raycaster.intersectObject(earthMesh, false);
-      if (intersects.length > 0) {
-        const hitWorld = intersects[0].point;
-        const invMatrix = new THREE.Matrix4().copy(earthMesh.matrixWorld).invert();
-        const hitLocal = hitWorld.clone().applyMatrix4(invMatrix);
-        return earthCoordsToLatLon(hitLocal, 3.5);
-      }
-      return null;
-    },
-    [camera, gl]
-  );
-
-  useEffect(() => {
-    const canvas = gl.domElement;
-
-    const handlePointerMove = (e) => {
-      const rect = canvas.getBoundingClientRect();
-      mouseNormRef.current.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-      mouseNormRef.current.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
-
-      if (!isDraggingRef.current || selectedBody !== 'earth' || !inSurfaceMode) return;
-
-      const dx = e.clientX - lastMousePosRef.current.x;
-      const dy = e.clientY - lastMousePosRef.current.y;
-      lastMousePosRef.current = { x: e.clientX, y: e.clientY };
-
-      const alt = surfaceAltKmRef.current;
-      const degPerPx = Math.max(0.00005, (alt / 6371.0) * 0.45);
-
-      if (dragButtonRef.current === 0 && !e.shiftKey && !e.ctrlKey) {
-        // Left drag: pan across Earth surface
-        const cosLat = Math.max(0.1, Math.cos((surfaceLatRef.current * Math.PI) / 180));
-        surfaceLonRef.current = (surfaceLonRef.current - (dx * degPerPx) / cosLat) % 360;
-        surfaceLatRef.current = Math.max(-85, Math.min(85, surfaceLatRef.current + dy * degPerPx));
-      } else {
-        // Right drag or Shift/Ctrl+drag: tilt pitch & yaw heading
-        surfacePitchRef.current = Math.max(0.12, Math.min(1.48, surfacePitchRef.current + dy * 0.004));
-        surfaceAzimuthRef.current = (surfaceAzimuthRef.current - dx * 0.004) % (Math.PI * 2);
-      }
-    };
-
-    const handlePointerDown = (e) => {
-      if (selectedBody !== 'earth' || !inSurfaceMode) return;
-      isDraggingRef.current = true;
-      dragButtonRef.current = e.button;
-      lastMousePosRef.current = { x: e.clientX, y: e.clientY };
-    };
-
-    const handlePointerUp = () => {
-      isDraggingRef.current = false;
-    };
-
-    const handleWheel = (e) => {
-      if (selectedBody !== 'earth') return;
-
-      const earthPos = bodyPositions.earth || [0, 0, 0];
-      const earthVec = new THREE.Vector3(...earthPos);
-      const dist = camera.position.distanceTo(earthVec);
-
-      // Descending into surface mode from orbit
-      if (!inSurfaceMode && e.deltaY < 0 && dist < 6.0) {
-        const hit = raycastEarthSurface(e.clientX, e.clientY);
-        if (hit) {
-          surfaceLatRef.current = hit.lat;
-          surfaceLonRef.current = hit.lon;
-        } else if (window.__earthBodyMesh) {
-          const invMatrix = new THREE.Matrix4().copy(window.__earthBodyMesh.matrixWorld).invert();
-          const camLocal = camera.position.clone().applyMatrix4(invMatrix);
-          const coords = earthCoordsToLatLon(camLocal, 3.5);
-          surfaceLatRef.current = coords.lat;
-          surfaceLonRef.current = coords.lon;
-        }
-        setInSurfaceMode(true);
-        setIsSurfaceMode(true);
-        // Start surface altitude at 1,800 km so satellite tiles immediately transition in
-        surfaceAltKmRef.current = Math.min(2200.0, Math.max(0.15, (dist - 3.5) * 1820.0));
-        return;
-      }
-
-      // Inside surface mode: continuous altitude zoom with zoom-to-cursor
-      if (inSurfaceMode) {
-        e.preventDefault();
-        const factor = e.deltaY > 0 ? 1.25 : 0.80;
-        let newAlt = surfaceAltKmRef.current * factor;
-
-        // On zoom in, also nudge latitude & longitude toward cursor location
-        if (e.deltaY < 0) {
-          const hit = raycastEarthSurface(e.clientX, e.clientY);
-          if (hit) {
-            surfaceLatRef.current = THREE.MathUtils.lerp(surfaceLatRef.current, hit.lat, 0.18);
-            surfaceLonRef.current = THREE.MathUtils.lerp(surfaceLonRef.current, hit.lon, 0.18);
-          }
-        }
-
-        // Clamp minimum altitude: 150m (0.15 km) when 3D tiles unavailable, 20m if active
-        const minFloor = tier2Status === 'active' ? 0.02 : 0.15;
-        newAlt = Math.max(minFloor, newAlt);
-
-        // Stage 6: Zooming below 50 km altitude smoothly fades into MapLibre vector map
-        if (newAlt < 50) {
-          useEarthSurfaceStore.getState().openMapAtLocation(surfaceLatRef.current, surfaceLonRef.current, 'Earth Surface');
-        }
-
-        // Zooming out past 2,800 km returns to orbit mode seamlessly
-        if (newAlt > 2800) {
-          setInSurfaceMode(false);
-          setIsSurfaceMode(false);
-          return;
-        }
-
-        surfaceAltKmRef.current = newAlt;
-      }
-    };
-
-    const handleDblClick = (e) => {
-      if (selectedBody !== 'earth') return;
-      const hit = raycastEarthSurface(e.clientX, e.clientY);
-      if (hit) {
-        setInSurfaceMode(true);
-        setIsSurfaceMode(true);
-        surfaceFlyAnimRef.current = {
-          startTime: performance.now(),
-          duration: 2200,
-          startLat: surfaceLatRef.current,
-          startLon: surfaceLonRef.current,
-          startAlt: inSurfaceMode ? surfaceAltKmRef.current : 2200,
-          targetLat: hit.lat,
-          targetLon: hit.lon,
-          targetAlt: 1.5 // Descend to 1.5 km street/aerial level!
-        };
-      }
-    };
-
-    const handleContextMenu = (e) => {
-      if (selectedBody === 'earth' && inSurfaceMode) {
-        e.preventDefault();
-      }
-    };
-
-    canvas.addEventListener('pointermove', handlePointerMove);
-    canvas.addEventListener('pointerdown', handlePointerDown);
-    window.addEventListener('pointerup', handlePointerUp);
-    canvas.addEventListener('wheel', handleWheel, { passive: false });
-    canvas.addEventListener('dblclick', handleDblClick);
-    canvas.addEventListener('contextmenu', handleContextMenu);
-
-    return () => {
-      canvas.removeEventListener('pointermove', handlePointerMove);
-      canvas.removeEventListener('pointerdown', handlePointerDown);
-      window.removeEventListener('pointerup', handlePointerUp);
-      canvas.removeEventListener('wheel', handleWheel);
-      canvas.removeEventListener('dblclick', handleDblClick);
-      canvas.removeEventListener('contextmenu', handleContextMenu);
-    };
-  }, [selectedBody, inSurfaceMode, bodyPositions, camera, gl, raycastEarthSurface, setIsSurfaceMode]);
-
-  // Single flight trigger per user selection
+  // 1. Single Flight Trigger per Body / Mode Change
   useEffect(() => {
     if (!enabled) return;
 
-    if (selectedBody !== lastTargetBodyRef.current || viewMode !== lastViewModeRef.current || lastEnabledRef.current !== enabled) {
-      console.log(`[Flight] Started flight to ${selectedBody} from ${lastTargetBodyRef.current}`);
+    if (
+      selectedBody !== lastTargetBodyRef.current ||
+      viewMode !== lastViewModeRef.current ||
+      lastEnabledRef.current !== enabled
+    ) {
       if (typeof window !== 'undefined') {
         window.__flightStartCount = (window.__flightStartCount || 0) + 1;
       }
@@ -443,9 +294,13 @@ export function InteractiveSolarCamera({
 
       cameraStateRef.current = 'FLYING';
       isTransitioningRef.current = true;
-      flightTargetRef.current = selectedBody;
       transitionStartTimeRef.current = performance.now();
-      transitionDurationRef.current = 2200; // <= 3.0s
+      transitionDurationRef.current = 2000;
+
+      // Reset cinematic look-around & zoom
+      lookYawRef.current = 0.0;
+      lookPitchRef.current = 0.0;
+      zoomFactorRef.current = 1.0;
 
       if (inSurfaceMode) {
         setInSurfaceMode(false);
@@ -457,247 +312,187 @@ export function InteractiveSolarCamera({
         controlsRef.current.enabled = false;
       }
       transitionStartCamPosRef.current.copy(camera.position);
-
-      const curBodyPos = bodyPositionsRef.current[selectedBody] || [0, 0, 0];
-      lastPlanetPosRef.current.set(...curBodyPos);
     }
-  }, [selectedBody, viewMode, enabled, setIsSurfaceMode, inSurfaceMode, camera]);
+  }, [selectedBody, viewMode, enabled, inSurfaceMode, setIsSurfaceMode, camera]);
 
-  // User interruption during flight: immediately cancels flight and hands control to user
+  // 2. User Input Listener: Cancels flight immediately on any interaction
+  // Also handles cinematic tilt and wheel zoom
   useEffect(() => {
     const canvas = gl.domElement;
     if (!canvas) return;
 
-    const handleUserInterrupt = (e) => {
+    const handlePointerDown = (e) => {
+      // Input during flight immediately cancels flight
       if (cameraStateRef.current === 'FLYING' || isTransitioningRef.current) {
-        // Ignore modifier keys and navigation selection keys
-        if (e.type === 'keydown') {
-          if (['Shift', 'Control', 'Alt', 'Meta'].includes(e.key)) return;
-          if (['1', '2', '3', '4', '5', '6', '7', '8', '9', '0', 'Escape', 'ArrowLeft', 'ArrowRight', 'r', 'R'].includes(e.key)) return;
-        }
-
         isTransitioningRef.current = false;
-        const targetIsOverview = lastTargetBodyRef.current === 'overview';
-        cameraStateRef.current = targetIsOverview ? 'OVERVIEW' : 'FOCUSED';
-
-        if (!targetIsOverview) {
-          const curPos = bodyPositionsRef.current[lastTargetBodyRef.current] || [0, 0, 0];
-          lastPlanetPosRef.current.set(...curPos);
-        }
-
-        if (controlsRef.current) {
+        cameraStateRef.current = selectedBody === 'overview' ? 'OVERVIEW' : 'FOCUSED';
+        if (controlsRef.current && viewMode === 'scientific') {
           controlsRef.current.enabled = true;
-          controlsRef.current.enableDamping = true;
-          controlsRef.current.dampingFactor = 0.08;
+          controlsRef.current.update();
+        }
+      }
+
+      isPointerDownRef.current = true;
+      lastPointerRef.current = { x: e.clientX, y: e.clientY };
+    };
+
+    const handlePointerMove = (e) => {
+      if (!isPointerDownRef.current) return;
+
+      const dx = e.clientX - lastPointerRef.current.x;
+      const dy = e.clientY - lastPointerRef.current.y;
+      lastPointerRef.current = { x: e.clientX, y: e.clientY };
+
+      // In Cinematic Focused mode: tilt camera (yaw +/-25 deg, pitch +/-15 deg)
+      if (cameraStateRef.current === 'FOCUSED' && viewMode === 'cinematic' && selectedBody !== 'overview' && !inSurfaceMode) {
+        const maxYaw = (25 * Math.PI) / 180.0;
+        const maxPitch = (15 * Math.PI) / 180.0;
+        lookYawRef.current = THREE.MathUtils.clamp(lookYawRef.current - dx * 0.003, -maxYaw, maxYaw);
+        lookPitchRef.current = THREE.MathUtils.clamp(lookPitchRef.current + dy * 0.003, -maxPitch, maxPitch);
+      }
+    };
+
+    const handlePointerUp = () => {
+      isPointerDownRef.current = false;
+    };
+
+    const handleWheel = (e) => {
+      // Input during flight immediately cancels flight
+      if (cameraStateRef.current === 'FLYING' || isTransitioningRef.current) {
+        isTransitioningRef.current = false;
+        cameraStateRef.current = selectedBody === 'overview' ? 'OVERVIEW' : 'FOCUSED';
+      }
+
+      // In Cinematic Focused mode: wheel zooms +/-25%
+      if (cameraStateRef.current === 'FOCUSED' && viewMode === 'cinematic' && selectedBody !== 'overview' && !inSurfaceMode) {
+        e.preventDefault();
+        const deltaZoom = e.deltaY * 0.0008;
+        zoomFactorRef.current = THREE.MathUtils.clamp(zoomFactorRef.current + deltaZoom, 0.75, 1.25);
+      }
+    };
+
+    const handleDblClick = () => {
+      // Scientific mode: double click resets to anchored pose
+      if (viewMode === 'scientific' && selectedBody !== 'overview') {
+        const bodyVec = bodyPositionsRef.current[selectedBody] || [0, 0, 0];
+        const cfg = BODY_VIEW_CONFIGS[selectedBody] || BODY_VIEW_CONFIGS.mercury;
+        const pose = getAnchoredBodyCamPose(selectedBody, bodyVec, cfg, 1.0, 0, 0);
+        camera.position.copy(pose.camPos);
+        if (controlsRef.current) {
+          controlsRef.current.target.copy(pose.camTarget);
           controlsRef.current.update();
         }
       }
     };
 
-    canvas.addEventListener('pointerdown', handleUserInterrupt, { passive: true });
-    canvas.addEventListener('wheel', handleUserInterrupt, { passive: true });
-    canvas.addEventListener('touchstart', handleUserInterrupt, { passive: true });
-    window.addEventListener('keydown', handleUserInterrupt, { passive: true });
+    canvas.addEventListener('pointerdown', handlePointerDown);
+    window.addEventListener('pointermove', handlePointerMove);
+    window.addEventListener('pointerup', handlePointerUp);
+    canvas.addEventListener('wheel', handleWheel, { passive: false });
+    canvas.addEventListener('dblclick', handleDblClick);
 
     return () => {
-      canvas.removeEventListener('pointerdown', handleUserInterrupt);
-      canvas.removeEventListener('wheel', handleUserInterrupt);
-      canvas.removeEventListener('touchstart', handleUserInterrupt);
-      window.removeEventListener('keydown', handleUserInterrupt);
+      canvas.removeEventListener('pointerdown', handlePointerDown);
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', handlePointerUp);
+      canvas.removeEventListener('wheel', handleWheel);
+      canvas.removeEventListener('dblclick', handleDblClick);
     };
-  }, [gl]);
+  }, [gl, selectedBody, viewMode, inSurfaceMode, camera]);
 
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      window.__threeCamera = camera;
-    }
-  }, [camera]);
-
-  // -------------------------------------------------------------------------
-  // MAIN FRAME LOOP
-  // -------------------------------------------------------------------------
+  // 3. Main Camera Director Frame Loop (priority 1: runs right after orbital simulation update)
   useFrame((_, delta) => {
-    if (!enabled || !controlsRef.current) return;
+    if (!enabled) return;
+
     if (typeof window !== 'undefined') {
-      window.__threeControls = controlsRef.current;
-      window.__isTransitioning = isTransitioningRef.current;
       window.__cameraState = cameraStateRef.current;
+      window.__isTransitioning = isTransitioningRef.current;
+      if (controlsRef.current) window.__threeControls = controlsRef.current;
     }
 
-    const controls = controlsRef.current;
     const isOverview = !selectedBody || selectedBody === 'overview';
-
     let activeKey = selectedBody;
     if (isOverview) {
       activeKey = viewMode === 'scientific' ? 'scientific_overview' : 'cinematic_overview';
     }
     const cfg = BODY_VIEW_CONFIGS[activeKey] || BODY_VIEW_CONFIGS.overview;
-
-    const currentBodyCoords = isOverview ? [0, 0, 0] : (bodyPositionsRef.current[selectedBody] || [0, 0, 0]);
-    const currentBodyVec = new THREE.Vector3(...currentBodyCoords);
+    const bodyCoords = isOverview ? [0, 0, 0] : (bodyPositionsRef.current[selectedBody] || [0, 0, 0]);
 
     // -----------------------------------------------------------------------
-    // A. EARTH SURFACE NAVIGATION MODE (Synchronous Rotation Lock & Floating Camera)
+    // A. FLYING STATE (Smooth time-based approach <= 2.2s)
     // -----------------------------------------------------------------------
-    if (selectedBody === 'earth' && inSurfaceMode) {
-      controls.enabled = false;
+    if (cameraStateRef.current === 'FLYING' || isTransitioningRef.current) {
+      if (controlsRef.current) controlsRef.current.enabled = false;
 
-      // Handle animated flight to landmark or double-clicked point
-      if (surfaceFlyAnimRef.current) {
-        const anim = surfaceFlyAnimRef.current;
-        const elapsed = performance.now() - anim.startTime;
-        const t = Math.min(1.0, elapsed / anim.duration);
-        const ease = 1 - Math.pow(1 - t, 4);
+      const elapsed = performance.now() - transitionStartTimeRef.current;
+      const t = Math.min(1.0, elapsed / Math.max(1, transitionDurationRef.current));
+      const ease = THREE.MathUtils.smootherstep(t, 0, 1);
 
-        surfaceLatRef.current = THREE.MathUtils.lerp(anim.startLat, anim.targetLat, ease);
-        surfaceLonRef.current = THREE.MathUtils.lerp(anim.startLon, anim.targetLon, ease);
-        surfaceAltKmRef.current = THREE.MathUtils.lerp(anim.startAlt, anim.targetAlt, ease);
+      const destPose = getAnchoredBodyCamPose(selectedBody, bodyCoords, cfg, 1.0, 0, 0);
 
-        if (t >= 1.0) {
-          surfaceFlyAnimRef.current = null;
-          if (anim.targetAlt <= 25.0) {
-            useEarthSurfaceStore.getState().openMapAtLocation(anim.targetLat, anim.targetLon, 'Earth Surface');
+      // Arc smoothly towards destination pose
+      camera.position.lerpVectors(transitionStartCamPosRef.current, destPose.camPos, ease);
+      const curTarget = new THREE.Vector3().lerpVectors(transitionStartTargetRef.current, destPose.camTarget, ease);
+      camera.lookAt(curTarget);
+      if (controlsRef.current) controlsRef.current.target.copy(curTarget);
+
+      if (t >= 1.0) {
+        isTransitioningRef.current = false;
+        cameraStateRef.current = isOverview ? 'OVERVIEW' : 'FOCUSED';
+        camera.position.copy(destPose.camPos);
+        camera.lookAt(destPose.camTarget);
+        if (controlsRef.current) {
+          controlsRef.current.target.copy(destPose.camTarget);
+          if (viewMode === 'scientific' || isOverview) {
+            controlsRef.current.enabled = true;
+            controlsRef.current.update();
           }
         }
       }
-
-      const earthMesh = window.__earthBodyMesh;
-      if (earthMesh) {
-        const R = DISPLAY_RADII.earth || 5.2;
-        const lat = surfaceLatRef.current;
-        const lon = surfaceLonRef.current;
-        const altKm = surfaceAltKmRef.current;
-        setAltitudeKm(altKm);
-
-        // Adjust camera near plane dynamically for sub-kilometer altitudes
-        const neededNear = Math.max(0.00002, (altKm / 6371.0) * 0.05);
-        if (Math.abs(camera.near - neededNear) > 0.00001) {
-          camera.near = neededNear;
-          camera.updateProjectionMatrix();
-        }
-
-        const altUnits = (altKm / 6371.0) * R;
-
-        // Evaluate ground target position in Earth's local coordinate frame
-        const groundLocal = latLonToEarthCoords(lat, lon, 0, R);
-        const normal = groundLocal.clone().normalize();
-
-        // Local East-North-Up vectors on Earth sphere
-        const upVec = new THREE.Vector3(0, 1, 0);
-        let east = new THREE.Vector3().crossVectors(upVec, normal).normalize();
-        if (east.lengthSq() < 0.001) east.set(1, 0, 0);
-        const north = new THREE.Vector3().crossVectors(normal, east).normalize();
-
-        const pitch = surfacePitchRef.current;
-        const azimuth = surfaceAzimuthRef.current;
-
-        // Compute local camera direction vector (offset from ground normal)
-        const camDir = new THREE.Vector3()
-          .addScaledVector(north, Math.sin(pitch) * Math.cos(azimuth))
-          .addScaledVector(east, Math.sin(pitch) * Math.sin(azimuth))
-          .addScaledVector(normal, Math.cos(pitch))
-          .normalize();
-
-        const camLocal = groundLocal.clone().addScaledVector(camDir, altUnits);
-
-        // Compute camera orientation in Earth's local coordinate frame
-        const localLookMat = new THREE.Matrix4().lookAt(camLocal, groundLocal, north);
-        const localQuat = new THREE.Quaternion().setFromRotationMatrix(localLookMat);
-
-        const earthWorldQuat = new THREE.Quaternion();
-        earthMesh.getWorldQuaternion(earthWorldQuat);
-
-        camera.quaternion.multiplyQuaternions(earthWorldQuat, localQuat);
-        camera.position.copy(camLocal.clone().applyMatrix4(earthMesh.matrixWorld));
-
-        const worldTarget = groundLocal.clone().applyMatrix4(earthMesh.matrixWorld);
-        controls.target.copy(worldTarget);
-      }
-      return;
-    }
-
-    // Restore standard camera near plane & up in orbit
-    if (camera.near !== 0.1 || camera.up.y !== 1) {
-      camera.near = 0.1;
-      camera.up.set(0, 1, 0);
-      camera.updateProjectionMatrix();
-    }
-
-    // -----------------------------------------------------------------------
-    // B. FLYING STATE (Smooth Time-Based Approach <= 3.0s)
-    // -----------------------------------------------------------------------
-    if (cameraStateRef.current === 'FLYING' || isTransitioningRef.current) {
-      controls.enabled = false;
-      const elapsed = performance.now() - transitionStartTimeRef.current;
-      const t = Math.min(1.0, elapsed / Math.max(1, transitionDurationRef.current));
-      const ease = 1 - Math.pow(1 - t, 4);
-
-      const targetCamOffset = getCinematicBodyCamOffset(selectedBody, currentBodyVec, cfg, viewMode);
-      const destinationCamPos = new THREE.Vector3().addVectors(currentBodyVec, targetCamOffset);
-      const destinationTarget = getCinematicBodyCamTarget(selectedBody, currentBodyVec, cfg, targetCamOffset);
-
-      if (!isOverview) {
-        // Sunward orbital arc: destination body stays sunlit in viewport
-        const toSun = new THREE.Vector3().sub(currentBodyVec).normalize();
-        const startPos = transitionStartCamPosRef.current;
-        const flightDist = startPos.distanceTo(destinationCamPos);
-        const arcFactor = Math.sin(t * Math.PI) * Math.min(flightDist * 0.22, 110.0);
-
-        const arcPos = new THREE.Vector3().lerpVectors(startPos, destinationCamPos, ease);
-        arcPos.addScaledVector(toSun, arcFactor);
-        arcPos.y += arcFactor * 0.26;
-        camera.position.copy(arcPos);
-      } else {
-        camera.position.lerpVectors(transitionStartCamPosRef.current, destinationCamPos, ease);
-      }
-
-      // Continuous target tracking keeps destination body in view throughout approach
-      const targetEase = 1 - Math.pow(1 - t, 2.8);
-      const currentLookTarget = new THREE.Vector3().lerpVectors(transitionStartTargetRef.current, destinationTarget, targetEase);
-      controls.target.copy(currentLookTarget);
-      camera.lookAt(currentLookTarget);
-
-      // On arrival: Camera stops and enters FOCUSED or OVERVIEW
-      if (t >= 1.0) {
-        camera.position.copy(destinationCamPos);
-        controls.target.copy(destinationTarget);
-        camera.lookAt(destinationTarget);
-
-        isTransitioningRef.current = false;
-        cameraStateRef.current = isOverview ? 'OVERVIEW' : 'FOCUSED';
-        lastPlanetPosRef.current.copy(currentBodyVec);
-
-        controls.enabled = enabled && !inSurfaceMode;
-        controls.enableDamping = true;
-        controls.dampingFactor = 0.08;
-        controls.update();
-      }
       return;
     }
 
     // -----------------------------------------------------------------------
-    // C. FOCUSED STATE (OrbitControls Fully Enabled, Delta Follow Preserves Offset)
+    // B. CINEMATIC FOCUSED STATE (Locked in Planet's Frame, Soft Spring-Back)
     // -----------------------------------------------------------------------
-    if (cameraStateRef.current === 'FOCUSED' && !isOverview) {
-      controls.enabled = enabled && !inSurfaceMode;
-      controls.enableDamping = true;
-      controls.dampingFactor = 0.08;
-      controls.enablePan = true;
-      controls.enableRotate = true;
-      controls.enableZoom = true;
+    if (cameraStateRef.current === 'FOCUSED' && !isOverview && viewMode === 'cinematic') {
+      if (controlsRef.current) controlsRef.current.enabled = false;
 
-      // Apply orbital motion delta to camera position and target
-      if (lastPlanetPosRef.current.lengthSq() > 0.0001) {
-        const deltaP = new THREE.Vector3().subVectors(currentBodyVec, lastPlanetPosRef.current);
-        if (deltaP.lengthSq() < 10000) {
-          camera.position.add(deltaP);
-          controls.target.add(deltaP);
-        }
+      // Soft spring-back to anchored pose (1.5s decay rate) when not dragging
+      if (!isPointerDownRef.current) {
+        const spring = Math.exp(-delta / 0.35); // 1.5s relaxation
+        lookYawRef.current *= spring;
+        lookPitchRef.current *= spring;
+        if (Math.abs(lookYawRef.current) < 0.0001) lookYawRef.current = 0.0;
+        if (Math.abs(lookPitchRef.current) < 0.0001) lookPitchRef.current = 0.0;
       }
-      lastPlanetPosRef.current.copy(currentBodyVec);
 
-      // OrbitControls performs full user rotation, zoom, pan, and damping
-      controls.update();
+      // Compute locked camera pose in the planet's coordinate frame
+      const pose = getAnchoredBodyCamPose(
+        selectedBody,
+        bodyCoords,
+        cfg,
+        zoomFactorRef.current,
+        lookYawRef.current,
+        lookPitchRef.current
+      );
+
+      camera.position.copy(pose.camPos);
+      camera.lookAt(pose.camTarget);
+      if (controlsRef.current) controlsRef.current.target.copy(pose.camTarget);
+      return;
+    }
+
+    // -----------------------------------------------------------------------
+    // C. SCIENTIFIC FOCUSED STATE (OrbitControls Enabled)
+    // -----------------------------------------------------------------------
+    if (cameraStateRef.current === 'FOCUSED' && !isOverview && viewMode === 'scientific') {
+      if (controlsRef.current) {
+        controlsRef.current.enabled = true;
+        controlsRef.current.enableDamping = true;
+        controlsRef.current.dampingFactor = 0.08;
+        controlsRef.current.update();
+      }
       return;
     }
 
@@ -705,43 +500,35 @@ export function InteractiveSolarCamera({
     // D. OVERVIEW STATE (OrbitControls Enabled with Subtle Cinematic Drift)
     // -----------------------------------------------------------------------
     if (cameraStateRef.current === 'OVERVIEW' || isOverview) {
-      controls.enabled = enabled && !inSurfaceMode;
-      controls.enableDamping = true;
-      controls.dampingFactor = 0.08;
-      controls.enablePan = true;
-      controls.enableRotate = true;
-      controls.enableZoom = true;
+      if (controlsRef.current) {
+        controlsRef.current.enabled = true;
+        controlsRef.current.enableDamping = true;
+        controlsRef.current.dampingFactor = 0.08;
 
-      if (viewMode === 'cinematic' && !isUserInteracting) {
-        driftTimeRef.current += delta;
-        const driftSpeed = 0.22;
-        camera.position.x += Math.cos(driftTimeRef.current * 0.06) * delta * driftSpeed;
-        camera.position.z += Math.sin(driftTimeRef.current * 0.06) * delta * driftSpeed;
+        if (viewMode === 'cinematic' && !isUserInteracting && !isPointerDownRef.current) {
+          driftTimeRef.current += delta;
+          const driftSpeed = 0.18;
+          camera.position.x += Math.cos(driftTimeRef.current * 0.05) * delta * driftSpeed;
+          camera.position.z += Math.sin(driftTimeRef.current * 0.05) * delta * driftSpeed;
+        }
+
+        controlsRef.current.update();
       }
-      const desiredTarget = cfg.target ? new THREE.Vector3(...cfg.target) : new THREE.Vector3(0, 0, 0);
-      controls.target.lerp(desiredTarget, 0.05);
-      controls.update();
     }
-  });
+  }, 1);
 
   const isOverview = !selectedBody || selectedBody === 'overview';
   const R = DISPLAY_RADII[selectedBody] || 5.0;
   const isSaturn = selectedBody === 'saturn';
-  const minCamDist = isOverview
-    ? 50
-    : isSaturn
-    ? 36.5
-    : R * 1.18;
-  const maxCamDist = isOverview
-    ? 3500
-    : Math.max(120, R * 25.0);
+  const minCamDist = isOverview ? 50 : isSaturn ? 36.5 : R * 1.18;
+  const maxCamDist = isOverview ? 3500 : Math.max(120, R * 25.0);
 
   if (!enabled) return null;
 
   return (
     <OrbitControls
       ref={controlsRef}
-      enabled={enabled && !inSurfaceMode}
+      enabled={viewMode === 'scientific' || isOverview}
       enableDamping={true}
       dampingFactor={0.08}
       enablePan={true}
