@@ -178,10 +178,15 @@ const SolarSunriseGlareShader = {
       vec2 d = (vUv - uSunriseScreenPos) * vec2(16.0 / 9.0, 1.0);
       float dist = length(d);
 
-      // Exponential soft radial falloff
+      // Exponential soft radial falloff with edge vignette to ensure zero slab cutoff
       float softGlow = exp(-dist * 5.5) * 0.85;
       float wideGlow = exp(-dist * 2.2) * 0.35;
       float totalGlow = (softGlow + wideGlow) * uIntensity;
+
+      // Soft vignette near viewport boundaries ensures 0.0 at borders
+      float edgeFade = smoothstep(0.0, 0.12, vUv.x) * smoothstep(1.0, 0.88, vUv.x) *
+                       smoothstep(0.0, 0.12, vUv.y) * smoothstep(1.0, 0.88, vUv.y);
+      totalGlow *= edgeFade;
 
       if (totalGlow < 0.002) discard;
 

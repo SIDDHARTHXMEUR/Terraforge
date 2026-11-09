@@ -42,12 +42,17 @@ export function LandingPage({
     container.addEventListener('scroll', handleScroll, { passive: true });
 
     let animationId;
+    let lastTime = performance.now();
     if (!reducedMotion) {
-      const loop = () => {
+      const loop = (now) => {
+        const dt = Math.min(0.05, (now - lastTime) / 1000);
+        lastTime = now;
         if (scrollProgressRef) {
           const current = scrollProgressRef.current || 0;
           const target = targetProgressRef.current;
-          scrollProgressRef.current = THREE.MathUtils.lerp(current, target, 0.08);
+          // Exact critically damped (~140ms) smoothing
+          const alpha = 1.0 - Math.exp(-dt / 0.14);
+          scrollProgressRef.current = current + (target - current) * alpha;
         }
         animationId = requestAnimationFrame(loop);
       };
@@ -137,10 +142,10 @@ export function LandingPage({
         </a>
       </header>
 
-      {/* Scrolling document with 9 sections, each 130vh, snap-scroll with CSS scroll-snap proximity */}
+      {/* Scrolling document with 9 sections, each 130vh, smooth inertial scroll */}
       <main
         ref={scrollContainerRef}
-        className="relative z-10 w-full h-full overflow-y-auto scroll-snap-proximity outline-none"
+        className="relative z-10 w-full h-full overflow-y-auto outline-none"
         tabIndex={0}
       >
         {/* SECTION 1: HERO */}
@@ -204,46 +209,6 @@ export function LandingPage({
                 </span>
               </button>
             </div>
-
-            {/* Bottom Radius Readouts linking to datum line ticks */}
-            <div className="w-full flex items-center justify-between border-t border-cream-14 pt-4 pb-2 z-20 pointer-events-auto bg-black/40 backdrop-blur-sm overflow-x-auto text-[10px] sm:text-xs">
-              <div className="text-center px-2">
-                <span className="font-mono text-amber-400 block">696,340 KM</span>
-                <span className="font-sans text-cream-60 uppercase tracking-widest text-[9px]">SOL</span>
-              </div>
-              <div className="text-center px-2">
-                <span className="font-mono text-[#B8B2A7] block">2,440 KM</span>
-                <span className="font-sans text-cream-60 uppercase tracking-widest text-[9px]">MERCURY</span>
-              </div>
-              <div className="text-center px-2">
-                <span className="font-mono text-[#E8D08A] block">6,052 KM</span>
-                <span className="font-sans text-cream-60 uppercase tracking-widest text-[9px]">VENUS</span>
-              </div>
-              <div className="text-center px-2">
-                <span className="font-mono text-[#5BB8FF] block">6,371 KM</span>
-                <span className="font-sans text-cream-60 uppercase tracking-widest text-[9px]">EARTH</span>
-              </div>
-              <div className="text-center px-2">
-                <span className="font-mono text-[#E2673A] block">3,390 KM</span>
-                <span className="font-sans text-cream-60 uppercase tracking-widest text-[9px]">MARS</span>
-              </div>
-              <div className="text-center px-2">
-                <span className="font-mono text-[#D9A066] block">69,911 KM</span>
-                <span className="font-sans text-cream-60 uppercase tracking-widest text-[9px]">JUPITER</span>
-              </div>
-              <div className="text-center px-2">
-                <span className="font-mono text-[#E8D08A] block">58,232 KM</span>
-                <span className="font-sans text-cream-60 uppercase tracking-widest text-[9px]">SATURN</span>
-              </div>
-              <div className="text-center px-2">
-                <span className="font-mono text-cyan-300 block">25,362 KM</span>
-                <span className="font-sans text-cream-60 uppercase tracking-widest text-[9px]">URANUS</span>
-              </div>
-              <div className="text-center px-2">
-                <span className="font-mono text-blue-400 block">24,622 KM</span>
-                <span className="font-sans text-cream-60 uppercase tracking-widest text-[9px]">NEPTUNE</span>
-              </div>
-            </div>
           </div>
         </section>
 
@@ -258,10 +223,10 @@ export function LandingPage({
                 THE SIMULATOR
               </span>
               <h2 className="font-serif text-5xl sm:text-7xl font-normal uppercase tracking-[0.12em] text-cream mb-4">
-                NINE WORLDS
+                EIGHT WORLDS, ONE STAR.
               </h2>
               <p className="font-sans text-[14px] sm:text-[15px] leading-[1.6] text-cream-85 mb-8 max-w-[34ch] mx-auto">
-                Nine worlds. Keplerian orbits. 1:1 astronomical time or up to 10,000x.
+                Eight worlds, one star. True Keplerian mechanics across deep space.
               </p>
               <a
                 href="#/sim"

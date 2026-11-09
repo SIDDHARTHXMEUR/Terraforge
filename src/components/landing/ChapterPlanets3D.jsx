@@ -3,6 +3,7 @@ import { useFrame, useThree } from '@react-three/fiber';
 import { useTexture } from '@react-three/drei';
 import * as THREE from 'three';
 import { GhostWord3D } from './GhostWord3D';
+import { CinematicSun } from '../cinematic/CinematicSun';
 
 // Shared Physically-Based Sun-Driven Shader for Landing Chapter Planets
 const ChapterPlanetShader = {
@@ -154,7 +155,7 @@ export function ChapterPlanets3D({ scrollProgressRef }) {
 
   return (
     <group ref={groupRef}>
-      {/* CHAPTER 1: SOL (scrollP ~ 1.0) */}
+      {/* CHAPTER 1: SOL (scrollP ~ 1.0) - Exact same shader/material as simulator Sun */}
       <ChapterBody
         chapterIndex={1}
         scrollProgressRef={scrollProgressRef}
@@ -163,10 +164,7 @@ export function ChapterPlanets3D({ scrollProgressRef }) {
         position={[2.6, 0.1, 0]}
         isMobile={isMobile}
       >
-        <mesh ref={solRef}>
-          <sphereGeometry args={[2.4, 64, 64]} />
-          <meshBasicMaterial map={sunTex} />
-        </mesh>
+        <CinematicSun radius={2.4} isPlaying={true} />
       </ChapterBody>
 
       {/* CHAPTER 2: MERCURY (scrollP ~ 2.0) */}
@@ -336,12 +334,12 @@ function ChapterBody({
 
   return (
     <group ref={groupRef} visible={false}>
-      {/* 3D Depth-Tested Ghost Word (behind planet) */}
+      {/* 3D Depth-Tested Ghost Word (behind planet, 24% opacity, >= 15% hidden) */}
       <GhostWord3D
         text={planetName}
         position={ghostWordPos}
         scale={ghostWordScale}
-        opacity={0.14}
+        opacity={0.24}
         isVertical={isMobile}
       />
 
