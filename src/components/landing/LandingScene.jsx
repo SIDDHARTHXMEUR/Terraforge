@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { HeroEarthSunrise } from './HeroEarthSunrise';
@@ -12,8 +12,29 @@ const SIM_CAM_POS = new THREE.Vector3(-320, 110, 310);
 const SIM_CAM_TARGET = new THREE.Vector3(-65, 0, 48);
 
 export function LandingScene({ scrollProgressRef, isActive = true }) {
-  const { camera } = useThree();
+  const { camera, gl, scene } = useThree();
   const heroGroupRef = useRef();
+  const [failSafeActive, setFailSafeActive] = useState(false);
+
+  // Expose global references for diagnostics and gate testing
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.__threeGl = gl;
+      window.__threeScene = scene;
+      window.__threeCamera = camera;
+    }
+
+    // Fail-safe: on landing, if no 3D frame has rendered within 3 s, log the reason and render hero without optional parts
+    const timer = setTimeout(() => {
+      const calls = gl?.info?.render?.calls || 0;
+      if (calls === 0) {
+        console.warn('[LandingScene Fail-Safe] No 3D frame rendered within 3s. Fallback mode activated without optional parts.');
+        setFailSafeActive(true);
+      }
+    }, 3000);
+
+    return () => clearTimeout(timer);
+  }, [gl, scene, camera]);
 
   useFrame(() => {
     if (!isActive) return;
@@ -71,7 +92,7 @@ export function LandingScene({ scrollProgressRef, isActive = true }) {
       </group>
 
       {/* Chapters 1 to 6 3D Planets & Ghost Words (Sections 2 to 7) */}
-      <ChapterPlanets3D scrollProgressRef={scrollProgressRef} />
+      <ChapterPlanets3D scrollProgressRef={scrollProgressRef} disableExtras={failSafeActive} />
 
       {/* Section 8: True Relative Scale Lineup */}
       <LineupSection3D scrollProgressRef={scrollProgressRef} />

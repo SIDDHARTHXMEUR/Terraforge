@@ -65,7 +65,7 @@ const ChapterPlanetShader = {
   `
 };
 
-export function ChapterPlanets3D({ scrollProgressRef }) {
+export function ChapterPlanets3D({ scrollProgressRef, disableExtras = false }) {
   const { size } = useThree();
   const isMobile = size.width <= 768;
   const groupRef = useRef();
@@ -164,6 +164,7 @@ export function ChapterPlanets3D({ scrollProgressRef }) {
         planetRadius={2.4}
         position={[2.6, 0.1, 0]}
         isMobile={isMobile}
+        disableExtras={disableExtras}
       >
         <CinematicSun radius={2.4} position={[0, 0, 0]} />
       </ChapterBody>
@@ -176,6 +177,7 @@ export function ChapterPlanets3D({ scrollProgressRef }) {
         planetRadius={1.7}
         position={[2.5, 0.0, 0]}
         isMobile={isMobile}
+        disableExtras={disableExtras}
       >
         <mesh ref={mercuryRef}>
           <sphereGeometry args={[1.7, 64, 64]} />
@@ -195,6 +197,7 @@ export function ChapterPlanets3D({ scrollProgressRef }) {
         planetRadius={2.0}
         position={[2.5, 0.0, 0]}
         isMobile={isMobile}
+        disableExtras={disableExtras}
       >
         <mesh ref={earthRef} rotation={[0, 0, (23.44 * Math.PI) / 180]}>
           <sphereGeometry args={[2.0, 64, 64]} />
@@ -214,6 +217,7 @@ export function ChapterPlanets3D({ scrollProgressRef }) {
         planetRadius={1.8}
         position={[2.5, 0.0, 0]}
         isMobile={isMobile}
+        disableExtras={disableExtras}
       >
         <mesh ref={marsRef} rotation={[0, 0, (25.19 * Math.PI) / 180]}>
           <sphereGeometry args={[1.8, 64, 64]} />
@@ -233,6 +237,7 @@ export function ChapterPlanets3D({ scrollProgressRef }) {
         planetRadius={2.5}
         position={[2.7, 0.1, 0]}
         isMobile={isMobile}
+        disableExtras={disableExtras}
       >
         <mesh ref={jupiterRef} rotation={[0, 0, (3.13 * Math.PI) / 180]}>
           <sphereGeometry args={[2.5, 64, 64]} />
@@ -252,6 +257,7 @@ export function ChapterPlanets3D({ scrollProgressRef }) {
         planetRadius={2.0}
         position={[2.6, 0.0, 0]}
         isMobile={isMobile}
+        disableExtras={disableExtras}
       >
         <group rotation={[0.55, -0.4, (26.73 * Math.PI) / 180]}>
           <mesh ref={saturnRef}>
@@ -289,6 +295,7 @@ function ChapterBody({
   planetRadius = 2.0,
   position = [2.5, 0, 0],
   isMobile = false,
+  disableExtras = false,
   children
 }) {
   const groupRef = useRef();
@@ -365,13 +372,15 @@ function ChapterBody({
   return (
     <group ref={groupRef} visible={false}>
       {/* 3D Depth-Tested Ghost Word (behind planet) */}
-      <GhostWord3D
-        text={planetName}
-        position={ghostWordPos}
-        scale={ghostWordScale}
-        opacity={ghostOpacity}
-        isVertical={isMobile}
-      />
+      {!disableExtras && (
+        <GhostWord3D
+          text={planetName}
+          position={ghostWordPos}
+          scale={ghostWordScale}
+          opacity={ghostOpacity}
+          isVertical={isMobile}
+        />
+      )}
 
       {/* 3D Planet Mesh with normal depth buffer write */}
       {children}

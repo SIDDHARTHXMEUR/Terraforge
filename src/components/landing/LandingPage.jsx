@@ -245,6 +245,15 @@ export function LandingPage({
     window.addEventListener('touchstart', handleTouchStart, { passive: true });
     window.addEventListener('touchmove', handleTouchMove, { passive: true });
 
+    const handleWindowScroll = () => {
+      const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
+      if (maxScroll > 20) {
+        const pct = THREE.MathUtils.clamp(window.scrollY / maxScroll, 0, 1);
+        targetProgressRef.current = pct * 8;
+      }
+    };
+    window.addEventListener('scroll', handleWindowScroll, { passive: true });
+
     const onSetProgress = (e) => {
       if (typeof e.detail === 'number') {
         targetProgressRef.current = e.detail;
@@ -258,6 +267,7 @@ export function LandingPage({
       window.removeEventListener('wheel', handleWheel);
       window.removeEventListener('touchstart', handleTouchStart);
       window.removeEventListener('touchmove', handleTouchMove);
+      window.removeEventListener('scroll', handleWindowScroll);
       window.removeEventListener('terraforge-set-progress', onSetProgress);
     };
   }, []);
@@ -300,6 +310,18 @@ export function LandingPage({
       className="landing-viewport bg-deep-space text-cream select-none"
       tabIndex={0}
     >
+      {/* Invisible scroll track to provide native scrollable height (800vh matching progress 0 -> 8) */}
+      <div
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          width: '1px',
+          height: '800vh',
+          pointerEvents: 'none',
+          visibility: 'hidden'
+        }}
+      />
       {/* Hidden-until-focused skip link */}
       <a
         href="#/sim"
@@ -334,6 +356,8 @@ export function LandingPage({
             gl={{
               antialias: true,
               alpha: false,
+              preserveDrawingBuffer: true,
+              logarithmicDepthBuffer: true,
               powerPreference: 'high-performance',
               toneMapping: THREE.ACESFilmicToneMapping,
               toneMappingExposure: 1.15
@@ -341,7 +365,7 @@ export function LandingPage({
             camera={{
               fov: 44,
               near: 0.1,
-              far: 3000,
+              far: 25000,
               position: [0, 1.2, 5.0]
             }}
           >

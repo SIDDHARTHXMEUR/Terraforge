@@ -267,9 +267,14 @@ export default function App() {
     );
   }
 
+  // Render Landing Page at #/ (or empty hash)
+  if (route.mode === 'landing') {
+    return <LandingPage onEnterSim={handleEnterSim} />;
+  }
+
   return (
     <div className="relative w-screen h-screen bg-black overflow-hidden font-sans select-none">
-      {/* 1. SINGLE PERSISTENT 3D WEBGL SOLAR SYSTEM CANVAS */}
+      {/* 1. Interactive 3D WebGL Solar System Canvas with Error Boundary */}
       <SceneErrorBoundary>
         <Canvas
           className="w-full h-full cursor-grab active:cursor-grabbing bg-black"
@@ -289,37 +294,24 @@ export default function App() {
             fov: 45,
             near: 0.1,
             far: 25000,
-            position: route.mode === 'landing' ? [0, 1.2, 5.0] : [-320, 110, 310]
+            position: [-320, 110, 310]
           }}
           onPointerDown={() => setIsUserInteracting(true)}
           onPointerUp={() => setIsUserInteracting(false)}
         >
           <Suspense fallback={null}>
-            {/* Landing 3D Scene */}
-            <group visible={route.mode === 'landing' || isTransitioning}>
-              <LandingScene scrollProgressRef={landingProgressRef} isActive={route.mode === 'landing'} />
-            </group>
-
-            {/* Simulator 3D Scene */}
-            <group ref={simSceneRef} visible={route.mode === 'sim' || isTransitioning}>
-              <SolarSystemEngine
-                isActive={route.mode === 'sim'}
-                isTransitioning={isTransitioning}
-                selectedBody={selectedBody}
-                viewMode={viewMode}
-                timeMultiplier={timeMultiplier}
-                isPaused={isPaused || isMapLibreActive}
-                showOrbits={!isMapLibreActive && showOrbits}
-                showLabels={!isPrologueActive && !isMapLibreActive && showLabels}
-                onSelectBody={handleSelectBody}
-                isUserInteracting={isUserInteracting}
-                isPrologueActive={isPrologueActive}
-                onCompletePrologue={handleCompletePrologue}
-              />
-            </group>
-
-            {/* Idle Time Asynchronous Texture & Shader WarmUpController */}
-            <WarmUpController simSceneRef={simSceneRef} isReadyRef={isReadyRef} />
+            <SolarSystemEngine
+              selectedBody={selectedBody}
+              viewMode={viewMode}
+              timeMultiplier={timeMultiplier}
+              isPaused={isPaused || isMapLibreActive}
+              showOrbits={!isMapLibreActive && showOrbits}
+              showLabels={!isPrologueActive && !isMapLibreActive && showLabels}
+              onSelectBody={handleSelectBody}
+              isUserInteracting={isUserInteracting}
+              isPrologueActive={isPrologueActive}
+              onCompletePrologue={handleCompletePrologue}
+            />
           </Suspense>
         </Canvas>
       </SceneErrorBoundary>
@@ -331,36 +323,13 @@ export default function App() {
       />
 
       {/* 3. Directed Christopher Nolan Prologue Overlay */}
-      {route.mode === 'sim' && (
-        <CinematicPrologueOverlay
-          isActive={isPrologueActive}
-          onSkip={handleCompletePrologue}
-        />
-      )}
+      <CinematicPrologueOverlay
+        isActive={isPrologueActive}
+        onSkip={handleCompletePrologue}
+      />
 
-      {/* 4. LANDING PAGE OVERLAYS (Fluid 900ms crossfade dive) */}
-      <div
-        className={`fixed inset-0 z-10 transition-opacity duration-900 pointer-events-none ${
-          route.mode === 'landing'
-            ? (isTransitioning ? 'opacity-0' : 'opacity-100 pointer-events-auto')
-            : (isTransitioning ? 'opacity-100 pointer-events-auto' : 'opacity-0')
-        }`}
-      >
-        <LandingPage
-          externalCanvas={true}
-          scrollProgressRef={landingProgressRef}
-          onEnterSim={handleEnterSim}
-        />
-      </div>
-
-      {/* 5. INTERACTIVE SIMULATOR HUD OVERLAYS (Fluid 900ms crossfade dive) */}
-      <div
-        className={`fixed inset-0 z-30 transition-opacity duration-900 pointer-events-none ${
-          route.mode === 'sim'
-            ? (isTransitioning ? 'opacity-0' : 'opacity-100 pointer-events-auto')
-            : (isTransitioning ? 'opacity-100 pointer-events-auto' : 'opacity-0')
-        }`}
-      >
+      {/* 4. INTERACTIVE SIMULATOR HUD OVERLAYS */}
+      <div className="fixed inset-0 z-30 pointer-events-auto">
         <InteractiveSimulatorHUD
           selectedBody={selectedBody}
           onSelectBody={handleSelectBody}

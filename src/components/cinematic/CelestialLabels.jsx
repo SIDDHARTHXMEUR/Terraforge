@@ -132,6 +132,9 @@ export function CelestialLabels({
   const isOverview = selectedBody === 'overview';
   const shouldShow = visible && isOverview;
 
+  // Hard barrier: Do not mount or render Drei <Html> DOM nodes if not visible in simulator overview
+  if (!shouldShow) return null;
+
   useFrame(() => {
     // DEV instrumentation: record toggle latency for labels
     if (import.meta.env.DEV && typeof window !== 'undefined' && window.__lastToggleClick?.type === 'labels') {
