@@ -29,7 +29,8 @@ export function SolarSystemEngine({
   onSelectBody,
   isUserInteracting = false,
   isPrologueActive = false,
-  onCompletePrologue
+  onCompletePrologue,
+  resetCamTrigger = 0
 }) {
   const threeState = useThree();
   const { gl, scene, camera } = threeState;
@@ -229,6 +230,7 @@ export function SolarSystemEngine({
         bodyPositions={positionsRef.current}
         isUserInteracting={isUserInteracting}
         enabled={isActive && !isPrologueActive && !isTransitioning}
+        resetCamTrigger={resetCamTrigger}
       />
 
       {/* 2b. Live 3D WebGL Director & Effects (Active during 14.5s Prologue) */}

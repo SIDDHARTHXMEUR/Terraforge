@@ -165,7 +165,8 @@ export function InteractiveSolarCamera({
   viewMode = 'cinematic',
   bodyPositions = {},
   isUserInteracting = false,
-  enabled = true
+  enabled = true,
+  resetCamTrigger = 0
 }) {
   const { camera, gl } = useThree();
   const controlsRef = useRef();
@@ -463,6 +464,22 @@ export function InteractiveSolarCamera({
     }
   }, [selectedBody, viewMode, enabled, setIsSurfaceMode, inSurfaceMode, camera]);
 
+  // RESET CAMERA command: returns to hero framing for the current target
+  useEffect(() => {
+    if (resetCamTrigger > 0 && enabled) {
+      cameraStateRef.current = 'FLYING';
+      isTransitioningRef.current = true;
+      flightTargetRef.current = selectedBody;
+      transitionStartTimeRef.current = performance.now();
+      transitionDurationRef.current = 1100;
+      if (controlsRef.current) {
+        transitionStartTargetRef.current.copy(controlsRef.current.target);
+        controlsRef.current.enabled = false;
+      }
+      transitionStartCamPosRef.current.copy(camera.position);
+    }
+  }, [resetCamTrigger, enabled, selectedBody, camera]);
+
   // User interruption during flight: immediately cancels flight and hands control to user
   useEffect(() => {
     const canvas = gl.domElement;
@@ -494,12 +511,14 @@ export function InteractiveSolarCamera({
       }
     };
 
+    canvas.addEventListener('mousedown', handleUserInterrupt, { passive: true });
     canvas.addEventListener('pointerdown', handleUserInterrupt, { passive: true });
     canvas.addEventListener('wheel', handleUserInterrupt, { passive: true });
     canvas.addEventListener('touchstart', handleUserInterrupt, { passive: true });
     window.addEventListener('keydown', handleUserInterrupt, { passive: true });
 
     return () => {
+      canvas.removeEventListener('mousedown', handleUserInterrupt);
       canvas.removeEventListener('pointerdown', handleUserInterrupt);
       canvas.removeEventListener('wheel', handleUserInterrupt);
       canvas.removeEventListener('touchstart', handleUserInterrupt);
@@ -691,28 +710,29 @@ export function InteractiveSolarCamera({
 
         controls.enabled = enabled && !inSurfaceMode;
         controls.enableDamping = true;
-        controls.dampingFactor = 0.08;
+        controls.dampingFactor = 0.06;
         controls.update();
       }
       return;
     }
 
     // -----------------------------------------------------------------------
-    // C. FOCUSED STATE (Non-rotating planet-centred frame, zero jitter)
+    // C. FOCUSED STATE (Free Orbit, Pan & Zoom with zero drift)
     // -----------------------------------------------------------------------
     if (cameraStateRef.current === 'FOCUSED' && !isOverview) {
       controls.enabled = enabled && !inSurfaceMode;
       controls.enableDamping = true;
-      controls.dampingFactor = 0.08;
+      controls.dampingFactor = 0.06;
       controls.enablePan = true;
       controls.enableRotate = true;
       controls.enableZoom = true;
 
-      // In follow mode: camera offset is expressed in a non-rotating planet-centred frame
-      // Update OrbitControls relative to current planet position with 0 latency
-      const camOffset = new THREE.Vector3().subVectors(camera.position, controls.target);
-      controls.target.copy(currentBodyVec);
-      camera.position.copy(currentBodyVec).add(camOffset);
+      // Delta follow preserves user rotation, pan and zoom offsets without snapping or resetting
+      const deltaPlanet = new THREE.Vector3().subVectors(currentBodyVec, lastPlanetPosRef.current);
+      if (deltaPlanet.lengthSq() > 0.000001) {
+        controls.target.add(deltaPlanet);
+        camera.position.add(deltaPlanet);
+      }
       lastPlanetPosRef.current.copy(currentBodyVec);
 
       controls.update();
@@ -720,22 +740,17 @@ export function InteractiveSolarCamera({
     }
 
     // -----------------------------------------------------------------------
-    // D. OVERVIEW STATE (OrbitControls Enabled with Subtle Cinematic Drift)
+    // D. OVERVIEW STATE (Free Orbit, Pan & Zoom with zero drift)
     // -----------------------------------------------------------------------
     if (cameraStateRef.current === 'OVERVIEW' || isOverview) {
       controls.enabled = enabled && !inSurfaceMode;
       controls.enableDamping = true;
-      controls.dampingFactor = 0.08;
+      controls.dampingFactor = 0.06;
       controls.enablePan = true;
       controls.enableRotate = true;
       controls.enableZoom = true;
 
-      if (viewMode === 'cinematic' && !isUserInteracting) {
-        driftTimeRef.current += delta;
-        const driftSpeed = 0.22;
-        camera.position.x += Math.cos(driftTimeRef.current * 0.06) * delta * driftSpeed;
-        camera.position.z += Math.sin(driftTimeRef.current * 0.06) * delta * driftSpeed;
-      }
+      // No auto-orbit, no drift: camera stays exactly where left
       controls.update();
     }
   });
@@ -749,8 +764,8 @@ export function InteractiveSolarCamera({
     ? 36.5
     : R * 1.18;
   const maxCamDist = isOverview
-    ? 3500
-    : Math.max(120, R * 25.0);
+    ? 5000
+    : Math.max(300, R * 35.0);
 
   if (!enabled) return null;
 
@@ -759,7 +774,7 @@ export function InteractiveSolarCamera({
       ref={controlsRef}
       enabled={enabled && !inSurfaceMode}
       enableDamping={true}
-      dampingFactor={0.08}
+      dampingFactor={0.06}
       enablePan={true}
       enableRotate={true}
       enableZoom={true}

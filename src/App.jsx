@@ -233,8 +233,9 @@ export default function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
+  const [resetCamTrigger, setResetCamTrigger] = useState(0);
   const handleResetCamera = () => {
-    setSelectedBody('overview');
+    setResetCamTrigger((c) => c + 1);
   };
 
   // Dedicated Fixed-Camera Benchmark Test Harness for Quality Gate Phase 1
@@ -311,6 +312,7 @@ export default function App() {
               isUserInteracting={isUserInteracting}
               isPrologueActive={isPrologueActive}
               onCompletePrologue={handleCompletePrologue}
+              resetCamTrigger={resetCamTrigger}
             />
           </Suspense>
         </Canvas>
@@ -329,7 +331,7 @@ export default function App() {
       />
 
       {/* 4. INTERACTIVE SIMULATOR HUD OVERLAYS */}
-      <div className="fixed inset-0 z-30 pointer-events-auto">
+      <div className="fixed inset-0 z-30 pointer-events-none">
         <InteractiveSimulatorHUD
           selectedBody={selectedBody}
           onSelectBody={handleSelectBody}
