@@ -56,20 +56,20 @@ export function SolarSystemEngine({
       }
 
       if (gl && scene && camera) {
-        // Upload textures progressively to GPU memory
+        // Upload textures with max anisotropic filtering (8 to 16)
+        const maxAniso = Math.min(16, gl.capabilities?.getMaxAnisotropy() || 8);
         scene.traverse((obj) => {
           if (obj.isMesh && obj.material) {
             const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
             for (const mat of mats) {
-              if (mat.map && !mat.map.__uploaded) {
-                try { gl.initTexture(mat.map); mat.map.__uploaded = true; } catch (_) {}
-              }
-              if (mat.normalMap && !mat.normalMap.__uploaded) {
-                try { gl.initTexture(mat.normalMap); mat.normalMap.__uploaded = true; } catch (_) {}
-              }
-              if (mat.roughnessMap && !mat.roughnessMap.__uploaded) {
-                try { gl.initTexture(mat.roughnessMap); mat.roughnessMap.__uploaded = true; } catch (_) {}
-              }
+              ['map', 'normalMap', 'bumpMap', 'roughnessMap'].forEach((key) => {
+                if (mat[key]) {
+                  mat[key].anisotropy = maxAniso;
+                  if (!mat[key].__uploaded) {
+                    try { gl.initTexture(mat[key]); mat[key].__uploaded = true; } catch (_) {}
+                  }
+                }
+              });
             }
           }
         });
