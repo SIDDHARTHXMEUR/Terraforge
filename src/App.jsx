@@ -95,6 +95,14 @@ export default function App() {
   const [preloaderProgress, setPreloaderProgress] = useState(25);
   const [isPreloaderReady, setIsPreloaderReady] = useState(false);
 
+  // Fail-safe preloader dismiss: guaranteed never to block screen longer than 800ms
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsPreloaderReady(true);
+    }, 800);
+    return () => clearTimeout(timer);
+  }, []);
+
   // Sync hash routing changes
   useEffect(() => {
     const handleHash = () => {
@@ -296,7 +304,7 @@ export default function App() {
 
       {/* 5. Directed Christopher Nolan Prologue Overlay (Letterbox + Anamorphic Flare + Title) */}
       <CinematicPrologueOverlay
-        isActive={isPrologueActive}
+        isActive={route.mode === 'sim' && isPrologueActive}
         onSkip={handleCompletePrologue}
       />
 

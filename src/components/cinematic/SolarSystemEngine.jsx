@@ -27,7 +27,8 @@ export function SolarSystemEngine({
   onSelectBody,
   isUserInteracting = false,
   isPrologueActive = false,
-  onCompletePrologue
+  onCompletePrologue,
+  enabled = true
 }) {
   const { gl, scene, camera } = useThree();
   const hasWarmedUpRef = useRef(false);
@@ -219,7 +220,7 @@ export function SolarSystemEngine({
         viewMode={viewMode}
         bodyPositions={positionsRef.current}
         isUserInteracting={isUserInteracting}
-        enabled={!isPrologueActive}
+        enabled={enabled && !isPrologueActive}
       />
 
       {/* 2b. Live 3D WebGL Director & Effects (Active during 14.5s Prologue) */}

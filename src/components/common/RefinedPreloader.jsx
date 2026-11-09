@@ -8,12 +8,13 @@ import { Wordmark } from './Wordmark';
  * - Never shows black or empty canvas
  */
 export function RefinedPreloader({ progress = 100, isReady = false }) {
+  const isDismissed = isReady || progress >= 100;
   return (
     <div
       className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-[#04060B] select-none pointer-events-none transition-opacity duration-600 ease-out"
       style={{
-        opacity: isReady ? 0 : 1,
-        pointerEvents: isReady ? 'none' : 'auto',
+        opacity: isDismissed ? 0 : 1,
+        pointerEvents: isDismissed ? 'none' : 'auto',
         transitionDuration: '600ms',
         transitionTimingFunction: 'cubic-bezier(0.22, 1, 0.36, 1)'
       }}

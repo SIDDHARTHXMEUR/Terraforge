@@ -30,6 +30,11 @@ export function UnifiedSolarEngine({
   const [isWarmed, setIsWarmed] = useState(false);
   const hasReportedFirstRender = useRef(false);
 
+  const heroGroupRef = useRef();
+  const chaptersGroupRef = useRef();
+  const lineupGroupRef = useRef();
+  const overviewGroupRef = useRef();
+
   // Transition state: 'none', 'entering_sim', 'returning_landing'
   const transitionRef = useRef({
     state: 'none',
@@ -125,9 +130,24 @@ export function UnifiedSolarEngine({
     }
 
     // When in Landing mode and not transitioning: camera follows landing scroll
-    if (route.mode === 'landing') {
-      const scrollP = scrollProgressRef?.current || 0;
+    const scrollP = scrollProgressRef?.current || 0;
+    const isLanding = route.mode === 'landing';
 
+    // Dynamically update section groups visibility on every frame (zero static ref desync)
+    if (heroGroupRef.current) {
+      heroGroupRef.current.visible = isLanding && (scrollP <= 1.2 || transitionRef.current.state !== 'none');
+    }
+    if (chaptersGroupRef.current) {
+      chaptersGroupRef.current.visible = isLanding && scrollP > 0.4 && scrollP < 6.8;
+    }
+    if (lineupGroupRef.current) {
+      lineupGroupRef.current.visible = isLanding && scrollP >= 6.4 && scrollP < 7.6;
+    }
+    if (overviewGroupRef.current) {
+      overviewGroupRef.current.visible = isLanding && scrollP >= 7.3;
+    }
+
+    if (isLanding) {
       if (scrollP <= 0.85) {
         // Section 1: Hero
         const heroCamY = 1.2 + scrollP * 0.4;
@@ -167,22 +187,22 @@ export function UnifiedSolarEngine({
       <LandingStarfield count={3000} />
 
       {/* Hero Earth Sunrise - Always resident in memory for instant <0.1s return */}
-      <group visible={isLandingActive && (scrollProgressRef?.current || 0) <= 1.2}>
+      <group ref={heroGroupRef}>
         <HeroEarthSunrise isVisible={isLandingActive} />
       </group>
 
       {/* Landing Chapters 3D Planets (Sections 2 to 7) */}
-      <group visible={isLandingActive && (scrollProgressRef?.current || 0) > 0.4 && (scrollProgressRef?.current || 0) < 6.6}>
+      <group ref={chaptersGroupRef}>
         <ChapterPlanets3D scrollProgressRef={scrollProgressRef} />
       </group>
 
       {/* Landing Section 8 Lineup 3D */}
-      <group visible={isLandingActive && (scrollProgressRef?.current || 0) >= 6.4 && (scrollProgressRef?.current || 0) < 7.6}>
+      <group ref={lineupGroupRef}>
         <LineupSection3D scrollProgressRef={scrollProgressRef} />
       </group>
 
       {/* Landing Section 9 Overview 3D */}
-      <group visible={isLandingActive && (scrollProgressRef?.current || 0) >= 7.3}>
+      <group ref={overviewGroupRef}>
         <OverviewSection3D scrollProgressRef={scrollProgressRef} />
       </group>
 
@@ -198,6 +218,7 @@ export function UnifiedSolarEngine({
           onSelectBody={onSelectBody}
           isUserInteracting={isUserInteracting}
           isPrologueActive={false}
+          enabled={isSimActive}
         />
       </group>
     </>
