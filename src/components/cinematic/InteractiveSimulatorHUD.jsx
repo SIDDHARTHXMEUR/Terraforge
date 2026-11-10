@@ -14,6 +14,7 @@ import {
 import { PLANETS_CONFIG } from '../../data/planetsData';
 import { useEarthSurfaceStore } from '../../state/useEarthSurfaceStore';
 import { Wordmark } from '../common/Wordmark';
+import { getUnifiedPlanetStats } from '../../utils/celestialStats';
 
 const CELESTIAL_LIST = [
   { id: 'overview', name: 'Overview' },
@@ -193,26 +194,28 @@ export function InteractiveSimulatorHUD({
       {/* --------------------------------------------------------------------- */}
       <header className="w-full flex items-center justify-between gap-6 pointer-events-auto whitespace-nowrap overflow-x-auto py-1">
         {/* Brand & Simulation Live Indicator */}
-        <div className="flex items-center space-x-3 text-white/90 shrink-0">
+        <div className="flex items-center space-x-2 text-white/90 shrink-0">
           <Wordmark
             onClick={() => {
+              try { sessionStorage.setItem('terraforge_allow_landing', 'true'); } catch (_) {}
               if (onGoHome) onGoHome();
               else window.location.hash = '#/';
             }}
             className="hover:opacity-80 transition-opacity cursor-pointer"
           />
-          <span className="text-white/20">/</span>
+          <span className="text-cream/30 font-sans text-[11px]">/</span>
           <button
             onClick={() => {
+              try { sessionStorage.setItem('terraforge_allow_landing', 'true'); } catch (_) {}
               if (onGoHome) onGoHome();
               else window.location.hash = '#/';
             }}
-            className="text-[11px] font-sans text-white/60 hover:text-white tracking-[0.2em] uppercase transition-colors cursor-pointer"
+            className="font-sans text-[11px] uppercase tracking-[0.25em] text-cream opacity-70 hover:opacity-100 transition-opacity focus:outline-none focus:ring-1 focus:ring-white py-1 cursor-pointer"
             title="Return to Landing Page"
           >
-            HOME
+            LANDING
           </button>
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse ml-2"></span>
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse ml-3"></span>
           <span className="text-[10px] font-mono tracking-widest text-emerald-400 uppercase">
             {isPaused ? 'PAUSED' : `${timeMultiplier}X LIVE`}
           </span>
@@ -302,16 +305,9 @@ export function InteractiveSimulatorHUD({
       {/* 2. REFINED PLANETARY INFO BLOCK (No boxes / No borders / Zero pills)  */}
       {/* --------------------------------------------------------------------- */}
       {selectedData && selectedBody !== 'overview' && (() => {
+        const stats = getUnifiedPlanetStats(selectedBody);
         const accentColor = PLANET_ACCENTS[selectedBody] || '#4FD1C5';
         const microLabel = PLANET_MICRO_LABELS[selectedBody] || selectedData.category || 'CELESTIAL BODY';
-        const distAu = selectedData.semiMajorAxisAU !== undefined
-          ? selectedData.semiMajorAxisAU
-          : (selectedData.semiMajorAxisAu !== undefined ? selectedData.semiMajorAxisAu : 0);
-        const distStr = distAu === 0 ? '0.00 AU' : `${distAu.toFixed(2)} AU`;
-        const lightSeconds = Math.round(distAu * 499.0);
-        const lightM = Math.floor(lightSeconds / 60);
-        const lightS = lightSeconds % 60;
-        const lightTimeStr = lightM > 0 ? `${lightM} min ${lightS} s` : `${lightS} s`;
 
         return (
           <main
@@ -331,7 +327,7 @@ export function InteractiveSimulatorHUD({
 
               {/* Hierarchy Level 2: Large serif name (Cormorant Garamond) */}
               <h1 className="font-serif text-5xl sm:text-7xl font-normal tracking-[0.14em] text-white uppercase drop-shadow-[0_4px_30px_rgba(0,0,0,0.95)] leading-tight">
-                {selectedData.name}
+                {stats.name}
               </h1>
 
               {/* Hierarchy Level 3: 1px accent rule */}
@@ -342,7 +338,7 @@ export function InteractiveSimulatorHUD({
                 className="font-sans text-[14px] text-white/80 leading-relaxed font-light mb-4 drop-shadow-[0_2px_10px_rgba(0,0,0,0.9)]"
                 style={{ maxWidth: '34ch' }}
               >
-                {selectedData.description || selectedData.tagline}
+                {stats.description}
               </p>
 
               {/* Hierarchy Level 5: Stacked Plain Lines (No grid, no table, no hairlines) */}
@@ -353,26 +349,24 @@ export function InteractiveSimulatorHUD({
                 {selectedBody !== 'sun' && (
                   <div>
                     <span>Distance from the Sun: </span>
-                    <span style={{ color: accentColor }}>{distStr}</span>
-                    {distAu > 0 && (
-                      <span>, light takes <span style={{ color: accentColor }}>{lightTimeStr}</span></span>
+                    <span style={{ color: accentColor }}>{stats.distSimStr}</span>
+                    {stats.distAU > 0 && (
+                      <span>, light takes <span style={{ color: accentColor }}>{stats.lightTimeStr}</span></span>
                     )}
                   </div>
                 )}
                 <div>
                   <span>Diameter: </span>
-                  <span style={{ color: accentColor }}>
-                    {selectedData.radiusKm ? `${Math.round(selectedData.radiusKm * 2).toLocaleString()} km` : 'N/A'}
-                  </span>
+                  <span style={{ color: accentColor }}>{stats.diameterStr}</span>
                 </div>
                 <div>
                   <span>Length of day: </span>
-                  <span style={{ color: accentColor }}>{formatDayLength(selectedData.rotationPeriodHours)}</span>
+                  <span style={{ color: accentColor }}>{stats.dayStr}</span>
                 </div>
                 {selectedBody !== 'sun' && (
                   <div>
                     <span>Orbital period: </span>
-                    <span style={{ color: accentColor }}>{selectedData.orbitalPeriodDays ? `${selectedData.orbitalPeriodDays} days` : 'N/A'}</span>
+                    <span style={{ color: accentColor }}>{stats.orbitalPeriodDays ? `${stats.orbitalPeriodDays} days` : 'N/A'}</span>
                   </div>
                 )}
               </div>

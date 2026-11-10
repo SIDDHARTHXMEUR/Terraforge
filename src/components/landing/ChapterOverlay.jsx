@@ -1,5 +1,6 @@
 import React, { forwardRef } from 'react';
 import { PLANETS_CONFIG } from '../../data/planetsData';
+import { getUnifiedPlanetStats } from '../../utils/celestialStats';
 
 const SPEED_OF_LIGHT_KM_S = 299792.458;
 const AU_IN_KM = 149597870.7;
@@ -96,52 +97,7 @@ export const LANDING_CHAPTERS = ALL_CHAPTERS.filter((ch) => ch.enabled).map((ch,
 export const CHAPTERS_DATA = LANDING_CHAPTERS.filter((ch) => ch.type === 'planet');
 
 export function computeChapterStats(chapter) {
-  const p = PLANETS_CONFIG[chapter.planetKey] || {};
-
-  // 1. Distance from Sun (AU and M km)
-  let distanceAU = p.semiMajorAxisAU || 0;
-  let distanceMkm = (distanceAU * AU_IN_KM / 1e6);
-  let distStr = distanceAU > 0 ? `${distanceAU.toFixed(3)} AU` : '0.00 AU';
-  let distSub = distanceAU > 0 ? `${distanceMkm.toFixed(1)}M KM` : 'CENTER';
-
-  // 2. Light-time from Sun: distance / c
-  let lightTimeSec = (distanceAU * AU_IN_KM) / SPEED_OF_LIGHT_KM_S;
-  let lightTimeStr = '0.00 S';
-  if (lightTimeSec >= 60) {
-    const mins = Math.floor(lightTimeSec / 60);
-    const secs = Math.floor(lightTimeSec % 60);
-    lightTimeStr = `${mins}M ${secs}S`;
-  } else if (lightTimeSec > 0) {
-    lightTimeStr = `${lightTimeSec.toFixed(1)}S`;
-  }
-
-  // 3. Length of year
-  let yearStr = 'N/A';
-  let days = p.orbitalPeriodDays || 0;
-  if (days > 0) {
-    if (days >= 500) {
-      yearStr = `${(days / 365.25).toFixed(2)} YRS`;
-    } else {
-      yearStr = `${days.toFixed(1)} DAYS`;
-    }
-  } else {
-    yearStr = 'HOST STAR';
-  }
-
-  // 4. Planet type
-  let typeStr = 'TERRESTRIAL';
-  if (chapter.planetKey === 'sun') typeStr = 'YELLOW DWARF';
-  else if (['jupiter', 'saturn'].includes(chapter.planetKey)) typeStr = 'GAS GIANT';
-  else if (['uranus', 'neptune'].includes(chapter.planetKey)) typeStr = 'ICE GIANT';
-
-  return {
-    distStr,
-    distSub,
-    lightTimeStr,
-    yearStr,
-    typeStr,
-    description: p.description || ''
-  };
+  return getUnifiedPlanetStats(chapter.planetKey);
 }
 
 export const ChapterOverlay = forwardRef(function ChapterOverlay(
