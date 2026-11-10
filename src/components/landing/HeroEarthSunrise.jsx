@@ -167,11 +167,11 @@ export function HeroEarthSunrise({ scrollProgressRef, isVisible = true }) {
   const earthGroupRef = useRef();
   const earthMatRef = useRef();
 
-  // Load NASA Marble textures
+  // Load NASA Marble progressive 1K textures first for instantaneous hero reveal
   const [albedoMap, nightlightsMap, cloudsMap] = useTexture([
-    '/assets/planets/earth/earth_albedo.jpg',
-    '/assets/planets/earth/earth_nightlights.jpg',
-    '/assets/planets/earth/earth_clouds.png'
+    '/assets/planets/earth/earth_albedo_1k.webp',
+    '/assets/planets/earth/earth_nightlights_1k.webp',
+    '/assets/planets/earth/earth_clouds_1k.webp'
   ]);
 
   useMemo(() => {
@@ -191,6 +191,29 @@ export function HeroEarthSunrise({ scrollProgressRef, isVisible = true }) {
     uTime: { value: 0 },
     uResolution: { value: new THREE.Vector2(1920, 1080) }
   }), [albedoMap, nightlightsMap, cloudsMap, sunPos]);
+
+  // Idle upgrade to full resolution textures without pop-in
+  React.useEffect(() => {
+    const upgradeTextures = () => {
+      const loader = new THREE.TextureLoader();
+      loader.load('/assets/planets/earth/earth_albedo.webp', (tex) => {
+        tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+        tex.needsUpdate = true;
+        if (uniforms.uAlbedo) uniforms.uAlbedo.value = tex;
+      });
+      loader.load('/assets/planets/earth/earth_clouds.webp', (tex) => {
+        tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+        tex.needsUpdate = true;
+        if (uniforms.uCloudsMap) uniforms.uCloudsMap.value = tex;
+      });
+    };
+
+    if ('requestIdleCallback' in window) {
+      window.requestIdleCallback(upgradeTextures, { timeout: 2500 });
+    } else {
+      setTimeout(upgradeTextures, 1500);
+    }
+  }, [uniforms]);
 
   const atmUniforms = useMemo(() => ({
     uSunPosition: { value: sunPos }

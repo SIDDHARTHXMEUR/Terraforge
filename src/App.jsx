@@ -1,18 +1,28 @@
 import React, { Suspense, useState, useEffect, useRef } from 'react';
 import { Canvas } from '@react-three/fiber';
 import * as THREE from 'three';
-import { SolarSystemEngine } from './components/cinematic/SolarSystemEngine';
-import { InteractiveSimulatorHUD } from './components/cinematic/InteractiveSimulatorHUD';
-import { CinematicPrologueOverlay } from './components/cinematic/CinematicPrologueOverlay';
 import { LoadingScreen } from './components/LoadingScreen';
 import { EarthBaselineComparator } from './components/test/EarthBaselineComparator';
 import { DeepSpaceSkybox } from './components/cinematic/DeepSpaceSkybox';
 import { OrbitControls } from '@react-three/drei';
-import { EarthMapLibreViewer } from './components/cinematic/EarthMapLibreViewer';
 import { useEarthSurfaceStore } from './state/useEarthSurfaceStore';
 import { LandingPage } from './components/landing/LandingPage';
 import { LandingScene } from './components/landing/LandingScene';
 import { WarmUpController } from './components/cinematic/WarmUpController';
+
+// Dynamic code-splitting for simulator route components
+const SolarSystemEngine = React.lazy(() =>
+  import('./components/cinematic/SolarSystemEngine').then((m) => ({ default: m.SolarSystemEngine }))
+);
+const InteractiveSimulatorHUD = React.lazy(() =>
+  import('./components/cinematic/InteractiveSimulatorHUD').then((m) => ({ default: m.InteractiveSimulatorHUD }))
+);
+const CinematicPrologueOverlay = React.lazy(() =>
+  import('./components/cinematic/CinematicPrologueOverlay').then((m) => ({ default: m.CinematicPrologueOverlay }))
+);
+const EarthMapLibreViewer = React.lazy(() =>
+  import('./components/cinematic/EarthMapLibreViewer').then((m) => ({ default: m.EarthMapLibreViewer }))
+);
 
 const CELESTIAL_ORDER = ['sun', 'mercury', 'venus', 'earth', 'mars', 'jupiter', 'saturn', 'uranus', 'neptune'];
 
@@ -319,38 +329,44 @@ export default function App() {
       </SceneErrorBoundary>
 
       {/* 2. Fullscreen MapLibre 3D Vector Map & Mapillary Street View */}
-      <EarthMapLibreViewer
-        isActive={isMapLibreActive}
-        onClose={() => setIsMapLibreActive(false)}
-      />
+      <Suspense fallback={null}>
+        <EarthMapLibreViewer
+          isActive={isMapLibreActive}
+          onClose={() => setIsMapLibreActive(false)}
+        />
+      </Suspense>
 
       {/* 3. Directed Christopher Nolan Prologue Overlay */}
-      <CinematicPrologueOverlay
-        isActive={isPrologueActive}
-        onSkip={handleCompletePrologue}
-      />
+      <Suspense fallback={null}>
+        <CinematicPrologueOverlay
+          isActive={isPrologueActive}
+          onSkip={handleCompletePrologue}
+        />
+      </Suspense>
 
       {/* 4. INTERACTIVE SIMULATOR HUD OVERLAYS */}
       <div className="fixed inset-0 z-30 pointer-events-none">
-        <InteractiveSimulatorHUD
-          selectedBody={selectedBody}
-          onSelectBody={handleSelectBody}
-          viewMode={viewMode}
-          setViewMode={setViewMode}
-          isPaused={isPaused}
-          setIsPaused={setIsPaused}
-          timeMultiplier={timeMultiplier}
-          setTimeMultiplier={setTimeMultiplier}
-          showOrbits={showOrbits}
-          setShowOrbits={setShowOrbits}
-          showLabels={showLabels}
-          setShowLabels={setShowLabels}
-          uiVisible={!isPrologueActive && !isMapLibreActive && uiVisible}
-          setUiVisible={setUiVisible}
-          onResetCamera={handleResetCamera}
-          onReplayIntro={handleReplayIntro}
-          onGoHome={handleGoHome}
-        />
+        <Suspense fallback={null}>
+          <InteractiveSimulatorHUD
+            selectedBody={selectedBody}
+            onSelectBody={handleSelectBody}
+            viewMode={viewMode}
+            setViewMode={setViewMode}
+            isPaused={isPaused}
+            setIsPaused={setIsPaused}
+            timeMultiplier={timeMultiplier}
+            setTimeMultiplier={setTimeMultiplier}
+            showOrbits={showOrbits}
+            setShowOrbits={setShowOrbits}
+            showLabels={showLabels}
+            setShowLabels={setShowLabels}
+            uiVisible={!isPrologueActive && !isMapLibreActive && uiVisible}
+            setUiVisible={setUiVisible}
+            onResetCamera={handleResetCamera}
+            onReplayIntro={handleReplayIntro}
+            onGoHome={handleGoHome}
+          />
+        </Suspense>
       </div>
     </div>
   );

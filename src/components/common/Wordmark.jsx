@@ -8,6 +8,7 @@ export function Wordmark({ className = '', onClick }) {
   const Component = onClick ? 'button' : 'span';
   return (
     <Component
+      data-wordmark="true"
       onClick={onClick}
       className={`font-wordmark text-[18px] tracking-[0.25em] text-[#FFF8E7] uppercase select-none leading-none ${className}`}
       style={{

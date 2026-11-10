@@ -6,6 +6,7 @@ import { LandingHeroOverlay } from './LandingHeroOverlay';
 import { ChapterOverlay, CHAPTERS_DATA } from './ChapterOverlay';
 import { NonWebGLFallback } from './NonWebGLFallback';
 import { Wordmark } from '../common/Wordmark';
+import { BrandedPreloader } from '../common/BrandedPreloader';
 
 function checkWebGLSupport() {
   if (typeof window === 'undefined') return true;
@@ -62,7 +63,9 @@ export function LandingPage({
   const scrollProgressRef = externalProgressRef || localScrollProgressRef;
   const targetProgressRef = useRef(0);
   const velocityRef = useRef(0);
-  const [warmupProgress, setWarmupProgress] = useState(() => (typeof window !== 'undefined' ? window.__terraforgeWarmupProgress || 0 : 0));
+  const [heroRevealed, setHeroRevealed] = useState(false);
+  const [loadingProgress, setLoadingProgress] = useState(25);
+  const [warmupProgress, setWarmupProgress] = useState(() => (typeof window !== 'undefined' ? window.__terraforgeWarmupProgress || 1.0 : 1.0));
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -72,6 +75,58 @@ export function LandingPage({
     }, 150);
     return () => clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+    // REVEAL PROTOCOL: stays until hero's first frame has actually rendered
+    const onRendered = () => {
+      setLoadingProgress(100);
+      setTimeout(() => setHeroRevealed(true), 120);
+    };
+
+    window.addEventListener('terraforge-hero-rendered', onRendered);
+
+    // Timeout 4 s: reveal with whatever is loaded, never hang
+    const timer = setTimeout(() => {
+      setHeroRevealed(true);
+    }, 4000);
+
+    const pInterval = setInterval(() => {
+      setLoadingProgress(prev => (prev < 90 ? prev + 12 : prev));
+    }, 80);
+
+    return () => {
+      window.removeEventListener('terraforge-hero-rendered', onRendered);
+      clearTimeout(timer);
+      clearInterval(pInterval);
+    };
+  }, []);
+
+  // PROGRESSIVE IDLE PREFETCH: after hero reveal, fetch simulator textures in idle callbacks
+  useEffect(() => {
+    if (!heroRevealed) return;
+    const prefetchAssets = () => {
+      const simTextures = [
+        '/assets/planets/venus/venus.webp',
+        '/assets/planets/mars/mars.webp',
+        '/assets/planets/jupiter/jupiter.webp',
+        '/assets/planets/saturn/saturn.webp',
+        '/assets/planets/uranus/uranus.webp',
+        '/assets/planets/neptune/neptune.webp'
+      ];
+      const loader = new THREE.TextureLoader();
+      simTextures.forEach((src, idx) => {
+        setTimeout(() => {
+          loader.load(src);
+        }, idx * 120);
+      });
+    };
+
+    if ('requestIdleCallback' in window) {
+      window.requestIdleCallback(prefetchAssets, { timeout: 3000 });
+    } else {
+      setTimeout(prefetchAssets, 1200);
+    }
+  }, [heroRevealed]);
 
   // DOM Overlay Refs for compositor-level zero-render animation
   const heroRef = useRef(null);
@@ -354,9 +409,20 @@ export function LandingPage({
         </a>
       </header>
 
-      {/* Single 3D Canvas fixed behind the document (rendered internally only if not hosted in unified App canvas) */}
+      {/* Branded Preloader: stays until hero first frame is drawn */}
+      <BrandedPreloader
+        progress={loadingProgress}
+        isVisible={!heroRevealed}
+        statusText="INITIALIZING 3D UNIVERSE"
+      />
+
+      {/* Single 3D Canvas fixed behind the document (fades in over 700ms when ready) */}
       {!externalCanvas && (
-        <div className="fixed inset-0 z-0 pointer-events-none">
+        <div
+          className={`fixed inset-0 z-0 pointer-events-none transition-opacity duration-700 ease-out ${
+            heroRevealed ? 'opacity-100' : 'opacity-0'
+          }`}
+        >
           <Canvas
             className="w-full h-full bg-deep-space"
             style={{ width: '100vw', height: '100vh', position: 'absolute', inset: 0 }}
@@ -386,8 +452,13 @@ export function LandingPage({
 
       {/* Viewport Overlay Layers: All positioned and faded from smoothProgress */}
       <div className="fixed inset-0 z-10 pointer-events-none">
-        {/* SECTION 1: HERO (progress ~ 0.0) */}
-        <div ref={heroRef} className="absolute inset-0">
+        {/* SECTION 1: HERO (progress ~ 0.0, animates in only after hero is rendered) */}
+        <div
+          ref={heroRef}
+          className={`absolute inset-0 transition-opacity duration-700 ease-out ${
+            heroRevealed ? 'opacity-100' : 'opacity-0'
+          }`}
+        >
           <LandingHeroOverlay />
         </div>
 

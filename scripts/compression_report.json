@@ -1,0 +1,154 @@
+[
+  {
+    "asset": "earth_albedo.jpg",
+    "format": "webp",
+    "origSizeKB": "1232.2",
+    "newSizeKB": "310.4",
+    "savedPct": "74.8%",
+    "deltaE": "0.10"
+  },
+  {
+    "asset": "earth_albedo_1k.webp",
+    "format": "webp (1k)",
+    "origSizeKB": "1232.2",
+    "newSizeKB": "79.7",
+    "savedPct": "93.5%",
+    "deltaE": "0.13"
+  },
+  {
+    "asset": "earth_clouds.png",
+    "format": "webp",
+    "origSizeKB": "2199.8",
+    "newSizeKB": "731.1",
+    "savedPct": "66.8%",
+    "deltaE": "0.03"
+  },
+  {
+    "asset": "earth_clouds_1k.webp",
+    "format": "webp (1k)",
+    "origSizeKB": "2199.8",
+    "newSizeKB": "181.1",
+    "savedPct": "91.8%",
+    "deltaE": "0.05"
+  },
+  {
+    "asset": "earth_nightlights.jpg",
+    "format": "webp",
+    "origSizeKB": "105.7",
+    "newSizeKB": "89.9",
+    "savedPct": "15.0%",
+    "deltaE": "0.00"
+  },
+  {
+    "asset": "earth_nightlights_1k.webp",
+    "format": "webp (1k)",
+    "origSizeKB": "105.7",
+    "newSizeKB": "23.2",
+    "savedPct": "78.1%",
+    "deltaE": "0.00"
+  },
+  {
+    "asset": "sun.jpg",
+    "format": "webp",
+    "origSizeKB": "803.2",
+    "newSizeKB": "413.4",
+    "savedPct": "48.5%",
+    "deltaE": "0.17"
+  },
+  {
+    "asset": "sdo_aia_304_2k.jpg",
+    "format": "webp",
+    "origSizeKB": "877.6",
+    "newSizeKB": "718.0",
+    "savedPct": "18.2%",
+    "deltaE": "0.12"
+  },
+  {
+    "asset": "mercury.jpg",
+    "format": "webp",
+    "origSizeKB": "852.1",
+    "newSizeKB": "692.6",
+    "savedPct": "18.7%",
+    "deltaE": "0.07"
+  },
+  {
+    "asset": "venus.jpg",
+    "format": "webp",
+    "origSizeKB": "224.3",
+    "newSizeKB": "86.7",
+    "savedPct": "61.4%",
+    "deltaE": "0.04"
+  },
+  {
+    "asset": "mars.jpg",
+    "format": "webp",
+    "origSizeKB": "733.0",
+    "newSizeKB": "416.2",
+    "savedPct": "43.2%",
+    "deltaE": "0.06"
+  },
+  {
+    "asset": "jupiter.jpg",
+    "format": "webp",
+    "origSizeKB": "487.3",
+    "newSizeKB": "260.5",
+    "savedPct": "46.5%",
+    "deltaE": "0.17"
+  },
+  {
+    "asset": "saturn.jpg",
+    "format": "webp",
+    "origSizeKB": "195.2",
+    "newSizeKB": "73.8",
+    "savedPct": "62.2%",
+    "deltaE": "0.08"
+  },
+  {
+    "asset": "uranus.jpg",
+    "format": "webp",
+    "origSizeKB": "75.9",
+    "newSizeKB": "13.2",
+    "savedPct": "82.6%",
+    "deltaE": "0.39"
+  },
+  {
+    "asset": "neptune.jpg",
+    "format": "webp",
+    "origSizeKB": "235.9",
+    "newSizeKB": "35.2",
+    "savedPct": "85.1%",
+    "deltaE": "0.26"
+  },
+  {
+    "asset": "moon.jpg",
+    "format": "webp",
+    "origSizeKB": "1029.2",
+    "newSizeKB": "845.8",
+    "savedPct": "17.8%",
+    "deltaE": "0.08"
+  },
+  {
+    "asset": "ceres.jpg",
+    "format": "webp",
+    "origSizeKB": "1101.2",
+    "newSizeKB": "902.5",
+    "savedPct": "18.0%",
+    "deltaE": "0.16"
+  },
+  {
+    "asset": "io.jpg",
+    "format": "webp",
+    "origSizeKB": "1921.9",
+    "newSizeKB": "556.9",
+    "savedPct": "71.0%",
+    "deltaE": "0.22"
+  },
+  {
+    "asset": "europa.jpg",
+    "format": "webp",
+    "origSizeKB": "910.9",
+    "newSizeKB": "999.7",
+    "savedPct": "-9.7%",
+    "deltaE": "0.05"
+  }
+]

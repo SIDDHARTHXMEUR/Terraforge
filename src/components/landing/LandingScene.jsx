@@ -38,6 +38,13 @@ export function LandingScene({ scrollProgressRef, isActive = true }) {
 
   useFrame(() => {
     if (!isActive) return;
+
+    // Signal first frame rendered with Earth, Sun and starfield
+    if (gl?.info?.render?.calls > 0 && typeof window !== 'undefined' && !window.__terraforgeHeroFirstFrame) {
+      window.__terraforgeHeroFirstFrame = true;
+      window.dispatchEvent(new CustomEvent('terraforge-hero-rendered'));
+    }
+
     const scrollP = scrollProgressRef?.current || 0;
 
     if (scrollP <= 1.0) {
