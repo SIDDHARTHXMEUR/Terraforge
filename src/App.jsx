@@ -10,16 +10,11 @@ import { LandingPage } from './components/landing/LandingPage';
 import { LandingScene } from './components/landing/LandingScene';
 import { WarmUpController } from './components/cinematic/WarmUpController';
 
-// Dynamic code-splitting for simulator route components
-const SolarSystemEngine = React.lazy(() =>
-  import('./components/cinematic/SolarSystemEngine').then((m) => ({ default: m.SolarSystemEngine }))
-);
-const InteractiveSimulatorHUD = React.lazy(() =>
-  import('./components/cinematic/InteractiveSimulatorHUD').then((m) => ({ default: m.InteractiveSimulatorHUD }))
-);
-const CinematicPrologueOverlay = React.lazy(() =>
-  import('./components/cinematic/CinematicPrologueOverlay').then((m) => ({ default: m.CinematicPrologueOverlay }))
-);
+import { SolarSystemEngine } from './components/cinematic/SolarSystemEngine';
+import { InteractiveSimulatorHUD } from './components/cinematic/InteractiveSimulatorHUD';
+import { CinematicPrologueOverlay } from './components/cinematic/CinematicPrologueOverlay';
+
+// Heavy MapLibre engine (2.1 MB) dynamically split to keep landing payload <= 1.2 MB
 const EarthMapLibreViewer = React.lazy(() =>
   import('./components/cinematic/EarthMapLibreViewer').then((m) => ({ default: m.EarthMapLibreViewer }))
 );
@@ -110,6 +105,7 @@ export default function App() {
   const simSceneRef = useRef(null);
   const isReadyRef = useRef(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
+  const [isSimReady, setIsSimReady] = useState(false);
 
   const handleEnterSim = () => {
     handleCompletePrologue();
@@ -117,23 +113,39 @@ export default function App() {
       localStorage.setItem('terraforge_visited_sim', 'true');
     } catch (_) {}
     setIsTransitioning(true);
-    // Smooth 900ms dive crossfade (camera is already at overview pose in section 9)
+    setRoute({ mode: 'sim', planet: 'overview' });
+    setSelectedBody('overview');
+    window.location.hash = '#/sim';
+
+    const onSimRendered = () => {
+      setIsSimReady(true);
+      setTimeout(() => {
+        setIsTransitioning(false);
+      }, 700);
+    };
+
+    // If simulator has already rendered its first frame, reveal immediately!
+    if (typeof window !== 'undefined' && window.__threeSimFirstFrame) {
+      onSimRendered();
+      return;
+    }
+
+    window.addEventListener('terraforge-sim-rendered', onSimRendered, { once: true });
+
+    // Timeout 1s failsafe: reveal anyway
     setTimeout(() => {
-      setRoute({ mode: 'sim', planet: 'overview' });
-      setSelectedBody('overview');
-      window.location.hash = '#/sim';
-      setIsTransitioning(false);
-    }, 900);
+      onSimRendered();
+    }, 1000);
   };
 
   const handleGoHome = () => {
     setIsTransitioning(true);
-    // Reverse crossfade back to landing page
+    setIsSimReady(false);
     setTimeout(() => {
       setRoute({ mode: 'landing', planet: null });
       window.location.hash = '#/';
       setIsTransitioning(false);
-    }, 900);
+    }, 700);
   };
 
   // Sync hash routing changes
@@ -278,15 +290,28 @@ export default function App() {
     );
   }
 
-  // Render Landing Page at #/ (or empty hash)
-  if (route.mode === 'landing') {
-    return <LandingPage onEnterSim={handleEnterSim} />;
-  }
-
   return (
     <div className="relative w-screen h-screen bg-black overflow-hidden font-sans select-none">
-      {/* 1. Interactive 3D WebGL Solar System Canvas with Error Boundary */}
-      <SceneErrorBoundary>
+      {/* Landing page stays on screen during landing route and transition, crossfading out over 700ms */}
+      {(route.mode === 'landing' || isTransitioning) && (
+        <div
+          className={`absolute inset-0 z-40 transition-opacity duration-700 ease-out ${
+            route.mode === 'sim' && isSimReady ? 'opacity-0 pointer-events-none' : 'opacity-100 pointer-events-auto'
+          }`}
+        >
+          <LandingPage onEnterSim={handleEnterSim} />
+        </div>
+      )}
+
+      {/* Simulator Layer: mounted when route is sim or during transition */}
+      {(route.mode === 'sim' || isTransitioning) && (
+        <div
+          className={`w-full h-full transition-opacity duration-700 ease-out ${
+            route.mode === 'landing' || (isTransitioning && !isSimReady) ? 'opacity-0 pointer-events-none' : 'opacity-100 pointer-events-auto'
+          }`}
+        >
+        {/* 1. Interactive 3D WebGL Solar System Canvas with Error Boundary */}
+        <SceneErrorBoundary>
         <Canvas
           className="w-full h-full cursor-grab active:cursor-grabbing bg-black"
           style={{ width: '100vw', height: '100vh', position: 'absolute', inset: 0 }}
@@ -369,5 +394,7 @@ export default function App() {
         </Suspense>
       </div>
     </div>
+    )}
+  </div>
   );
 }

@@ -20,6 +20,7 @@ export function LandingScene({ scrollProgressRef, isActive = true }) {
   useEffect(() => {
     if (typeof window !== 'undefined') {
       window.__threeGl = gl;
+      window.__threeLandingGl = gl;
       window.__threeScene = scene;
       window.__threeCamera = camera;
     }

@@ -7,6 +7,7 @@ import { ChapterOverlay, CHAPTERS_DATA } from './ChapterOverlay';
 import { NonWebGLFallback } from './NonWebGLFallback';
 import { Wordmark } from '../common/Wordmark';
 import { BrandedPreloader } from '../common/BrandedPreloader';
+import { prefetchSimulatorBitmaps } from '../../utils/textureCache';
 
 function checkWebGLSupport() {
   if (typeof window === 'undefined') return true;
@@ -101,31 +102,12 @@ export function LandingPage({
     };
   }, []);
 
-  // PROGRESSIVE IDLE PREFETCH: after hero reveal, fetch simulator textures in idle callbacks
+  // PROGRESSIVE IDLE PREFETCH: after hero reveal, decode simulator textures in idle callbacks into memory cache
   useEffect(() => {
     if (!heroRevealed) return;
-    const prefetchAssets = () => {
-      const simTextures = [
-        '/assets/planets/venus/venus.webp',
-        '/assets/planets/mars/mars.webp',
-        '/assets/planets/jupiter/jupiter.webp',
-        '/assets/planets/saturn/saturn.webp',
-        '/assets/planets/uranus/uranus.webp',
-        '/assets/planets/neptune/neptune.webp'
-      ];
-      const loader = new THREE.TextureLoader();
-      simTextures.forEach((src, idx) => {
-        setTimeout(() => {
-          loader.load(src);
-        }, idx * 120);
-      });
-    };
-
-    if ('requestIdleCallback' in window) {
-      window.requestIdleCallback(prefetchAssets, { timeout: 3000 });
-    } else {
-      setTimeout(prefetchAssets, 1200);
-    }
+    prefetchSimulatorBitmaps((p) => {
+      setWarmupProgress(p);
+    });
   }, [heroRevealed]);
 
   // DOM Overlay Refs for compositor-level zero-render animation
@@ -459,7 +441,7 @@ export function LandingPage({
             heroRevealed ? 'opacity-100' : 'opacity-0'
           }`}
         >
-          <LandingHeroOverlay />
+          <LandingHeroOverlay onEnterSim={onEnterSim} />
         </div>
 
         {/* SECTIONS 2 to 7: PLANET CHAPTERS (Sol, Mercury, Earth, Mars, Jupiter, Saturn) */}

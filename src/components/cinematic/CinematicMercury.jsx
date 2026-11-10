@@ -119,7 +119,7 @@ export function CinematicMercury({
   return (
     <group position={position} rotation={[0, 0, axialTilt]} onClick={onClick}>
       <mesh ref={mercuryMeshRef} castShadow receiveShadow>
-        <sphereGeometry args={[radius, 128, 128]} />
+        <sphereGeometry args={[radius, 64, 64]} />
         <shaderMaterial
           ref={shaderRef}
           args={[MercurySurfaceShader]}

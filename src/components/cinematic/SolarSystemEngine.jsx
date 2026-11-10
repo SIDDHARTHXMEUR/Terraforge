@@ -42,6 +42,7 @@ export function SolarSystemEngine({
     if (typeof window !== 'undefined') {
       window.__threeScene = scene;
       window.__threeGl = gl;
+      window.__threeSimGl = gl;
       window.__threeCamera = camera;
       window.__threeState = threeState;
     }
@@ -140,7 +141,23 @@ export function SolarSystemEngine({
   const neptuneGroupRef = useRef();
 
   // Orbital revolution frame loop - priority 1: simulation update runs FIRST in frame
-  useFrame((_, delta) => {
+  useFrame((state, delta) => {
+    // Signal simulator frame rendered
+    if (typeof window !== 'undefined') {
+      window.__threeSimFirstFrame = true;
+      window.dispatchEvent(new CustomEvent('terraforge-sim-rendered'));
+      if (gl.compile && !window.__threeSimCompiled) {
+        window.__threeSimCompiled = true;
+        try {
+          scene.traverse((obj) => {
+            if (obj.isMesh && obj.material) {
+              gl.compile(obj, camera);
+            }
+          });
+        } catch (_) {}
+      }
+    }
+
     if (isPaused) return;
 
     // Base orbital speed scaled by user-selected time multiplier and prologue speed ramp (1x -> 300x -> 1x)
