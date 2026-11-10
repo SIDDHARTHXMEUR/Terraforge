@@ -3,7 +3,7 @@ import { Canvas } from '@react-three/fiber';
 import * as THREE from 'three';
 import { LandingScene } from './LandingScene';
 import { LandingHeroOverlay } from './LandingHeroOverlay';
-import { ChapterOverlay, CHAPTERS_DATA } from './ChapterOverlay';
+import { ChapterOverlay, CHAPTERS_DATA, LANDING_CHAPTERS } from './ChapterOverlay';
 import { NonWebGLFallback } from './NonWebGLFallback';
 import { Wordmark } from '../common/Wordmark';
 import { BrandedPreloader } from '../common/BrandedPreloader';
@@ -67,6 +67,10 @@ export function LandingPage({
   const [heroRevealed, setHeroRevealed] = useState(false);
   const [loadingProgress, setLoadingProgress] = useState(25);
   const [warmupProgress, setWarmupProgress] = useState(() => (typeof window !== 'undefined' ? window.__terraforgeWarmupProgress || 1.0 : 1.0));
+
+  const maxProgress = LANDING_CHAPTERS.length - 1;
+  const lineupChapter = LANDING_CHAPTERS.find((ch) => ch.type === 'lineup');
+  const finalChapter = LANDING_CHAPTERS.find((ch) => ch.type === 'final');
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -182,9 +186,9 @@ export function LandingPage({
       }
     });
 
-    // 3. Section 8: Lineup (k = 7)
-    if (lineupRef.current) {
-      const delta = p - 7;
+    // 3. Lineup Chapter
+    if (lineupRef.current && lineupChapter) {
+      const delta = p - lineupChapter.progressKey;
       if (Math.abs(delta) < 0.5) {
         const op = Math.max(0, 1 - 2 * Math.abs(delta));
         const ty = delta * 24;
@@ -197,9 +201,9 @@ export function LandingPage({
       }
     }
 
-    // 4. Section 9: The System & CTA (k = 8)
-    if (systemRef.current) {
-      const delta = p - 8;
+    // 4. The System & CTA
+    if (systemRef.current && finalChapter) {
+      const delta = p - finalChapter.progressKey;
       if (Math.abs(delta) < 0.5) {
         const op = Math.max(0, 1 - 2 * Math.abs(delta));
         const ty = delta * 24;
@@ -259,7 +263,7 @@ export function LandingPage({
       targetProgressRef.current = THREE.MathUtils.clamp(
         targetProgressRef.current + deltaUnits,
         0,
-        8
+        maxProgress
       );
     };
 
@@ -275,7 +279,7 @@ export function LandingPage({
       targetProgressRef.current = THREE.MathUtils.clamp(
         targetProgressRef.current + clamped / 400,
         0,
-        8
+        maxProgress
       );
     };
 
@@ -287,7 +291,7 @@ export function LandingPage({
       const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
       if (maxScroll > 20) {
         const pct = THREE.MathUtils.clamp(window.scrollY / maxScroll, 0, 1);
-        targetProgressRef.current = pct * 8;
+        targetProgressRef.current = pct * maxProgress;
       }
     };
     window.addEventListener('scroll', handleWindowScroll, { passive: true });
@@ -308,7 +312,7 @@ export function LandingPage({
       window.removeEventListener('scroll', handleWindowScroll);
       window.removeEventListener('terraforge-set-progress', onSetProgress);
     };
-  }, []);
+  }, [maxProgress]);
 
   // Keyboard navigation: Space/Down/PageDown/Up/PageUp/End/Home
   useEffect(() => {
@@ -317,13 +321,13 @@ export function LandingPage({
 
       if (e.code === 'Space' || e.key === 'ArrowDown' || e.key === 'PageDown') {
         e.preventDefault();
-        targetProgressRef.current = Math.min(8, Math.floor(targetProgressRef.current + 0.05) + 1);
+        targetProgressRef.current = Math.min(maxProgress, Math.floor(targetProgressRef.current + 0.05) + 1);
       } else if (e.key === 'ArrowUp' || e.key === 'PageUp') {
         e.preventDefault();
         targetProgressRef.current = Math.max(0, Math.ceil(targetProgressRef.current - 0.05) - 1);
       } else if (e.key === 'End') {
         e.preventDefault();
-        targetProgressRef.current = 8;
+        targetProgressRef.current = maxProgress;
       } else if (e.key === 'Home') {
         e.preventDefault();
         targetProgressRef.current = 0;
@@ -332,10 +336,10 @@ export function LandingPage({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [maxProgress]);
 
   const navigateToChapter = (targetP) => {
-    targetProgressRef.current = THREE.MathUtils.clamp(targetP, 0, 8);
+    targetProgressRef.current = THREE.MathUtils.clamp(targetP, 0, maxProgress);
   };
 
   if (!hasWebGL) {
@@ -348,14 +352,14 @@ export function LandingPage({
       className="landing-viewport bg-deep-space text-cream select-none"
       tabIndex={0}
     >
-      {/* Invisible scroll track to provide native scrollable height (800vh matching progress 0 -> 8) */}
+      {/* Invisible scroll track to provide native scrollable height */}
       <div
         style={{
           position: 'absolute',
           top: 0,
           left: 0,
           width: '1px',
-          height: '800vh',
+          height: `${maxProgress * 100}vh`,
           pointerEvents: 'none',
           visibility: 'hidden'
         }}
@@ -481,14 +485,14 @@ export function LandingPage({
           {/* Right-edge Pager */}
           <div className="absolute right-6 sm:right-12 top-1/2 -translate-y-1/2 flex flex-col items-end z-20 pointer-events-auto">
             <div className="font-mono text-xs sm:text-sm tracking-widest text-cream-60 mb-4">
-              08 / 09
+              {lineupChapter?.pagerNumber || '05 / 06'}
             </div>
             <button
-              onClick={() => navigateToChapter(8)}
+              onClick={() => navigateToChapter(finalChapter?.progressKey ?? maxProgress)}
               className="group flex items-center space-x-2 text-right cursor-pointer focus:outline-none"
             >
               <span className="font-sans text-[10px] tracking-[0.25em] uppercase text-cream-40 group-hover:text-cream transition-colors">
-                NEXT: THE SYSTEM
+                NEXT: THE SIMULATOR
               </span>
               <span className="text-cream-40 group-hover:text-cream transition-colors font-mono text-xs">
                 &gt;

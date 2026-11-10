@@ -34,7 +34,11 @@ function parseHashRoute() {
   // Check if returning user visited simulator before
   try {
     const visited = localStorage.getItem('terraforge_visited_sim');
-    if (visited === 'true' && !hash) {
+    const allowLanding = sessionStorage.getItem('terraforge_allow_landing');
+    if (visited === 'true' && allowLanding !== 'true' && (!hash || hash === '#/' || hash === '#')) {
+      if (typeof window !== 'undefined' && window.location.hash !== '#/sim') {
+        window.location.replace('#/sim');
+      }
       return { mode: 'sim', planet: 'overview' };
     }
   } catch (_) {}
@@ -139,6 +143,9 @@ export default function App() {
   };
 
   const handleGoHome = () => {
+    try {
+      sessionStorage.setItem('terraforge_allow_landing', 'true');
+    } catch (_) {}
     setIsTransitioning(true);
     setIsSimReady(false);
     setTimeout(() => {
@@ -160,6 +167,7 @@ export default function App() {
         }
       }
     };
+    handleHash();
     window.addEventListener('hashchange', handleHash);
     return () => window.removeEventListener('hashchange', handleHash);
   }, []);

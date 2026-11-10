@@ -539,6 +539,9 @@ export function InteractiveSimulatorHUD({
 
           <a
             href="#/"
+            onClick={() => {
+              try { sessionStorage.setItem('terraforge_allow_landing', 'true'); } catch (_) {}
+            }}
             title="Return to Landing Page"
             className="hover:text-white transition-colors cursor-pointer flex items-center space-x-1"
           >

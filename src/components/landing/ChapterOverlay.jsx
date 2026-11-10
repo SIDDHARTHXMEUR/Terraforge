@@ -4,29 +4,30 @@ import { PLANETS_CONFIG } from '../../data/planetsData';
 const SPEED_OF_LIGHT_KM_S = 299792.458;
 const AU_IN_KM = 149597870.7;
 
-export const CHAPTERS_DATA = [
+// Explicit flag: trailer concept disables intermediate planets (Mercury, Mars, Jupiter)
+// Set to true to re-enable them instantly
+export const SHOW_INTERMEDIATE_PLANETS = false;
+
+export const ALL_CHAPTERS = [
+  { id: 'hero', name: 'HERO', type: 'hero', enabled: true },
   {
-    progressKey: 1, // scrollProgress = 1.0
-    pagerNumber: '02 / 09',
     id: 'sol',
     planetKey: 'sun',
     name: 'SOL',
+    type: 'planet',
     microLabel: '01 / HOST STAR',
     accent: '#FFB347',
-    nextPlanet: 'MERCURY',
-    nextTarget: 2,
+    enabled: true,
     surfaceStrip: null
   },
   {
-    progressKey: 2, // scrollProgress = 2.0
-    pagerNumber: '03 / 09',
     id: 'mercury',
     planetKey: 'mercury',
     name: 'MERCURY',
+    type: 'planet',
     microLabel: '02 / INNER SYSTEM',
     accent: '#B8B2A7',
-    nextPlanet: 'EARTH',
-    nextTarget: 3,
+    enabled: SHOW_INTERMEDIATE_PLANETS,
     surfaceStrip: {
       name: 'CALORIS BASIN',
       coords: '30.5° N, 189.8° W',
@@ -34,27 +35,23 @@ export const CHAPTERS_DATA = [
     }
   },
   {
-    progressKey: 3, // scrollProgress = 3.0
-    pagerNumber: '04 / 09',
     id: 'earth',
     planetKey: 'earth',
     name: 'EARTH',
-    microLabel: '03 / HABITABLE WORLD',
+    type: 'planet',
+    microLabel: '02 / HABITABLE WORLD',
     accent: '#5BB8FF',
-    nextPlanet: 'MARS',
-    nextTarget: 4,
+    enabled: true,
     surfaceStrip: null
   },
   {
-    progressKey: 4, // scrollProgress = 4.0
-    pagerNumber: '05 / 09',
     id: 'mars',
     planetKey: 'mars',
     name: 'MARS',
+    type: 'planet',
     microLabel: '04 / RED PLANET',
     accent: '#E2673A',
-    nextPlanet: 'JUPITER',
-    nextTarget: 5,
+    enabled: SHOW_INTERMEDIATE_PLANETS,
     surfaceStrip: {
       name: 'VALLES MARINERIS',
       coords: '14.0° S, 59.2° W',
@@ -62,30 +59,41 @@ export const CHAPTERS_DATA = [
     }
   },
   {
-    progressKey: 5, // scrollProgress = 5.0
-    pagerNumber: '06 / 09',
     id: 'jupiter',
     planetKey: 'jupiter',
     name: 'JUPITER',
+    type: 'planet',
     microLabel: '05 / GAS GIANT',
     accent: '#D9A066',
-    nextPlanet: 'SATURN',
-    nextTarget: 6,
+    enabled: SHOW_INTERMEDIATE_PLANETS,
     surfaceStrip: null
   },
   {
-    progressKey: 6, // scrollProgress = 6.0
-    pagerNumber: '07 / 09',
     id: 'saturn',
     planetKey: 'saturn',
     name: 'SATURN',
-    microLabel: '06 / RINGED MONARCH',
+    type: 'planet',
+    microLabel: '03 / RINGED MONARCH',
     accent: '#E8D08A',
-    nextPlanet: 'LINEUP',
-    nextTarget: 7,
+    enabled: true,
     surfaceStrip: null
-  }
+  },
+  { id: 'lineup', name: 'THE SYSTEM', type: 'lineup', enabled: true },
+  { id: 'final', name: 'THE SIMULATOR', type: 'final', enabled: true }
 ];
+
+// Single config array driving landing chapters
+// Pager counts strictly only enabled chapters (1 of 6, 2 of 6, etc., never 8)
+export const LANDING_CHAPTERS = ALL_CHAPTERS.filter((ch) => ch.enabled).map((ch, idx, arr) => ({
+  ...ch,
+  progressKey: idx,
+  pagerNumber: `0${idx + 1} / 0${arr.length}`,
+  nextPlanet: idx < arr.length - 1 ? arr[idx + 1].name : null,
+  nextTarget: idx + 1
+}));
+
+// Filtered array of planetary overlay data for ChapterOverlay rendering
+export const CHAPTERS_DATA = LANDING_CHAPTERS.filter((ch) => ch.type === 'planet');
 
 export function computeChapterStats(chapter) {
   const p = PLANETS_CONFIG[chapter.planetKey] || {};
@@ -207,10 +215,16 @@ export const ChapterOverlay = forwardRef(function ChapterOverlay(
           </span>
         </div>
 
-        {/* Planet Name in Cormorant Garamond, uppercase, tracking 0.12em */}
-        <h2 className="font-serif text-5xl sm:text-7xl lg:text-8xl font-normal uppercase tracking-[0.12em] text-cream leading-tight">
-          {chapter.name}
-        </h2>
+        {/* Planet Name in Cormorant Garamond, uppercase, tracking 0.12em - Clickable link to simulator */}
+        <a
+          href={`#/sim/${chapter.planetKey === 'sun' ? 'overview' : chapter.planetKey}`}
+          className="group block cursor-pointer focus:outline-none focus:ring-1 focus:ring-white w-fit"
+          title={`Explore ${chapter.name} in Simulator`}
+        >
+          <h2 className="font-serif text-5xl sm:text-7xl lg:text-8xl font-normal uppercase tracking-[0.12em] text-cream leading-tight group-hover:text-white transition-colors">
+            {chapter.name}
+          </h2>
+        </a>
 
         {/* 2-Sentence Scientific Description (max 34 chars wide, line-height 1.6) */}
         <p className="font-sans text-[15px] sm:text-[16px] leading-[1.6] text-cream-85 max-w-[34ch] mt-4">
@@ -223,13 +237,13 @@ export const ChapterOverlay = forwardRef(function ChapterOverlay(
           style={{ backgroundColor: chapter.accent }}
         />
 
-        {/* Plain text link: EXPLORE <PLANET> > */}
+        {/* Plain text link: EXPLORE IN SIMULATOR > */}
         <div>
           <a
             href={`#/sim/${chapter.planetKey === 'sun' ? 'overview' : chapter.planetKey}`}
             className="inline-flex items-center space-x-2 font-sans text-xs tracking-[0.2em] uppercase text-cream opacity-80 hover:opacity-100 transition-opacity border-b border-transparent hover:border-cream-30 pb-1 cursor-pointer focus:outline-none focus:ring-1 focus:ring-white"
           >
-            <span>EXPLORE {chapter.name}</span>
+            <span>EXPLORE IN SIMULATOR</span>
             <span className="ml-1 text-[11px]">&gt;</span>
           </a>
         </div>

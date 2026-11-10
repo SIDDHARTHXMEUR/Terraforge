@@ -2,6 +2,7 @@ import React, { useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { useTexture } from '@react-three/drei';
 import * as THREE from 'three';
+import { LANDING_CHAPTERS } from './ChapterOverlay';
 
 /**
  * Lineup 3D Component:
@@ -63,11 +64,13 @@ export function LineupSection3D({ scrollProgressRef }) {
     return new THREE.BufferGeometry().setFromPoints(datumPoints);
   }, [datumPoints]);
 
+  const lineupChapter = useMemo(() => LANDING_CHAPTERS.find((ch) => ch.type === 'lineup'), []);
+  const lineupKey = lineupChapter ? lineupChapter.progressKey : 7.0;
+
   useFrame(() => {
     if (!groupRef.current) return;
     const scrollP = scrollProgressRef?.current || 0;
-    // Section 8 is centered at scrollP = 7.0
-    const deltaP = scrollP - 7.0;
+    const deltaP = scrollP - lineupKey;
     const isVisible = Math.abs(deltaP) < 0.65;
     groupRef.current.visible = isVisible;
   });

@@ -3,6 +3,20 @@ import { useFrame } from '@react-three/fiber';
 import { useTexture } from '@react-three/drei';
 import * as THREE from 'three';
 import { DISPLAY_RADII } from '../../data/displayScale';
+import { LANDING_CHAPTERS } from './ChapterOverlay';
+
+// R5 Neon Orbit Line Colors for 8 planets:
+// Mercury, Venus, Earth, Mars, Jupiter, Saturn, Uranus, Neptune
+const ORBIT_COLORS = [
+  '#00F0FF',
+  '#FFE600',
+  '#00FF66',
+  '#FF3366',
+  '#FFAA00',
+  '#FFD700',
+  '#00FFFF',
+  '#0088FF'
+];
 
 /**
  * Section 9: The System + Overview Orbit Ignition
@@ -45,19 +59,22 @@ export function OverviewSection3D({ scrollProgressRef }) {
     });
   }, []);
 
+  const finalChapter = useMemo(() => LANDING_CHAPTERS.find((ch) => ch.type === 'final'), []);
+  const finalKey = finalChapter ? finalChapter.progressKey : 8.0;
+  const startKey = finalKey - 0.65;
+
   useFrame(() => {
     if (!groupRef.current) return;
     const scrollP = scrollProgressRef?.current || 0;
-    // Section 9 is active from scrollP ~ 7.4 to 8.0
-    if (scrollP < 7.35) {
+    if (scrollP < startKey) {
       groupRef.current.visible = false;
       return;
     }
 
     groupRef.current.visible = true;
 
-    // Fade up opacity as scroll approaches 8.0 (100%)
-    const ignition = THREE.MathUtils.clamp((scrollP - 7.35) / 0.65, 0, 1);
+    // Fade up opacity as scroll approaches finalKey (100%)
+    const ignition = THREE.MathUtils.clamp((scrollP - startKey) / 0.65, 0, 1);
     groupRef.current.traverse((child) => {
       if (child.material) {
         child.material.transparent = true;
@@ -74,14 +91,14 @@ export function OverviewSection3D({ scrollProgressRef }) {
         <meshBasicMaterial map={sunTex} />
       </mesh>
 
-      {/* Orbit Lines */}
+      {/* Orbit Lines using R5 Neon Palette */}
       <group ref={orbitsRef}>
         {orbitGeometries.map((geom, idx) => (
           <line key={idx} geometry={geom}>
             <lineBasicMaterial
-              color="#5BB8FF"
+              color={ORBIT_COLORS[idx % ORBIT_COLORS.length]}
               transparent
-              opacity={0.35}
+              opacity={0.45}
               blending={THREE.AdditiveBlending}
             />
           </line>

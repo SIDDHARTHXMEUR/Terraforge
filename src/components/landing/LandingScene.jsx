@@ -6,6 +6,7 @@ import { LandingStarfield } from './LandingStarfield';
 import { ChapterPlanets3D } from './ChapterPlanets3D';
 import { LineupSection3D } from './LineupSection3D';
 import { OverviewSection3D } from './OverviewSection3D';
+import { LANDING_CHAPTERS } from './ChapterOverlay';
 
 // Simulator overview pose
 const SIM_CAM_POS = new THREE.Vector3(-320, 110, 310);
@@ -48,6 +49,13 @@ export function LandingScene({ scrollProgressRef, isActive = true }) {
 
     const scrollP = scrollProgressRef?.current || 0;
 
+    const lineupChapter = LANDING_CHAPTERS.find((ch) => ch.type === 'lineup');
+    const finalChapter = LANDING_CHAPTERS.find((ch) => ch.type === 'final');
+    const lineupKey = lineupChapter ? lineupChapter.progressKey : 4.0;
+    const finalKey = finalChapter ? finalChapter.progressKey : 5.0;
+    const lineupStart = lineupKey - 0.5;
+    const finalStart = finalKey - 0.5;
+
     if (scrollP <= 1.0) {
       // CONTINUOUS HERO TO SOL CAMERA MOTION (Progress 0.0 -> 1.0)
       if (heroGroupRef.current) heroGroupRef.current.visible = true;
@@ -62,22 +70,22 @@ export function LandingScene({ scrollProgressRef, isActive = true }) {
       const endTarget = new THREE.Vector3(0.7, 0, 0);
       const curTarget = new THREE.Vector3().lerpVectors(startTarget, endTarget, easeT);
       camera.lookAt(curTarget);
-    } else if (scrollP < 6.4) {
-      // SECTIONS 2 to 7: CHAPTERS
+    } else if (scrollP < lineupStart) {
+      // SECTIONS: CHAPTER PLANETS
       if (heroGroupRef.current) heroGroupRef.current.visible = false;
       camera.position.set(0, 0, 7.2);
       camera.lookAt(0.7, 0, 0);
-    } else if (scrollP < 7.4) {
-      // SECTION 8: LINEUP HORIZONTAL DOLLY
+    } else if (scrollP < finalStart) {
+      // SECTION: LINEUP HORIZONTAL DOLLY
       if (heroGroupRef.current) heroGroupRef.current.visible = false;
-      const sub = THREE.MathUtils.clamp((scrollP - 6.4) / 1.0, 0, 1);
+      const sub = THREE.MathUtils.clamp((scrollP - lineupStart) / Math.max(0.001, finalStart - lineupStart), 0, 1);
       const camX = THREE.MathUtils.lerp(-4.0, 16.0, sub);
       camera.position.set(camX, 0, 11.5);
       camera.lookAt(camX, 0, 0);
     } else {
-      // SECTION 9: THE SYSTEM (Smooth pull-back landing exactly on simulator overview pose)
+      // SECTION: THE SYSTEM (Smooth pull-back landing exactly on simulator overview pose)
       if (heroGroupRef.current) heroGroupRef.current.visible = false;
-      const t = THREE.MathUtils.clamp((scrollP - 7.4) / 0.6, 0, 1);
+      const t = THREE.MathUtils.clamp((scrollP - finalStart) / Math.max(0.001, finalKey - finalStart), 0, 1);
       const easeT = THREE.MathUtils.smootherstep(t, 0, 1);
 
       // Start from lineup end pose and transition smoothly to simulator overview pose

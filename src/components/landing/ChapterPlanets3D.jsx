@@ -4,6 +4,7 @@ import { useTexture } from '@react-three/drei';
 import * as THREE from 'three';
 import { GhostWord3D } from './GhostWord3D';
 import { CinematicSun } from '../cinematic/CinematicSun';
+import { LANDING_CHAPTERS, SHOW_INTERMEDIATE_PLANETS } from './ChapterOverlay';
 
 // Shared Physically-Based Sun-Driven Shader for Landing Chapter Planets
 const ChapterPlanetShader = {
@@ -37,6 +38,9 @@ const ChapterPlanetShader = {
     uniform vec3 uSunPosition;
     uniform vec3 uAtmosphereColor;
     uniform float uAtmosphereStrength;
+    uniform bool uHasRingShadow;
+    uniform vec3 uPlanetCenter;
+    uniform vec3 uRingNormal;
 
     void main() {
       #include <logdepthbuf_fragment>
@@ -50,6 +54,26 @@ const ChapterPlanetShader = {
       // Soft physically grounded terminator
       float NdotL = dot(N, L);
       float diffuse = smoothstep(-0.15, 0.35, NdotL);
+
+      // Cassini Ring Shadow on Globe (Saturn)
+      if (uHasRingShadow) {
+        float denom = dot(L, uRingNormal);
+        if (abs(denom) > 0.001) {
+          float tRing = dot(uPlanetCenter - vWorldPosition, uRingNormal) / denom;
+          if (tRing > 0.0) {
+            vec3 hitPoint = vWorldPosition + tRing * L;
+            float rRing = length(hitPoint - uPlanetCenter);
+            if (rRing >= 2.45 && rRing <= 4.85) {
+              float shadow = 0.22;
+              // Cassini Division: visible gap between 3.65 and 3.82
+              if (rRing >= 3.65 && rRing <= 3.82) {
+                shadow = 0.85;
+              }
+              diffuse *= shadow;
+            }
+          }
+        }
+      }
 
       // Night ambient at 0.03 so dark side geography is discernible
       vec3 ambient = texColor * 0.03;
@@ -101,39 +125,52 @@ export function ChapterPlanets3D({ scrollProgressRef, disableExtras = false }) {
   const saturnRef = useRef();
 
   // Uniforms for each planet
+  const defaultRingUniforms = useMemo(() => ({
+    uHasRingShadow: { value: false },
+    uPlanetCenter: { value: new THREE.Vector3(0, 0, 0) },
+    uRingNormal: { value: new THREE.Vector3(0, 1, 0) }
+  }), []);
+
   const mercuryUniforms = useMemo(() => ({
     uTexture: { value: mercuryTex },
     uSunPosition: { value: sharedSunPos },
     uAtmosphereColor: { value: new THREE.Vector3(0.5, 0.5, 0.55) },
-    uAtmosphereStrength: { value: 0.15 }
-  }), [mercuryTex, sharedSunPos]);
+    uAtmosphereStrength: { value: 0.15 },
+    ...defaultRingUniforms
+  }), [mercuryTex, sharedSunPos, defaultRingUniforms]);
 
   const earthUniforms = useMemo(() => ({
     uTexture: { value: earthTex },
     uSunPosition: { value: sharedSunPos },
     uAtmosphereColor: { value: new THREE.Vector3(0.2, 0.6, 1.0) },
-    uAtmosphereStrength: { value: 0.85 }
-  }), [earthTex, sharedSunPos]);
+    uAtmosphereStrength: { value: 0.85 },
+    ...defaultRingUniforms
+  }), [earthTex, sharedSunPos, defaultRingUniforms]);
 
   const marsUniforms = useMemo(() => ({
     uTexture: { value: marsTex },
     uSunPosition: { value: sharedSunPos },
     uAtmosphereColor: { value: new THREE.Vector3(0.9, 0.45, 0.25) },
-    uAtmosphereStrength: { value: 0.35 }
-  }), [marsTex, sharedSunPos]);
+    uAtmosphereStrength: { value: 0.35 },
+    ...defaultRingUniforms
+  }), [marsTex, sharedSunPos, defaultRingUniforms]);
 
   const jupiterUniforms = useMemo(() => ({
     uTexture: { value: jupiterTex },
     uSunPosition: { value: sharedSunPos },
     uAtmosphereColor: { value: new THREE.Vector3(0.85, 0.65, 0.45) },
-    uAtmosphereStrength: { value: 0.4 }
-  }), [jupiterTex, sharedSunPos]);
+    uAtmosphereStrength: { value: 0.4 },
+    ...defaultRingUniforms
+  }), [jupiterTex, sharedSunPos, defaultRingUniforms]);
 
   const saturnUniforms = useMemo(() => ({
     uTexture: { value: saturnTex },
     uSunPosition: { value: sharedSunPos },
     uAtmosphereColor: { value: new THREE.Vector3(0.9, 0.8, 0.5) },
-    uAtmosphereStrength: { value: 0.4 }
+    uAtmosphereStrength: { value: 0.4 },
+    uHasRingShadow: { value: true },
+    uPlanetCenter: { value: new THREE.Vector3(2.6, 0.0, 0) },
+    uRingNormal: { value: new THREE.Vector3(0, 1, 0).applyEuler(new THREE.Euler(0.55, -0.4, (26.73 * Math.PI) / 180)).normalize() }
   }), [saturnTex, sharedSunPos]);
 
   // Track scroll velocity for rotation response
@@ -154,132 +191,151 @@ export function ChapterPlanets3D({ scrollProgressRef, disableExtras = false }) {
     if (saturnRef.current) saturnRef.current.rotation.y += rotSpeed * 0.7;
   });
 
+  const solChapter = LANDING_CHAPTERS.find((ch) => ch.id === 'sol');
+  const mercuryChapter = LANDING_CHAPTERS.find((ch) => ch.id === 'mercury');
+  const earthChapter = LANDING_CHAPTERS.find((ch) => ch.id === 'earth');
+  const marsChapter = LANDING_CHAPTERS.find((ch) => ch.id === 'mars');
+  const jupiterChapter = LANDING_CHAPTERS.find((ch) => ch.id === 'jupiter');
+  const saturnChapter = LANDING_CHAPTERS.find((ch) => ch.id === 'saturn');
+
   return (
     <group ref={groupRef}>
-      {/* CHAPTER 1: SOL (Photorealistic SDO 304 Å Sun with granulation & limb darkening) */}
-      <ChapterBody
-        chapterIndex={1}
-        scrollProgressRef={scrollProgressRef}
-        planetName="SOL"
-        planetRadius={2.4}
-        position={[2.6, 0.1, 0]}
-        isMobile={isMobile}
-        disableExtras={disableExtras}
-      >
-        <CinematicSun radius={2.4} position={[0, 0, 0]} />
-      </ChapterBody>
+      {/* SOL */}
+      {solChapter && (
+        <ChapterBody
+          chapterIndex={solChapter.progressKey}
+          scrollProgressRef={scrollProgressRef}
+          planetName="SOL"
+          planetRadius={2.4}
+          position={[2.6, 0.1, 0]}
+          isMobile={isMobile}
+          disableExtras={disableExtras}
+        >
+          <CinematicSun radius={2.4} position={[0, 0, 0]} />
+        </ChapterBody>
+      )}
 
-      {/* CHAPTER 2: MERCURY (scrollP ~ 2.0) */}
-      <ChapterBody
-        chapterIndex={2}
-        scrollProgressRef={scrollProgressRef}
-        planetName="MERCURY"
-        planetRadius={1.7}
-        position={[2.5, 0.0, 0]}
-        isMobile={isMobile}
-        disableExtras={disableExtras}
-      >
-        <mesh ref={mercuryRef}>
-          <sphereGeometry args={[1.7, 64, 64]} />
-          <shaderMaterial
-            vertexShader={ChapterPlanetShader.vertexShader}
-            fragmentShader={ChapterPlanetShader.fragmentShader}
-            uniforms={mercuryUniforms}
-          />
-        </mesh>
-      </ChapterBody>
+      {/* MERCURY */}
+      {SHOW_INTERMEDIATE_PLANETS && mercuryChapter && (
+        <ChapterBody
+          chapterIndex={mercuryChapter.progressKey}
+          scrollProgressRef={scrollProgressRef}
+          planetName="MERCURY"
+          planetRadius={1.7}
+          position={[2.5, 0.0, 0]}
+          isMobile={isMobile}
+          disableExtras={disableExtras}
+        >
+          <mesh ref={mercuryRef}>
+            <sphereGeometry args={[1.7, 64, 64]} />
+            <shaderMaterial
+              vertexShader={ChapterPlanetShader.vertexShader}
+              fragmentShader={ChapterPlanetShader.fragmentShader}
+              uniforms={mercuryUniforms}
+            />
+          </mesh>
+        </ChapterBody>
+      )}
 
-      {/* CHAPTER 3: EARTH (scrollP ~ 3.0) */}
-      <ChapterBody
-        chapterIndex={3}
-        scrollProgressRef={scrollProgressRef}
-        planetName="EARTH"
-        planetRadius={2.0}
-        position={[2.5, 0.0, 0]}
-        isMobile={isMobile}
-        disableExtras={disableExtras}
-      >
-        <mesh ref={earthRef} rotation={[0, 0, (23.44 * Math.PI) / 180]}>
-          <sphereGeometry args={[2.0, 64, 64]} />
-          <shaderMaterial
-            vertexShader={ChapterPlanetShader.vertexShader}
-            fragmentShader={ChapterPlanetShader.fragmentShader}
-            uniforms={earthUniforms}
-          />
-        </mesh>
-      </ChapterBody>
-
-      {/* CHAPTER 4: MARS (scrollP ~ 4.0) */}
-      <ChapterBody
-        chapterIndex={4}
-        scrollProgressRef={scrollProgressRef}
-        planetName="MARS"
-        planetRadius={1.8}
-        position={[2.5, 0.0, 0]}
-        isMobile={isMobile}
-        disableExtras={disableExtras}
-      >
-        <mesh ref={marsRef} rotation={[0, 0, (25.19 * Math.PI) / 180]}>
-          <sphereGeometry args={[1.8, 64, 64]} />
-          <shaderMaterial
-            vertexShader={ChapterPlanetShader.vertexShader}
-            fragmentShader={ChapterPlanetShader.fragmentShader}
-            uniforms={marsUniforms}
-          />
-        </mesh>
-      </ChapterBody>
-
-      {/* CHAPTER 5: JUPITER (scrollP ~ 5.0) */}
-      <ChapterBody
-        chapterIndex={5}
-        scrollProgressRef={scrollProgressRef}
-        planetName="JUPITER"
-        planetRadius={2.5}
-        position={[2.7, 0.1, 0]}
-        isMobile={isMobile}
-        disableExtras={disableExtras}
-      >
-        <mesh ref={jupiterRef} rotation={[0, 0, (3.13 * Math.PI) / 180]}>
-          <sphereGeometry args={[2.5, 64, 64]} />
-          <shaderMaterial
-            vertexShader={ChapterPlanetShader.vertexShader}
-            fragmentShader={ChapterPlanetShader.fragmentShader}
-            uniforms={jupiterUniforms}
-          />
-        </mesh>
-      </ChapterBody>
-
-      {/* CHAPTER 6: SATURN (scrollP ~ 6.0) */}
-      <ChapterBody
-        chapterIndex={6}
-        scrollProgressRef={scrollProgressRef}
-        planetName="SATURN"
-        planetRadius={2.0}
-        position={[2.6, 0.0, 0]}
-        isMobile={isMobile}
-        disableExtras={disableExtras}
-      >
-        <group rotation={[0.55, -0.4, (26.73 * Math.PI) / 180]}>
-          <mesh ref={saturnRef}>
+      {/* EARTH */}
+      {earthChapter && (
+        <ChapterBody
+          chapterIndex={earthChapter.progressKey}
+          scrollProgressRef={scrollProgressRef}
+          planetName="EARTH"
+          planetRadius={2.0}
+          position={[2.5, 0.0, 0]}
+          isMobile={isMobile}
+          disableExtras={disableExtras}
+        >
+          <mesh ref={earthRef} rotation={[0, 0, (23.44 * Math.PI) / 180]}>
             <sphereGeometry args={[2.0, 64, 64]} />
             <shaderMaterial
               vertexShader={ChapterPlanetShader.vertexShader}
               fragmentShader={ChapterPlanetShader.fragmentShader}
-              uniforms={saturnUniforms}
+              uniforms={earthUniforms}
             />
           </mesh>
-          {/* Saturn Rings */}
-          <mesh rotation={[-Math.PI / 2, 0, 0]}>
-            <ringGeometry args={[2.6, 5.0, 96]} />
-            <meshStandardMaterial
-              map={saturnRingTex}
-              transparent
-              opacity={0.92}
-              side={THREE.DoubleSide}
+        </ChapterBody>
+      )}
+
+      {/* MARS */}
+      {SHOW_INTERMEDIATE_PLANETS && marsChapter && (
+        <ChapterBody
+          chapterIndex={marsChapter.progressKey}
+          scrollProgressRef={scrollProgressRef}
+          planetName="MARS"
+          planetRadius={1.8}
+          position={[2.5, 0.0, 0]}
+          isMobile={isMobile}
+          disableExtras={disableExtras}
+        >
+          <mesh ref={marsRef} rotation={[0, 0, (25.19 * Math.PI) / 180]}>
+            <sphereGeometry args={[1.8, 64, 64]} />
+            <shaderMaterial
+              vertexShader={ChapterPlanetShader.vertexShader}
+              fragmentShader={ChapterPlanetShader.fragmentShader}
+              uniforms={marsUniforms}
             />
           </mesh>
-        </group>
-      </ChapterBody>
+        </ChapterBody>
+      )}
+
+      {/* JUPITER */}
+      {SHOW_INTERMEDIATE_PLANETS && jupiterChapter && (
+        <ChapterBody
+          chapterIndex={jupiterChapter.progressKey}
+          scrollProgressRef={scrollProgressRef}
+          planetName="JUPITER"
+          planetRadius={2.5}
+          position={[2.7, 0.1, 0]}
+          isMobile={isMobile}
+          disableExtras={disableExtras}
+        >
+          <mesh ref={jupiterRef} rotation={[0, 0, (3.13 * Math.PI) / 180]}>
+            <sphereGeometry args={[2.5, 64, 64]} />
+            <shaderMaterial
+              vertexShader={ChapterPlanetShader.vertexShader}
+              fragmentShader={ChapterPlanetShader.fragmentShader}
+              uniforms={jupiterUniforms}
+            />
+          </mesh>
+        </ChapterBody>
+      )}
+
+      {/* SATURN */}
+      {saturnChapter && (
+        <ChapterBody
+          chapterIndex={saturnChapter.progressKey}
+          scrollProgressRef={scrollProgressRef}
+          planetName="SATURN"
+          planetRadius={2.0}
+          position={[2.6, 0.0, 0]}
+          isMobile={isMobile}
+          disableExtras={disableExtras}
+        >
+          <group rotation={[0.55, -0.4, (26.73 * Math.PI) / 180]}>
+            <mesh ref={saturnRef}>
+              <sphereGeometry args={[2.0, 64, 64]} />
+              <shaderMaterial
+                vertexShader={ChapterPlanetShader.vertexShader}
+                fragmentShader={ChapterPlanetShader.fragmentShader}
+                uniforms={saturnUniforms}
+              />
+            </mesh>
+            {/* Saturn Rings */}
+            <mesh rotation={[-Math.PI / 2, 0, 0]}>
+              <ringGeometry args={[2.6, 5.0, 96]} />
+              <meshStandardMaterial
+                map={saturnRingTex}
+                transparent
+                opacity={0.92}
+                side={THREE.DoubleSide}
+              />
+            </mesh>
+          </group>
+        </ChapterBody>
+      )}
     </group>
   );
 }
@@ -299,7 +355,7 @@ function ChapterBody({
   children
 }) {
   const groupRef = useRef();
-  const isSol = chapterIndex === 1;
+  const isSol = planetName === 'SOL';
 
   useFrame(() => {
     if (!groupRef.current) return;
