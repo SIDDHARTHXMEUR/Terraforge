@@ -8,19 +8,19 @@ import { DISPLAY_RADII } from '../../data/displayScale';
 
 const BODY_VIEW_CONFIGS = {
   cinematic_overview: {
-    offset: [-320, 110, 310],
+    offset: [-300, 150, 290],
     target: [-65, 0, 48],
     minDist: 50,
     maxDist: 3500
   },
   scientific_overview: {
-    offset: [0, 850, 0.01],
+    offset: [0, 1050, 0.01],
     target: [0, 0, 0],
     minDist: 100,
     maxDist: 4000
   },
   overview: {
-    offset: [-320, 110, 310],
+    offset: [-300, 150, 290],
     target: [-65, 0, 48],
     minDist: 50,
     maxDist: 3500

@@ -316,7 +316,7 @@ export function InteractiveSimulatorHUD({
         return (
           <main
             key={selectedBody}
-            className="planet-blur-transition self-start pointer-events-auto transition-all my-auto pl-4 sm:pl-8"
+            className="planet-blur-transition self-start pointer-events-auto transition-all my-auto pl-4 sm:pl-8 pt-24"
             style={{ maxWidth: '34ch', width: 'fit-content' }}
           >
             {/* Ambient backdrop scrim for readability over bright limb areas */}
@@ -377,20 +377,8 @@ export function InteractiveSimulatorHUD({
                 )}
               </div>
 
-              {/* Hierarchy Level 6: Action buttons with Plain-Text TECH SPECS toggle */}
-              <div className="flex items-center space-x-6 mt-4 text-[13px] font-sans font-light">
-                {selectedBody === 'earth' && (
-                  <button
-                    onClick={() => {
-                      if (useEarthSurfaceStore.getState().openMapAtLocation) {
-                        useEarthSurfaceStore.getState().openMapAtLocation(40.7128, -74.006, 'New York');
-                      }
-                    }}
-                    className="hover:underline transition-colors cursor-pointer text-cyan-300"
-                  >
-                    Surface Map &gt;
-                  </button>
-                )}
+              {/* Hierarchy Level 6: Action buttons with Plain-Text TECH SPECS toggle (single row, no wrap) */}
+              <div className="flex items-center space-x-6 mt-4 text-[13px] font-sans font-light flex-nowrap whitespace-nowrap">
                 <button
                   onClick={() => setShowDetailLayer(!showDetailLayer)}
                   className="hover:underline transition-colors cursor-pointer text-white/70 hover:text-white"
@@ -406,10 +394,10 @@ export function InteractiveSimulatorHUD({
                 </button>
               </div>
 
-              {/* Technical Specifications revealed as flowing sentences */}
+              {/* Technical Specifications revealed as flowing sentences (scrolling up to 40vh) */}
               {showDetailLayer && (
                 <div
-                  className="mt-4 pt-3 border-t border-white/10 text-[14px] font-sans font-light text-white/75 leading-relaxed"
+                  className="mt-4 pt-3 border-t border-white/10 text-[14px] font-sans font-light text-white/75 leading-relaxed max-h-[40vh] overflow-y-auto pr-2"
                   style={{ maxWidth: '34ch' }}
                 >
                   <p>
