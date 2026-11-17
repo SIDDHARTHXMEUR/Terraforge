@@ -361,12 +361,13 @@ export function SolarSystemEngine({
         const isSciOverview = viewMode === 'scientific' && selectedBody === 'overview';
         const terrestrialScale = isSciOverview ? 1.65 : 1.0;
         const giantScale = isSciOverview ? 1.15 : 1.0;
+        const isPlanetFocused = selectedBody !== 'overview' && selectedBody !== 'sun';
 
         return (
           <group visible={selectedBody !== 'sun'}>
             {/* 6. Mercury */}
             {buildStep >= 3 && (
-              <group ref={mercuryGroupRef} position={positionsRef.current.mercury} scale={terrestrialScale}>
+              <group ref={mercuryGroupRef} position={positionsRef.current.mercury} scale={terrestrialScale} visible={!isPlanetFocused || selectedBody === 'mercury'}>
                 <CinematicMercury
                   position={[0, 0, 0]}
                   sunPosition={[0, 0, 0]}
@@ -382,7 +383,7 @@ export function SolarSystemEngine({
 
             {/* 7. Venus */}
             {buildStep >= 4 && (
-              <group ref={venusGroupRef} position={positionsRef.current.venus} scale={terrestrialScale}>
+              <group ref={venusGroupRef} position={positionsRef.current.venus} scale={terrestrialScale} visible={!isPlanetFocused || selectedBody === 'venus'}>
                 <CinematicVenus
                   position={[0, 0, 0]}
                   sunPosition={[0, 0, 0]}
@@ -398,7 +399,7 @@ export function SolarSystemEngine({
 
             {/* 8. Earth & The Moon */}
             {buildStep >= 5 && (
-              <group ref={earthGroupRef} position={positionsRef.current.earth} scale={terrestrialScale}>
+              <group ref={earthGroupRef} position={positionsRef.current.earth} scale={terrestrialScale} visible={!isPlanetFocused || selectedBody === 'earth'}>
                 <CinematicEarth
                   position={[0, 0, 0]}
                   sunPosition={[0, 0, 0]}
@@ -414,7 +415,7 @@ export function SolarSystemEngine({
 
             {/* 9. Mars */}
             {buildStep >= 6 && (
-              <group ref={marsGroupRef} position={positionsRef.current.mars} scale={terrestrialScale}>
+              <group ref={marsGroupRef} position={positionsRef.current.mars} scale={terrestrialScale} visible={!isPlanetFocused || selectedBody === 'mars'}>
                 <CinematicMars
                   position={[0, 0, 0]}
                   sunPosition={[0, 0, 0]}
@@ -430,21 +431,23 @@ export function SolarSystemEngine({
 
             {/* 10. Asteroid Belt & Ceres */}
             {buildStep >= 7 && (
-              <AsteroidBelt
-                innerRadius={DISPLAY_ORBIT_RADII.asteroidsInner}
-                outerRadius={DISPLAY_ORBIT_RADII.asteroidsOuter}
-                count={950}
-                isPlaying={!isPaused}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (onSelectBody) onSelectBody('asteroids');
-                }}
-              />
+              <group visible={!isPlanetFocused || selectedBody === 'asteroids'}>
+                <AsteroidBelt
+                  innerRadius={DISPLAY_ORBIT_RADII.asteroidsInner}
+                  outerRadius={DISPLAY_ORBIT_RADII.asteroidsOuter}
+                  count={950}
+                  isPlaying={!isPaused}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (onSelectBody) onSelectBody('asteroids');
+                  }}
+                />
+              </group>
             )}
 
             {/* 11. Jupiter & Galilean Moons (Io & Europa) */}
             {buildStep >= 8 && (
-              <group ref={jupiterGroupRef} position={positionsRef.current.jupiter} scale={giantScale}>
+              <group ref={jupiterGroupRef} position={positionsRef.current.jupiter} scale={giantScale} visible={!isPlanetFocused || selectedBody === 'jupiter'}>
                 <CinematicJupiter
                   position={[0, 0, 0]}
                   sunPosition={[0, 0, 0]}
@@ -460,7 +463,7 @@ export function SolarSystemEngine({
 
             {/* 12. Saturn & Cassini Division Rings */}
             {buildStep >= 9 && (
-              <group ref={saturnGroupRef} position={positionsRef.current.saturn}>
+              <group ref={saturnGroupRef} position={positionsRef.current.saturn} visible={!isPlanetFocused || selectedBody === 'saturn'}>
                 <CinematicSaturn
                   position={[0, 0, 0]}
                   sunPosition={[0, 0, 0]}
@@ -477,7 +480,7 @@ export function SolarSystemEngine({
             {/* 13. Uranus & Ring System & 14. Neptune */}
             {buildStep >= 10 && (
               <>
-                <group ref={uranusGroupRef} position={positionsRef.current.uranus} scale={giantScale}>
+                <group ref={uranusGroupRef} position={positionsRef.current.uranus} scale={giantScale} visible={!isPlanetFocused || selectedBody === 'uranus'}>
                   <CinematicUranus
                     position={[0, 0, 0]}
                     sunPosition={[0, 0, 0]}
@@ -489,7 +492,7 @@ export function SolarSystemEngine({
                     }}
                   />
                 </group>
-                <group ref={neptuneGroupRef} position={positionsRef.current.neptune} scale={giantScale}>
+                <group ref={neptuneGroupRef} position={positionsRef.current.neptune} scale={giantScale} visible={!isPlanetFocused || selectedBody === 'neptune'}>
                   <CinematicNeptune
                     position={[0, 0, 0]}
                     sunPosition={[0, 0, 0]}

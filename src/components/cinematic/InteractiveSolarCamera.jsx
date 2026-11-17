@@ -32,66 +32,66 @@ const BODY_VIEW_CONFIGS = {
     maxDist: 1500
   },
   mercury: {
-    distance: 20.0,
-    terminatorAngle: 38, // Sunlit crescent orientation (34° to 70°)
-    elevAngle: 14,
-    minDist: 6.0,
+    distance: 14.5,
+    terminatorAngle: 35, // Sunlit crescent orientation (35° off Sun-planet line)
+    elevAngle: 12,
+    minDist: 5.0,
     maxDist: 220
   },
   venus: {
-    distance: 22.0,
-    terminatorAngle: 40, // Sunlit crescent
-    elevAngle: 16,
-    minDist: 7.5,
+    distance: 16.0,
+    terminatorAngle: 35,
+    elevAngle: 14,
+    minDist: 6.0,
     maxDist: 260
   },
   earth: {
-    distance: 23.5,
-    terminatorAngle: 42,
-    elevAngle: 14,
+    distance: 17.5,
+    terminatorAngle: 35,
+    elevAngle: 12,
     minDist: 5.2002, // Relaxed minimum distance for continuous Earth surface zoom
     maxDist: 280
   },
   mars: {
-    distance: 20.0,
-    terminatorAngle: 44,
-    elevAngle: 16,
-    minDist: 6.5,
+    distance: 14.5,
+    terminatorAngle: 35,
+    elevAngle: 12,
+    minDist: 5.5,
     maxDist: 240
   },
   asteroids: {
     distance: 14.0,
-    terminatorAngle: 40,
-    elevAngle: 16,
+    terminatorAngle: 35,
+    elevAngle: 14,
     minDist: 3.5,
     maxDist: 150
   },
   jupiter: {
-    distance: 56.0,
-    terminatorAngle: 40, // Clear sunlit framing, never dark side first
+    distance: 46.0,
+    terminatorAngle: 35,
     elevAngle: 12,
-    minDist: 24.0,
+    minDist: 20.0,
     maxDist: 750
   },
   saturn: {
-    distance: 82.0,
-    terminatorAngle: 44,
-    elevAngle: 22,
-    minDist: 35.0,
+    distance: 48.0,
+    terminatorAngle: 38,
+    elevAngle: 18,
+    minDist: 28.0,
     maxDist: 850
   },
   uranus: {
-    distance: 36.0,
-    terminatorAngle: 42,
-    elevAngle: 22,
-    minDist: 14.5,
+    distance: 27.5,
+    terminatorAngle: 35,
+    elevAngle: 16,
+    minDist: 12.0,
     maxDist: 500
   },
   neptune: {
-    distance: 34.0,
-    terminatorAngle: 42,
-    elevAngle: 18,
-    minDist: 14.0,
+    distance: 26.5,
+    terminatorAngle: 35,
+    elevAngle: 14,
+    minDist: 11.0,
     maxDist: 500
   }
 };
@@ -150,7 +150,7 @@ function getCinematicBodyCamTarget(selectedBody, bodyPos, cfg, camOffset) {
     const up = new THREE.Vector3(0, 1, 0);
     const trueCamRight = new THREE.Vector3().crossVectors(up, camDir).normalize();
     const D = cfg.distance;
-    const lateralShiftRatio = selectedBody === 'saturn' ? -0.52 : (selectedBody === 'jupiter' ? -0.52 : -0.48);
+    const lateralShiftRatio = selectedBody === 'saturn' ? -0.36 : (selectedBody === 'jupiter' ? -0.34 : -0.30);
     targetVec.addScaledVector(trueCamRight, D * lateralShiftRatio);
   }
 
@@ -676,24 +676,26 @@ export function InteractiveSolarCamera({
       const destinationTarget = getCinematicBodyCamTarget(selectedBody, currentBodyVec, cfg, targetCamOffset);
 
       if (!isOverview) {
-        // Sunward orbital arc: destination body stays sunlit in viewport
+        // Approach from sunlit side, ~35 degrees off Sun-planet line, destination visible & sunlit in last 40%
         const toSun = new THREE.Vector3().sub(currentBodyVec).normalize();
         const startPos = transitionStartCamPosRef.current;
         const flightDist = startPos.distanceTo(destinationCamPos);
-        const arcFactor = Math.sin(t * Math.PI) * Math.min(flightDist * 0.22, 110.0);
+        const arcFactor = Math.sin(t * Math.PI) * Math.min(flightDist * 0.15, 60.0);
 
         const arcPos = new THREE.Vector3().lerpVectors(startPos, destinationCamPos, ease);
-        arcPos.addScaledVector(toSun, arcFactor);
-        arcPos.y += arcFactor * 0.26;
+        const up = new THREE.Vector3(0, 1, 0);
+        const tangent = new THREE.Vector3().crossVectors(up, toSun).normalize();
+        arcPos.addScaledVector(tangent, arcFactor * 0.45);
+        arcPos.y += arcFactor * 0.25;
 
-        // Path avoidance: Never pass within 1.5x the radius of the Sun or any body (clearance >= 82 units)
-        const sunClearance = 82.0;
-        const distToOrigin = arcPos.length();
+        // Path avoidance: ensure flight never clips inside the Sun (Sun radius 54, safe margin 65)
+        const sunClearance = selectedBody === 'mercury' ? 30.0 : 65.0;
+        const distToOrigin = Math.sqrt(arcPos.x * arcPos.x + arcPos.z * arcPos.z);
         if (distToOrigin < sunClearance) {
           const pushDir = new THREE.Vector3(arcPos.x, 0, arcPos.z).normalize();
-          if (pushDir.lengthSq() < 0.001) pushDir.set(0, 1, 0);
-          arcPos.addScaledVector(pushDir, (sunClearance - distToOrigin) * 1.1);
-          arcPos.y += (sunClearance - distToOrigin) * 0.65;
+          if (pushDir.lengthSq() < 0.001) pushDir.set(1, 0, 0);
+          arcPos.addScaledVector(pushDir, sunClearance - distToOrigin);
+          arcPos.y += (sunClearance - distToOrigin) * 0.4;
         }
 
         camera.position.copy(arcPos);
@@ -701,8 +703,8 @@ export function InteractiveSolarCamera({
         camera.position.lerpVectors(transitionStartCamPosRef.current, destinationCamPos, ease);
       }
 
-      // Early destination lock: visible and sunlit by 55% of the flight
-      const lockT = Math.min(1.0, t / 0.55);
+      // Early destination lock: visible and sunlit during the last 40% of the flight (by t = 0.60)
+      const lockT = Math.min(1.0, t / 0.60);
       const targetEase = lockT * lockT * (3 - 2 * lockT);
       const currentLookTarget = new THREE.Vector3().lerpVectors(transitionStartTargetRef.current, destinationTarget, targetEase);
       controls.target.copy(currentLookTarget);

@@ -55,8 +55,8 @@ const MarsSurfaceShader = {
       float NdotL = dot(N, L);
       float diffuse = max(0.0, NdotL);
 
-      // Mars crisp soft terminator with subtle dusty twilight
-      float twilight = smoothstep(0.06, -0.03, NdotL) * smoothstep(-0.06, 0.02, NdotL) * 0.12;
+      // Mars crisp soft terminator with subtle dusty twilight strictly on sun-facing side and terminator
+      float twilight = smoothstep(0.06, 0.00, NdotL) * smoothstep(0.00, 0.03, NdotL) * 0.12;
       vec3 twilightColor = vec3(0.85, 0.42, 0.18) * twilight;
 
       vec3 surfaceDay = albedo * diffuse * 1.50 + twilightColor;
@@ -67,9 +67,9 @@ const MarsSurfaceShader = {
         surfaceDay = mix(surfaceDay, polarIce, isPolarCap * 0.85);
       }
 
-      // Thin Sunlit-Only Atmospheric Dust Scattering (zero halo on nightside)
+      // Thin Sunlit-Only Atmospheric Dust Scattering strictly on sunlit limb (at most 2% radius, zero halo on nightside)
       float rim = 1.0 - clamp(dot(N, V), 0.0, 1.0);
-      float sunlitLimb = pow(rim, 5.5) * smoothstep(0.0, 0.25, NdotL);
+      float sunlitLimb = pow(rim, 8.0) * smoothstep(0.0, 0.25, NdotL);
       vec3 limbColor = vec3(0.90, 0.52, 0.28) * sunlitLimb * 0.50;
 
       // Dark nightside: textured ambient at 0.015 (dark but readable)

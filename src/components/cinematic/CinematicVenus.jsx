@@ -59,13 +59,13 @@ const VenusCloudDeckShader = {
 
       // 1. Controlled Atmospheric Multiple Scattering with crisp visible terminator
       float NdotL = dot(N, L);
-      float diffuse = smoothstep(-0.08, 0.22, NdotL) * max(0.0, NdotL + 0.08);
+      float diffuse = smoothstep(0.00, 0.22, NdotL) * max(0.0, NdotL);
 
       vec3 dayIllumination = baseCloud * diffuse * 1.35;
 
-      // 2. Physically based thin limb scattering strictly on SUNLIT side (zero halo on nightside)
+      // 2. Physically based thin limb scattering strictly on SUNLIT side (at most 2% radius, zero halo on nightside)
       float rim = 1.0 - clamp(dot(N, V), 0.0, 1.0);
-      float sunlitLimb = pow(rim, 5.5) * smoothstep(0.0, 0.25, NdotL);
+      float sunlitLimb = pow(rim, 8.0) * smoothstep(0.0, 0.25, NdotL);
       vec3 limbColor = vec3(0.96, 0.84, 0.60) * sunlitLimb * 0.45;
 
       // 3. Dense Nightside: dark textured night ambient at 0.015 (dark but readable)

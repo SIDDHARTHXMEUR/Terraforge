@@ -72,8 +72,8 @@ const EarthSurfaceShader = {
 
       vec3 surfaceDay = albedo * diffuse * cloudShadow;
 
-      // 4. Subtle, physically based twilight gradient along terminator
-      float twilightFactor = smoothstep(0.06, -0.03, NdotL) * smoothstep(-0.06, 0.02, NdotL);
+      // 4. Subtle, physically based twilight gradient strictly on sun-facing side and terminator (zero on night side)
+      float twilightFactor = smoothstep(0.06, 0.00, NdotL) * smoothstep(0.00, 0.03, NdotL);
       vec3 twilightColor = vec3(0.85, 0.45, 0.22) * twilightFactor * 0.25;
 
       // 5. Ocean Specular Sun Glint (Strictly on water, masked by clouds and land, clamped, sensible roughness)
@@ -87,9 +87,9 @@ const EarthSurfaceShader = {
       float nightFactor = smoothstep(0.02, -0.15, NdotL);
       vec3 litNight = nightLights * nightFactor * 1.5;
 
-      // 7. Ultra-thin Atmospheric Rayleigh Limb Scattering strictly on SUNLIT side (zero dark halo)
+      // 7. Ultra-thin Atmospheric Rayleigh Limb Scattering strictly on SUNLIT side (at most 2% radius, zero dark halo)
       float rim = 1.0 - clamp(dot(N, V), 0.0, 1.0);
-      float sunlitScatter = pow(rim, 5.5) * smoothstep(0.0, 0.25, NdotL);
+      float sunlitScatter = pow(rim, 8.0) * smoothstep(0.0, 0.25, NdotL);
       vec3 atmosphereScatter = vec3(0.20, 0.58, 1.0) * sunlitScatter * 0.65;
 
       // 8. Dark textured night ambient at 0.015 (dark but readable)
