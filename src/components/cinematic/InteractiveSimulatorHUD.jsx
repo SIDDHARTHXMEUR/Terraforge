@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import { PLANETS_CONFIG } from '../../data/planetsData';
 import { useEarthSurfaceStore } from '../../state/useEarthSurfaceStore';
-import { useEarthClimateStore, computeClimateImpactMetrics } from '../../state/useEarthClimateStore';
+import { useEarthClimateStore, computeEarthSystemMetrics } from '../../state/useEarthClimateStore';
 import { Wordmark } from '../common/Wordmark';
 import { getUnifiedPlanetStats } from '../../utils/celestialStats';
 
@@ -321,7 +321,7 @@ export function InteractiveSimulatorHUD({
         const stats = getUnifiedPlanetStats(selectedBody);
         const accentColor = PLANET_ACCENTS[selectedBody] || '#4FD1C5';
         const microLabel = PLANET_MICRO_LABELS[selectedBody] || selectedData.category || 'CELESTIAL BODY';
-        const impact = computeClimateImpactMetrics(tempAnomaly, seaLevelDelta);
+        const impact = computeEarthSystemMetrics(tempAnomaly, seaLevelDelta);
 
         return (
           <main
@@ -561,7 +561,7 @@ export function InteractiveSimulatorHUD({
               )}
             </div>
 
-            {/* 2. Distinct Biosphere & Civilization Impact Card */}
+            {/* 2. Distinct Earth System Science & Climate Telemetry Card */}
             {showClimateLab && selectedBody === 'earth' && !isSurfaceMode && (
               <div
                 className="relative bg-black/45 backdrop-blur-[4px] border border-white/10 rounded-2xl p-5 text-white/90 shadow-2xl transition-all"
@@ -570,49 +570,58 @@ export function InteractiveSimulatorHUD({
                 {/* Level 1: Micro header with status dot */}
                 <div className="flex items-center justify-between text-[10px] font-mono tracking-[0.25em] uppercase text-white/50 mb-2.5">
                   <div className="flex items-center space-x-2">
-                    <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: impact.ecoStatusColor }} />
-                    <span>IMPACT ASSESSMENT</span>
+                    <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: impact.statusColor }} />
+                    <span>EARTH SYSTEM TELEMETRY</span>
                   </div>
-                  <span className="font-mono text-[10px]" style={{ color: impact.ecoStatusColor }}>
+                  <span className="font-mono text-[10px]" style={{ color: impact.statusColor }}>
                     {tempAnomaly > 0 ? `+${tempAnomaly}°C` : `${tempAnomaly}°C`}
                   </span>
                 </div>
 
                 {/* Level 2: Headline Summary */}
                 <h2 className="font-serif text-xl sm:text-2xl font-normal tracking-[0.06em] text-white uppercase drop-shadow-[0_2px_10px_rgba(0,0,0,0.9)] leading-snug">
-                  {impact.ecosystem}
+                  {impact.biomeState}
                 </h2>
 
                 {/* Level 3: 1px accent rule */}
-                <div className="w-8 h-[1px] my-3" style={{ backgroundColor: impact.ecoStatusColor }} />
+                <div className="w-8 h-[1px] my-3" style={{ backgroundColor: impact.statusColor }} />
 
-                {/* Level 4: Stacked Planetary Parameters */}
+                {/* Level 4: Stacked Planetary Parameters (Essential ESM Physics, Zero Gimmicks) */}
                 <div className="space-y-2.5 text-[13px] font-sans font-light text-white/85 leading-relaxed">
                   <div>
+                    <span className="text-white/50">Global Mean Temp: </span>
+                    <span className="font-mono text-white/95">{impact.absTemp}°C </span>
+                    <span className="font-mono text-[11px]" style={{ color: impact.statusColor }}>
+                      ({tempAnomaly > 0 ? `+${tempAnomaly}` : tempAnomaly}°C)
+                    </span>
+                  </div>
+
+                  <div>
                     <span className="text-white/50">Sea Level Anomaly: </span>
-                    <span className="font-mono font-normal" style={{ color: impact.ecoStatusColor }}>
+                    <span className="font-mono font-normal" style={{ color: impact.statusColor }}>
                       {seaLevelDelta > 0 ? `+${seaLevelDelta}` : seaLevelDelta} m
                     </span>
                   </div>
 
                   <div>
-                    <span className="text-white/50">Displaced Population: </span>
-                    <span className="font-mono text-white/95">{impact.displacedPopStr}</span>
+                    <span className="text-white/50">Planetary Albedo (α): </span>
+                    <span className="font-mono text-white/95">{impact.albedo}</span>
                   </div>
 
                   <div>
-                    <span className="text-white/50">Habitability: </span>
-                    <span>{impact.habitability}</span>
+                    <span className="text-white/50">Ocean Surface pH: </span>
+                    <span className="font-mono text-white/95">{impact.oceanPh}</span>
                   </div>
 
                   <div>
-                    <span className="text-white/50">Agricultural Capacity: </span>
-                    <span>{impact.cropYield}</span>
+                    <span className="text-white/50">Cryosphere Extent: </span>
+                    <span className="font-mono text-white/95">{impact.cryosphereArea}</span>
+                    <div className="text-[11px] text-white/50">{impact.cryosphereStatus}</div>
                   </div>
 
                   <div>
-                    <span className="text-white/50">Cryosphere / Ice Caps: </span>
-                    <span>{impact.iceStatus}</span>
+                    <span className="text-white/50">Biome Equilibrium: </span>
+                    <div className="text-[12px] text-white/80">{impact.biomeDetail}</div>
                   </div>
 
                   <div className="pt-2.5 border-t border-white/10 flex items-center justify-between text-[11px] font-mono text-white/50">

@@ -72,18 +72,18 @@ const EarthSurfaceShader = {
       // 1b. Sea Level Anomaly Dynamics (-120m to +80m)
       if (uSeaLevelDelta > 0.5) {
         // Sea level rise: low coastal elevations flood into shallow coastal ocean
-        float floodProgress = clamp(uSeaLevelDelta / 60.0, 0.0, 1.0);
-        float floodThreshold = 0.03 + floodProgress * 0.35;
-        float isFlooded = (1.0 - smoothstep(floodThreshold * 0.7, floodThreshold, bumpVal)) * landFactor;
-        vec3 floodWater = vec3(0.02, 0.12, 0.28);
+        float floodProgress = clamp(uSeaLevelDelta / 70.0, 0.0, 1.0);
+        float floodThreshold = 0.008 + floodProgress * 0.065;
+        float isFlooded = (1.0 - smoothstep(floodThreshold * 0.65, floodThreshold, bumpVal)) * landFactor;
+        vec3 floodWater = vec3(0.04, 0.35, 0.58);
         albedo = mix(albedo, floodWater, isFlooded * 0.95);
         landFactor = mix(landFactor, 0.0, isFlooded * 0.95);
       } else if (uSeaLevelDelta < -0.5) {
         // Sea level drop: continental shelves emerge from shallow coastal waters
         float dropProgress = clamp(-uSeaLevelDelta / 100.0, 0.0, 1.0);
-        float shelfThreshold = 0.02 + dropProgress * 0.20;
+        float shelfThreshold = 0.006 + dropProgress * 0.035;
         float isShelf = (1.0 - smoothstep(shelfThreshold * 0.5, shelfThreshold, 1.0 - bumpVal)) * (1.0 - landFactor);
-        vec3 shelfSand = vec3(0.38, 0.35, 0.27);
+        vec3 shelfSand = vec3(0.42, 0.38, 0.28);
         albedo = mix(albedo, shelfSand, isShelf * 0.92);
         landFactor = mix(landFactor, 1.0, isShelf * 0.92);
       }
@@ -93,22 +93,22 @@ const EarthSurfaceShader = {
       if (uTempAnomaly < -0.2) {
         // Glaciation / Ice Age expansion down from poles
         float coldFactor = clamp(-uTempAnomaly / 25.0, 0.0, 1.0);
-        float iceEdge = mix(0.82, 0.28, coldFactor);
-        float iceNoise = sin(vUv.x * 45.0) * cos(vUv.y * 30.0) * 0.05 + sin(vUv.x * 110.0 + vUv.y * 50.0) * 0.02;
+        float iceEdge = mix(0.85, 0.28, coldFactor);
+        float iceNoise = sin(vUv.x * 45.0) * cos(vUv.y * 30.0) * 0.04 + sin(vUv.x * 110.0 + vUv.y * 50.0) * 0.02;
         extraIceCoverage = smoothstep(iceEdge - 0.04, iceEdge + 0.04, lat + iceNoise) * coldFactor;
-        vec3 glacialIce = vec3(0.92, 0.95, 0.99);
+        vec3 glacialIce = vec3(0.94, 0.96, 1.0);
         albedo = mix(albedo, glacialIce, extraIceCoverage * 0.96);
       } else if (uTempAnomaly > 0.2) {
         // Hothouse warming: polar ice caps melt, vegetation desiccation
         float warmFactor = clamp(uTempAnomaly / 20.0, 0.0, 1.0);
-        float polarIceCap = smoothstep(0.72, 0.95, lat);
-        vec3 meltedTerrain = mix(vec3(0.18, 0.22, 0.14), vec3(0.02, 0.09, 0.22), 1.0 - landFactor);
-        albedo = mix(albedo, meltedTerrain, polarIceCap * warmFactor * 0.88);
+        float polarIceCap = smoothstep(0.70, 0.95, lat);
+        vec3 meltedTerrain = mix(vec3(0.18, 0.22, 0.14), vec3(0.03, 0.14, 0.28), 1.0 - landFactor);
+        albedo = mix(albedo, meltedTerrain, polarIceCap * warmFactor * 0.90);
 
-        // Desiccation across temperate and tropical landmasses
+        // Desiccation across temperate and tropical landmasses (lush green -> golden savanna/desert)
         float landDesiccate = landFactor * (1.0 - smoothstep(0.65, 0.85, lat));
-        vec3 parchedColor = vec3(albedo.r * 1.45 + 0.06, albedo.g * 0.95 + 0.02, albedo.b * 0.42);
-        albedo = mix(albedo, parchedColor, landDesiccate * warmFactor * 0.82);
+        vec3 parchedColor = vec3(albedo.r * 1.50 + 0.08, albedo.g * 0.92 + 0.02, albedo.b * 0.38);
+        albedo = mix(albedo, parchedColor, landDesiccate * warmFactor * 0.85);
       }
 
       // 2. Day/Night Lighting
