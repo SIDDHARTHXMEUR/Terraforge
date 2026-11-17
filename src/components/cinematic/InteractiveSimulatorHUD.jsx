@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import { PLANETS_CONFIG } from '../../data/planetsData';
 import { useEarthSurfaceStore } from '../../state/useEarthSurfaceStore';
-import { useEarthClimateStore } from '../../state/useEarthClimateStore';
+import { useEarthClimateStore, computeClimateImpactMetrics } from '../../state/useEarthClimateStore';
 import { Wordmark } from '../common/Wordmark';
 import { getUnifiedPlanetStats } from '../../utils/celestialStats';
 
@@ -321,15 +321,18 @@ export function InteractiveSimulatorHUD({
         const stats = getUnifiedPlanetStats(selectedBody);
         const accentColor = PLANET_ACCENTS[selectedBody] || '#4FD1C5';
         const microLabel = PLANET_MICRO_LABELS[selectedBody] || selectedData.category || 'CELESTIAL BODY';
+        const impact = computeClimateImpactMetrics(tempAnomaly, seaLevelDelta);
 
         return (
           <main
             key={selectedBody}
-            className={`planet-blur-transition self-start pointer-events-auto transition-all pl-4 sm:pl-8 ${showClimateLab && selectedBody === 'earth' ? 'my-auto pt-0' : 'my-auto pt-16 sm:pt-20'}`}
-            style={{ maxWidth: '34ch', width: 'fit-content' }}
+            className={`planet-blur-transition self-start pointer-events-auto transition-all pl-4 sm:pl-8 flex flex-col lg:flex-row items-start gap-6 ${
+              showClimateLab && selectedBody === 'earth' ? 'my-auto pt-0' : 'my-auto pt-16 sm:pt-20'
+            }`}
+            style={{ width: 'fit-content' }}
           >
-            {/* Ambient backdrop scrim for readability over bright limb areas */}
-            <div className="relative">
+            {/* Primary Body Card */}
+            <div className="relative" style={{ maxWidth: '34ch' }}>
               <div className="absolute -inset-4 bg-black/35 backdrop-blur-[2px] rounded-2xl -z-10 pointer-events-none" />
 
               {/* Hierarchy Level 1: Micro-label with accent dot */}
@@ -551,6 +554,68 @@ export function InteractiveSimulatorHUD({
                 </div>
               )}
             </div>
+
+            {/* 2. Distinct Biosphere & Civilization Impact Card */}
+            {showClimateLab && selectedBody === 'earth' && !isSurfaceMode && (
+              <div
+                className="relative bg-black/45 backdrop-blur-[4px] border border-white/10 rounded-2xl p-5 text-white/90 shadow-2xl transition-all"
+                style={{ maxWidth: '34ch', width: '34ch' }}
+              >
+                {/* Level 1: Micro header with status dot */}
+                <div className="flex items-center justify-between text-[10px] font-mono tracking-[0.25em] uppercase text-white/50 mb-2.5">
+                  <div className="flex items-center space-x-2">
+                    <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: impact.ecoStatusColor }} />
+                    <span>IMPACT ASSESSMENT</span>
+                  </div>
+                  <span className="font-mono text-[10px]" style={{ color: impact.ecoStatusColor }}>
+                    {tempAnomaly > 0 ? `+${tempAnomaly}°C` : `${tempAnomaly}°C`}
+                  </span>
+                </div>
+
+                {/* Level 2: Headline Summary */}
+                <h2 className="font-serif text-xl sm:text-2xl font-normal tracking-[0.06em] text-white uppercase drop-shadow-[0_2px_10px_rgba(0,0,0,0.9)] leading-snug">
+                  {impact.ecosystem}
+                </h2>
+
+                {/* Level 3: 1px accent rule */}
+                <div className="w-8 h-[1px] my-3" style={{ backgroundColor: impact.ecoStatusColor }} />
+
+                {/* Level 4: Stacked Planetary Parameters */}
+                <div className="space-y-2.5 text-[13px] font-sans font-light text-white/85 leading-relaxed">
+                  <div>
+                    <span className="text-white/50">Sea Level Anomaly: </span>
+                    <span className="font-mono font-normal" style={{ color: impact.ecoStatusColor }}>
+                      {seaLevelDelta > 0 ? `+${seaLevelDelta}` : seaLevelDelta} m
+                    </span>
+                  </div>
+
+                  <div>
+                    <span className="text-white/50">Displaced Population: </span>
+                    <span className="font-mono text-white/95">{impact.displacedPopStr}</span>
+                  </div>
+
+                  <div>
+                    <span className="text-white/50">Habitability: </span>
+                    <span>{impact.habitability}</span>
+                  </div>
+
+                  <div>
+                    <span className="text-white/50">Agricultural Capacity: </span>
+                    <span>{impact.cropYield}</span>
+                  </div>
+
+                  <div>
+                    <span className="text-white/50">Cryosphere / Ice Caps: </span>
+                    <span>{impact.iceStatus}</span>
+                  </div>
+
+                  <div className="pt-2.5 border-t border-white/10 flex items-center justify-between text-[11px] font-mono text-white/50">
+                    <span>ATMOSPHERIC CO₂ EQUIV</span>
+                    <span className="text-white/90">{impact.co2} PPM</span>
+                  </div>
+                </div>
+              </div>
+            )}
           </main>
         );
       })()}

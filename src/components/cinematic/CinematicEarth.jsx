@@ -69,43 +69,46 @@ const EarthSurfaceShader = {
 
       float lat = abs(vUv.y - 0.5) * 2.0;
 
-      // 1b. Sea Level Anomaly Dynamics (-100m to +80m)
+      // 1b. Sea Level Anomaly Dynamics (-120m to +80m)
       if (uSeaLevelDelta > 0.5) {
         // Sea level rise: low coastal elevations flood into shallow coastal ocean
-        float floodThreshold = clamp(uSeaLevelDelta * 0.0035, 0.0, 0.7);
-        float flooded = smoothstep(floodThreshold + 0.06, floodThreshold - 0.02, bumpVal) * landFactor;
-        vec3 floodWater = vec3(0.04, 0.15, 0.28);
-        albedo = mix(albedo, floodWater, flooded * 0.92);
-        landFactor = mix(landFactor, 0.0, flooded * 0.92);
+        float floodProgress = clamp(uSeaLevelDelta / 80.0, 0.0, 1.0);
+        float floodHeight = 0.02 + floodProgress * 0.28;
+        float isFlooded = smoothstep(floodHeight + 0.04, floodHeight - 0.02, bumpVal) * landFactor;
+        vec3 coastalWater = vec3(0.02, 0.12, 0.26);
+        albedo = mix(albedo, coastalWater, isFlooded * 0.96);
+        landFactor = mix(landFactor, 0.0, isFlooded * 0.96);
       } else if (uSeaLevelDelta < -0.5) {
         // Sea level drop: continental shelves emerge from shallow coastal waters
-        float dropRatio = clamp(-uSeaLevelDelta * 0.01, 0.0, 1.0);
-        float shelfEmerge = smoothstep(0.08 - dropRatio * 0.05, 0.22, bumpVal) * (1.0 - landFactor);
-        vec3 shelfColor = vec3(0.35, 0.32, 0.24);
-        albedo = mix(albedo, shelfColor, shelfEmerge * dropRatio * 0.85);
-        landFactor = mix(landFactor, 1.0, shelfEmerge * dropRatio * 0.85);
+        float dropProgress = clamp(-uSeaLevelDelta / 120.0, 0.0, 1.0);
+        float shelfHeight = 0.01 + dropProgress * 0.16;
+        float isShelf = smoothstep(shelfHeight + 0.02, shelfHeight - 0.02, 1.0 - bumpVal) * (1.0 - landFactor);
+        vec3 shelfSand = vec3(0.38, 0.35, 0.27);
+        albedo = mix(albedo, shelfSand, isShelf * 0.92);
+        landFactor = mix(landFactor, 1.0, isShelf * 0.92);
       }
 
       // 1c. Temperature Anomaly Dynamics (-30°C to +50°C)
       float extraIceCoverage = 0.0;
-      if (uTempAnomaly < -0.5) {
+      if (uTempAnomaly < -0.2) {
         // Glaciation / Ice Age expansion down from poles
         float coldProgress = clamp(-uTempAnomaly / 30.0, 0.0, 1.0);
-        float iceNoise = sin(vUv.x * 40.0) * cos(vUv.y * 25.0) * 0.04 + sin(vUv.x * 90.0) * 0.02;
-        float iceLatitude = mix(0.82, 0.38, coldProgress);
-        extraIceCoverage = smoothstep(iceLatitude + 0.06, iceLatitude - 0.02, lat + iceNoise);
+        float iceEdge = mix(0.82, 0.30, coldProgress);
+        float iceNoise = sin(vUv.x * 45.0) * cos(vUv.y * 30.0) * 0.05 + sin(vUv.x * 110.0 + vUv.y * 50.0) * 0.02;
+        extraIceCoverage = smoothstep(iceEdge + 0.05, iceEdge - 0.03, lat + iceNoise) * smoothstep(0.0, 1.0, -uTempAnomaly);
         vec3 glacialIce = vec3(0.92, 0.95, 0.99);
-        albedo = mix(albedo, glacialIce, extraIceCoverage * 0.94);
-      } else if (uTempAnomaly > 0.5) {
+        albedo = mix(albedo, glacialIce, extraIceCoverage * 0.95);
+      } else if (uTempAnomaly > 0.2) {
         // Hothouse warming: polar ice caps melt, vegetation desiccation
-        float warmProgress = clamp(uTempAnomaly / 40.0, 0.0, 1.0);
-        float polarZone = smoothstep(0.72, 0.95, lat);
-        vec3 meltedTundra = mix(vec3(0.18, 0.20, 0.16), vec3(0.03, 0.12, 0.24), 1.0 - landFactor);
-        albedo = mix(albedo, meltedTundra, polarZone * warmProgress * 0.75);
+        float warmProgress = clamp(uTempAnomaly / 35.0, 0.0, 1.0);
+        float polarZone = smoothstep(0.70, 0.96, lat);
+        vec3 thawedTerrain = mix(vec3(0.18, 0.20, 0.14), vec3(0.03, 0.12, 0.24), 1.0 - landFactor);
+        albedo = mix(albedo, thawedTerrain, polarZone * warmProgress * 0.82);
 
-        float aridZone = smoothstep(0.1, 0.65, lat) * landFactor;
-        vec3 aridAlbedo = mix(albedo, vec3(albedo.r * 1.18, albedo.g * 0.85, albedo.b * 0.65), warmProgress * 0.55);
-        albedo = mix(albedo, aridAlbedo, aridZone);
+        // Desiccation across temperate and tropical landmasses
+        float midLat = smoothstep(0.02, 0.70, lat) * landFactor;
+        vec3 aridColor = mix(albedo, vec3(albedo.r * 1.35 + 0.08, albedo.g * 0.92, albedo.b * 0.52), warmProgress * 0.75);
+        albedo = mix(albedo, aridColor, midLat * warmProgress * 0.85);
       }
 
       // 2. Day/Night Lighting
