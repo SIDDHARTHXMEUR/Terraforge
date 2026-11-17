@@ -89,6 +89,72 @@ const ChapterPlanetShader = {
   `
 };
 
+// Shader for Saturn Rings with dynamic planet shadow and phase scattering
+const LandingSaturnRingShader = {
+  vertexShader: `
+    #include <common>
+    #include <logdepthbuf_pars_vertex>
+
+    varying vec2 vUv;
+    varying vec3 vWorldPosition;
+
+    void main() {
+      vUv = uv;
+      vec4 worldPos = modelMatrix * vec4(position, 1.0);
+      vWorldPosition = worldPos.xyz;
+      vec4 mvPosition = viewMatrix * worldPos;
+      gl_Position = projectionMatrix * mvPosition;
+
+      #include <logdepthbuf_vertex>
+    }
+  `,
+  fragmentShader: `
+    #include <logdepthbuf_pars_fragment>
+
+    varying vec2 vUv;
+    varying vec3 vWorldPosition;
+
+    uniform sampler2D uRingMap;
+    uniform vec3 uSunPosition;
+    uniform vec3 uPlanetCenter;
+    uniform float uPlanetRadius;
+
+    void main() {
+      #include <logdepthbuf_fragment>
+
+      vec4 ringTex = texture2D(uRingMap, vUv);
+      vec3 L = normalize(uSunPosition - vWorldPosition);
+      vec3 V = normalize(cameraPosition - vWorldPosition);
+
+      // Planet-on-Ring Shadow Projection
+      vec3 ringToPlanet = vWorldPosition - uPlanetCenter;
+      float sunProj = dot(-ringToPlanet, L);
+      float shadow = 1.0;
+
+      if (sunProj > 0.0) {
+        vec3 perp = ringToPlanet + L * sunProj;
+        float distToAxis = length(perp);
+        if (distToAxis < uPlanetRadius * 1.02) {
+          float penumbra = smoothstep(uPlanetRadius * 0.95, uPlanetRadius * 1.02, distToAxis);
+          shadow = mix(0.04, 1.0, penumbra);
+        }
+      }
+
+      // Backlit forward-scattering (Cassini phase angle translucent glow)
+      float cosPhase = dot(L, V);
+      float forwardFactor = pow(clamp(-cosPhase, 0.0, 1.0), 4.5);
+      vec3 forwardGlow = vec3(0.98, 0.90, 0.75) * forwardFactor * 0.65;
+
+      vec3 ringColor = clamp((ringTex.rgb * vec3(0.95, 0.90, 0.80) + forwardGlow) * shadow * 1.25, 0.0, 1.35);
+      float alpha = ringTex.a * 0.92;
+
+      if (alpha < 0.02) discard;
+
+      gl_FragColor = vec4(ringColor, alpha);
+    }
+  `
+};
+
 export function ChapterPlanets3D({ scrollProgressRef, disableExtras = false }) {
   const { size } = useThree();
   const isMobile = size.width <= 768;
@@ -172,6 +238,13 @@ export function ChapterPlanets3D({ scrollProgressRef, disableExtras = false }) {
     uPlanetCenter: { value: new THREE.Vector3(2.6, 0.0, 0) },
     uRingNormal: { value: new THREE.Vector3(0, 1, 0).applyEuler(new THREE.Euler(0.55, -0.4, (26.73 * Math.PI) / 180)).normalize() }
   }), [saturnTex, sharedSunPos]);
+
+  const saturnRingUniforms = useMemo(() => ({
+    uRingMap: { value: saturnRingTex },
+    uSunPosition: { value: sharedSunPos },
+    uPlanetCenter: { value: new THREE.Vector3(2.6, 0.0, 0) },
+    uPlanetRadius: { value: 2.0 }
+  }), [saturnRingTex, sharedSunPos]);
 
   // Track scroll velocity for rotation response
   const lastScrollP = useRef(0);
@@ -325,12 +398,14 @@ export function ChapterPlanets3D({ scrollProgressRef, disableExtras = false }) {
             </mesh>
             {/* Saturn Rings */}
             <mesh rotation={[-Math.PI / 2, 0, 0]}>
-              <ringGeometry args={[2.6, 5.0, 96]} />
-              <meshStandardMaterial
-                map={saturnRingTex}
-                transparent
-                opacity={0.92}
+              <ringGeometry args={[2.45, 4.85, 96]} />
+              <shaderMaterial
+                vertexShader={LandingSaturnRingShader.vertexShader}
+                fragmentShader={LandingSaturnRingShader.fragmentShader}
+                uniforms={saturnRingUniforms}
+                transparent={true}
                 side={THREE.DoubleSide}
+                depthWrite={false}
               />
             </mesh>
           </group>
@@ -381,7 +456,7 @@ function ChapterBody({
       if (scrollP <= 1.0) {
         const t = THREE.MathUtils.clamp(scrollP, 0, 1);
         const easeT = THREE.MathUtils.smootherstep(t, 0, 1);
-        const startPos = new THREE.Vector3(3.1, -0.4, -4.0);
+        const startPos = new THREE.Vector3(5.2, -0.4, -4.0);
         const endPos = new THREE.Vector3(2.6, 0.1, 0.0);
         const curPos = new THREE.Vector3().lerpVectors(startPos, endPos, easeT);
         const curScale = THREE.MathUtils.lerp(0.28, 1.0, easeT);

@@ -79,8 +79,8 @@ export function LandingScene({ scrollProgressRef, isActive = true }) {
       // SECTION: LINEUP HORIZONTAL DOLLY
       if (heroGroupRef.current) heroGroupRef.current.visible = false;
       const sub = THREE.MathUtils.clamp((scrollP - lineupStart) / Math.max(0.001, finalStart - lineupStart), 0, 1);
-      const camX = THREE.MathUtils.lerp(-4.0, 16.0, sub);
-      camera.position.set(camX, 0, 11.5);
+      const camX = THREE.MathUtils.lerp(0.0, 36.6, sub);
+      camera.position.set(camX, 0, 14.0);
       camera.lookAt(camX, 0, 0);
     } else {
       // SECTION: THE SYSTEM (Smooth pull-back landing exactly on simulator overview pose)
@@ -89,8 +89,8 @@ export function LandingScene({ scrollProgressRef, isActive = true }) {
       const easeT = THREE.MathUtils.smootherstep(t, 0, 1);
 
       // Start from lineup end pose and transition smoothly to simulator overview pose
-      const startPos = new THREE.Vector3(16.0, 0, 11.5);
-      const startTarget = new THREE.Vector3(16.0, 0, 0);
+      const startPos = new THREE.Vector3(36.6, 0, 14.0);
+      const startTarget = new THREE.Vector3(36.6, 0, 0);
 
       camera.position.lerpVectors(startPos, SIM_CAM_POS, easeT);
       const curTarget = new THREE.Vector3().lerpVectors(startTarget, SIM_CAM_TARGET, easeT);

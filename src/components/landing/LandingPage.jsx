@@ -298,9 +298,12 @@ export function LandingPage({
 
     const onSetProgress = (e) => {
       if (typeof e.detail === 'number') {
-        targetProgressRef.current = e.detail;
-        scrollProgressRef.current = e.detail;
-        updateOverlays(e.detail);
+        const p = (e.detail <= 1.0 && maxProgress > 1.0 && e.detail > 0)
+          ? e.detail * maxProgress
+          : e.detail;
+        targetProgressRef.current = p;
+        scrollProgressRef.current = p;
+        updateOverlays(p);
       }
     };
     window.addEventListener('terraforge-set-progress', onSetProgress);
@@ -545,7 +548,7 @@ export function LandingPage({
         <div
           ref={systemRef}
           id="system"
-          className="absolute inset-0 flex flex-col items-center justify-center px-6 text-center select-none pointer-events-none transition-none"
+          className="absolute inset-0 flex flex-col justify-center px-8 sm:px-16 md:px-24 text-left select-none pointer-events-none transition-none items-start"
           style={{ opacity: 0, visibility: 'hidden' }}
         >
           <div className="max-w-xl z-20 pointer-events-auto">
@@ -555,7 +558,7 @@ export function LandingPage({
             <h2 className="font-serif text-5xl sm:text-7xl font-normal uppercase tracking-[0.12em] text-cream mb-4">
               EIGHT WORLDS, ONE STAR.
             </h2>
-            <p className="font-sans text-[14px] sm:text-[15px] leading-[1.6] text-cream-85 mb-8 max-w-[34ch] mx-auto">
+            <p className="font-sans text-[14px] sm:text-[15px] leading-[1.6] text-cream-85 mb-8 max-w-[34ch]">
               Eight worlds. Keplerian orbits. 1:1 astronomical time or up to 10,000x.
             </p>
             <button

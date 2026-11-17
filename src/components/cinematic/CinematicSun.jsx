@@ -376,6 +376,9 @@ const AtmosphereShader = {
       // 1. Monotonic SDO 304 Å Coronal Atmospheric Glow (Zero yellow outline, pure burning ruby-vermilion)
       float t = (r - 1.000) / (1.25 - 1.000);
       float glowFalloff = exp(-t * 5.5) * (1.0 - t) * (1.0 - t);
+      // Smooth monotonic fade to exactly zero at outer boundary (no hard rim, no dark fill)
+      float outerFade = smoothstep(1.25, 1.18, r);
+      glowFalloff *= outerFade;
 
       vec3 deepVermilion = vec3(0.94, 0.28, 0.035);
       vec3 darkRuby = vec3(0.60, 0.09, 0.006);
@@ -471,11 +474,15 @@ export function CinematicSun({
       sunMeshRef.current.rotation.y += delta * 0.035;
     }
 
-    if (photoShaderRef.current) {
+    if (photoShaderRef.current && sunMeshRef.current) {
       photoShaderRef.current.uniforms.uTime.value = elapsed;
+      const worldScale = sunMeshRef.current.getWorldScale(new THREE.Vector3()).x;
+      photoShaderRef.current.uniforms.uRadius.value = radius * worldScale;
     }
-    if (atmoShaderRef.current) {
+    if (atmoShaderRef.current && sunMeshRef.current) {
       atmoShaderRef.current.uniforms.uTime.value = elapsed;
+      const worldScale = sunMeshRef.current.getWorldScale(new THREE.Vector3()).x;
+      atmoShaderRef.current.uniforms.uRadius.value = radius * worldScale;
     }
 
     // Auto-exposure: maintain radiant, incandescent brilliance in solar closeup

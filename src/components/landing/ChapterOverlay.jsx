@@ -7,7 +7,7 @@ const AU_IN_KM = 149597870.7;
 
 // Explicit flag: trailer concept disables intermediate planets (Mercury, Mars, Jupiter)
 // Set to true to re-enable them instantly
-export const SHOW_INTERMEDIATE_PLANETS = false;
+export const SHOW_INTERMEDIATE_PLANETS = true;
 
 export const ALL_CHAPTERS = [
   { id: 'hero', name: 'HERO', type: 'hero', enabled: true },
@@ -26,9 +26,9 @@ export const ALL_CHAPTERS = [
     planetKey: 'mercury',
     name: 'MERCURY',
     type: 'planet',
-    microLabel: '02 / INNER SYSTEM',
+    microLabel: '02 / INNERMOST WORLD',
     accent: '#B8B2A7',
-    enabled: SHOW_INTERMEDIATE_PLANETS,
+    enabled: true,
     surfaceStrip: {
       name: 'CALORIS BASIN',
       coords: '30.5° N, 189.8° W',
@@ -36,11 +36,21 @@ export const ALL_CHAPTERS = [
     }
   },
   {
+    id: 'venus',
+    planetKey: 'venus',
+    name: 'VENUS',
+    type: 'planet',
+    microLabel: '03 / VEILED INFERNO',
+    accent: '#E3BB7B',
+    enabled: false,
+    surfaceStrip: null
+  },
+  {
     id: 'earth',
     planetKey: 'earth',
     name: 'EARTH',
     type: 'planet',
-    microLabel: '02 / HABITABLE WORLD',
+    microLabel: '03 / HABITABLE WORLD',
     accent: '#5BB8FF',
     enabled: true,
     surfaceStrip: null
@@ -52,7 +62,7 @@ export const ALL_CHAPTERS = [
     type: 'planet',
     microLabel: '04 / RED PLANET',
     accent: '#E2673A',
-    enabled: SHOW_INTERMEDIATE_PLANETS,
+    enabled: true,
     surfaceStrip: {
       name: 'VALLES MARINERIS',
       coords: '14.0° S, 59.2° W',
@@ -66,7 +76,7 @@ export const ALL_CHAPTERS = [
     type: 'planet',
     microLabel: '05 / GAS GIANT',
     accent: '#D9A066',
-    enabled: SHOW_INTERMEDIATE_PLANETS,
+    enabled: true,
     surfaceStrip: null
   },
   {
@@ -74,9 +84,29 @@ export const ALL_CHAPTERS = [
     planetKey: 'saturn',
     name: 'SATURN',
     type: 'planet',
-    microLabel: '03 / RINGED MONARCH',
+    microLabel: '06 / RINGED MONARCH',
     accent: '#E8D08A',
     enabled: true,
+    surfaceStrip: null
+  },
+  {
+    id: 'uranus',
+    planetKey: 'uranus',
+    name: 'URANUS',
+    type: 'planet',
+    microLabel: '07 / ICE GIANT',
+    accent: '#7BE3E8',
+    enabled: false,
+    surfaceStrip: null
+  },
+  {
+    id: 'neptune',
+    planetKey: 'neptune',
+    name: 'NEPTUNE',
+    type: 'planet',
+    microLabel: '08 / WINDSWEPT SENTINEL',
+    accent: '#4D7BE8',
+    enabled: false,
     surfaceStrip: null
   },
   { id: 'lineup', name: 'THE SYSTEM', type: 'lineup', enabled: true },
