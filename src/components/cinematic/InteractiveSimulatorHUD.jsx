@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { PLANETS_CONFIG } from '../../data/planetsData';
 import { useEarthSurfaceStore } from '../../state/useEarthSurfaceStore';
+import { useEarthClimateStore } from '../../state/useEarthClimateStore';
 import { Wordmark } from '../common/Wordmark';
 import { getUnifiedPlanetStats } from '../../utils/celestialStats';
 
@@ -104,8 +105,20 @@ export function InteractiveSimulatorHUD({
 }) {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showDetailLayer, setShowDetailLayer] = useState(false);
+  const [showClimateLab, setShowClimateLab] = useState(false);
   const [isIdle, setIsIdle] = useState(false);
   const [simDate, setSimDate] = useState(() => Date.now());
+
+  const {
+    tempAnomaly,
+    seaLevelDelta,
+    cityLightsFactor,
+    setTempAnomaly,
+    setSeaLevelDelta,
+    setCityLightsFactor,
+    setPreset: setClimatePreset,
+    reset: resetClimate
+  } = useEarthClimateStore();
 
   // Simulation time progression
   useEffect(() => {
@@ -312,7 +325,7 @@ export function InteractiveSimulatorHUD({
         return (
           <main
             key={selectedBody}
-            className="planet-blur-transition self-start pointer-events-auto transition-all my-auto pl-4 sm:pl-8 pt-24"
+            className={`planet-blur-transition self-start pointer-events-auto transition-all pl-4 sm:pl-8 ${showClimateLab && selectedBody === 'earth' ? 'my-auto pt-0' : 'my-auto pt-16 sm:pt-20'}`}
             style={{ maxWidth: '34ch', width: 'fit-content' }}
           >
             {/* Ambient backdrop scrim for readability over bright limb areas */}
@@ -371,7 +384,7 @@ export function InteractiveSimulatorHUD({
                 )}
               </div>
 
-              {/* Hierarchy Level 6: Action buttons with Plain-Text TECH SPECS toggle (single row, no wrap) */}
+              {/* Hierarchy Level 6: Action buttons with Plain-Text TECH SPECS & Climate Lab toggle */}
               <div className="flex items-center space-x-6 mt-4 text-[13px] font-sans font-light flex-nowrap whitespace-nowrap">
                 <button
                   onClick={() => setShowDetailLayer(!showDetailLayer)}
@@ -380,6 +393,15 @@ export function InteractiveSimulatorHUD({
                 >
                   {showDetailLayer ? 'Hide Tech Specs' : 'Tech Specs'}
                 </button>
+                {selectedBody === 'earth' && !isSurfaceMode && (
+                  <button
+                    onClick={() => setShowClimateLab(!showClimateLab)}
+                    className="hover:underline transition-colors cursor-pointer text-white/70 hover:text-white"
+                    style={{ color: showClimateLab ? accentColor : undefined }}
+                  >
+                    {showClimateLab ? 'Close Climate' : 'Climate Lab'}
+                  </button>
+                )}
                 <button
                   onClick={() => onSelectBody('overview')}
                   className="text-white/40 hover:text-white hover:underline transition-colors cursor-pointer"
@@ -409,6 +431,123 @@ export function InteractiveSimulatorHUD({
                       <span> Atmosphere consists of {selectedData.atmosphereComposition}.</span>
                     )}
                   </p>
+                </div>
+              )}
+
+              {/* Climate & Planetary Factors Panel (Earth-only) */}
+              {showClimateLab && selectedBody === 'earth' && !isSurfaceMode && (
+                <div
+                  className="mt-3.5 pt-3 border-t border-white/10 space-y-2.5"
+                  style={{ maxWidth: '34ch' }}
+                >
+                  <div className="flex items-center justify-between text-[10px] font-mono tracking-[0.2em] uppercase text-white/50">
+                    <span>CLIMATE & TERRAFORM</span>
+                    <button
+                      onClick={resetClimate}
+                      className="hover:text-white transition-colors cursor-pointer text-white/40 hover:underline"
+                      title="Reset to present baseline"
+                    >
+                      [RESET]
+                    </button>
+                  </div>
+
+                  {/* Surface Temperature Anomaly */}
+                  <div className="space-y-0.5">
+                    <div className="flex justify-between text-[12px] font-sans font-light text-white/80">
+                      <span>Surface Temp Anomaly</span>
+                      <span className="font-mono text-[11px]" style={{ color: tempAnomaly !== 0 ? accentColor : 'rgba(255,255,255,0.6)' }}>
+                        {tempAnomaly > 0 ? `+${tempAnomaly}` : tempAnomaly}°C
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min="-30"
+                      max="50"
+                      step="1"
+                      value={tempAnomaly}
+                      onChange={(e) => setTempAnomaly(parseFloat(e.target.value))}
+                      className="w-full h-1 bg-white/15 rounded-lg appearance-none cursor-pointer accent-teal-400"
+                    />
+                    <div className="flex justify-between text-[9px] font-mono text-white/40">
+                      <span>-30°C (Glaciation)</span>
+                      <span>+50°C (Hothouse)</span>
+                    </div>
+                  </div>
+
+                  {/* Sea Level Anomaly */}
+                  <div className="space-y-0.5">
+                    <div className="flex justify-between text-[12px] font-sans font-light text-white/80">
+                      <span>Sea Level Anomaly</span>
+                      <span className="font-mono text-[11px]" style={{ color: seaLevelDelta !== 0 ? accentColor : 'rgba(255,255,255,0.6)' }}>
+                        {seaLevelDelta > 0 ? `+${seaLevelDelta}` : seaLevelDelta} m
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min="-100"
+                      max="80"
+                      step="2"
+                      value={seaLevelDelta}
+                      onChange={(e) => setSeaLevelDelta(parseFloat(e.target.value))}
+                      className="w-full h-1 bg-white/15 rounded-lg appearance-none cursor-pointer accent-teal-400"
+                    />
+                    <div className="flex justify-between text-[9px] font-mono text-white/40">
+                      <span>-100m (Shelf Exposed)</span>
+                      <span>+80m (All Ice Melted)</span>
+                    </div>
+                  </div>
+
+                  {/* Anthropic Night Lights */}
+                  <div className="space-y-0.5">
+                    <div className="flex justify-between text-[12px] font-sans font-light text-white/80">
+                      <span>Human Footprint (Night Lights)</span>
+                      <span className="font-mono text-[11px]" style={{ color: cityLightsFactor !== 1.0 ? accentColor : 'rgba(255,255,255,0.6)' }}>
+                        {cityLightsFactor.toFixed(1)}x
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0"
+                      max="3"
+                      step="0.1"
+                      value={cityLightsFactor}
+                      onChange={(e) => setCityLightsFactor(parseFloat(e.target.value))}
+                      className="w-full h-1 bg-white/15 rounded-lg appearance-none cursor-pointer accent-teal-400"
+                    />
+                    <div className="flex justify-between text-[9px] font-mono text-white/40">
+                      <span>0.0x (Pristine)</span>
+                      <span>3.0x (Megacities)</span>
+                    </div>
+                  </div>
+
+                  {/* Epoch Presets */}
+                  <div className="flex items-center space-x-2 pt-0.5 text-[10px] font-mono tracking-wider">
+                    <span className="text-white/40">EPOCH:</span>
+                    <button
+                      onClick={() => setClimatePreset('snowball')}
+                      className={`px-2 py-0.5 rounded border transition-colors cursor-pointer ${
+                        tempAnomaly === -25 ? 'border-teal-400 text-teal-400' : 'border-white/10 hover:border-white/30 text-white/70 hover:text-white'
+                      }`}
+                    >
+                      ICE AGE
+                    </button>
+                    <button
+                      onClick={() => setClimatePreset('baseline')}
+                      className={`px-2 py-0.5 rounded border transition-colors cursor-pointer ${
+                        tempAnomaly === 0 && seaLevelDelta === 0 ? 'border-teal-400 text-teal-400' : 'border-white/10 hover:border-white/30 text-white/70 hover:text-white'
+                      }`}
+                    >
+                      PRESENT
+                    </button>
+                    <button
+                      onClick={() => setClimatePreset('hothouse')}
+                      className={`px-2 py-0.5 rounded border transition-colors cursor-pointer ${
+                        tempAnomaly === 35 ? 'border-teal-400 text-teal-400' : 'border-white/10 hover:border-white/30 text-white/70 hover:text-white'
+                      }`}
+                    >
+                      HOTHOUSE
+                    </button>
+                  </div>
                 </div>
               )}
             </div>

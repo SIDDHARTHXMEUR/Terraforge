@@ -48,6 +48,10 @@ const EarthSurfaceShader = {
     uniform sampler2D uCloudsMap;
     uniform vec3 uSunPosition;
     uniform float uTime;
+    uniform float uTempAnomaly;
+    uniform float uSeaLevelDelta;
+    uniform float uCityLightsFactor;
+    uniform float uCloudCover;
 
     void main() {
       #include <logdepthbuf_fragment>
@@ -59,8 +63,50 @@ const EarthSurfaceShader = {
       // 1. Texture Samples
       vec3 albedo = texture2D(uAlbedo, vUv).rgb;
       float landFactor = texture2D(uLandmask, vUv).r; // 1.0 = Land, 0.0 = Ocean
+      float bumpVal = texture2D(uBumpMap, vUv).r;
       vec3 nightLights = texture2D(uNightLights, vUv).rgb;
-      float cloudVal = texture2D(uCloudsMap, vUv).r;
+      float cloudVal = texture2D(uCloudsMap, vUv).r * uCloudCover;
+
+      float lat = abs(vUv.y - 0.5) * 2.0;
+
+      // 1b. Sea Level Anomaly Dynamics (-100m to +80m)
+      if (uSeaLevelDelta > 0.5) {
+        // Sea level rise: low coastal elevations flood into shallow coastal ocean
+        float floodThreshold = clamp(uSeaLevelDelta * 0.0035, 0.0, 0.7);
+        float flooded = smoothstep(floodThreshold + 0.06, floodThreshold - 0.02, bumpVal) * landFactor;
+        vec3 floodWater = vec3(0.04, 0.15, 0.28);
+        albedo = mix(albedo, floodWater, flooded * 0.92);
+        landFactor = mix(landFactor, 0.0, flooded * 0.92);
+      } else if (uSeaLevelDelta < -0.5) {
+        // Sea level drop: continental shelves emerge from shallow coastal waters
+        float dropRatio = clamp(-uSeaLevelDelta * 0.01, 0.0, 1.0);
+        float shelfEmerge = smoothstep(0.08 - dropRatio * 0.05, 0.22, bumpVal) * (1.0 - landFactor);
+        vec3 shelfColor = vec3(0.35, 0.32, 0.24);
+        albedo = mix(albedo, shelfColor, shelfEmerge * dropRatio * 0.85);
+        landFactor = mix(landFactor, 1.0, shelfEmerge * dropRatio * 0.85);
+      }
+
+      // 1c. Temperature Anomaly Dynamics (-30°C to +50°C)
+      float extraIceCoverage = 0.0;
+      if (uTempAnomaly < -0.5) {
+        // Glaciation / Ice Age expansion down from poles
+        float coldProgress = clamp(-uTempAnomaly / 30.0, 0.0, 1.0);
+        float iceNoise = sin(vUv.x * 40.0) * cos(vUv.y * 25.0) * 0.04 + sin(vUv.x * 90.0) * 0.02;
+        float iceLatitude = mix(0.82, 0.38, coldProgress);
+        extraIceCoverage = smoothstep(iceLatitude + 0.06, iceLatitude - 0.02, lat + iceNoise);
+        vec3 glacialIce = vec3(0.92, 0.95, 0.99);
+        albedo = mix(albedo, glacialIce, extraIceCoverage * 0.94);
+      } else if (uTempAnomaly > 0.5) {
+        // Hothouse warming: polar ice caps melt, vegetation desiccation
+        float warmProgress = clamp(uTempAnomaly / 40.0, 0.0, 1.0);
+        float polarZone = smoothstep(0.72, 0.95, lat);
+        vec3 meltedTundra = mix(vec3(0.18, 0.20, 0.16), vec3(0.03, 0.12, 0.24), 1.0 - landFactor);
+        albedo = mix(albedo, meltedTundra, polarZone * warmProgress * 0.75);
+
+        float aridZone = smoothstep(0.1, 0.65, lat) * landFactor;
+        vec3 aridAlbedo = mix(albedo, vec3(albedo.r * 1.18, albedo.g * 0.85, albedo.b * 0.65), warmProgress * 0.55);
+        albedo = mix(albedo, aridAlbedo, aridZone);
+      }
 
       // 2. Day/Night Lighting
       float NdotL = dot(N, L);
@@ -68,7 +114,7 @@ const EarthSurfaceShader = {
 
       // 3. Subtle Cloud Shadow Projection onto ground
       vec2 shadowUv = vUv + vec2(L.x, L.z) * 0.005;
-      float cloudShadow = 1.0 - texture2D(uCloudsMap, shadowUv).r * 0.35;
+      float cloudShadow = 1.0 - clamp(texture2D(uCloudsMap, shadowUv).r * uCloudCover * 0.35, 0.0, 0.85);
 
       vec3 surfaceDay = albedo * diffuse * cloudShadow;
 
@@ -79,13 +125,14 @@ const EarthSurfaceShader = {
       // 5. Ocean Specular Sun Glint (Strictly on water, masked by clouds and land, clamped, sensible roughness)
       vec3 H = normalize(L + V);
       float NdotH = max(0.0, dot(N, H));
-      float oceanMask = (1.0 - landFactor) * (1.0 - cloudVal * 0.85);
+      float oceanMask = (1.0 - landFactor) * (1.0 - cloudVal * 0.85) * (1.0 - extraIceCoverage);
       float specTerm = pow(NdotH, 48.0) * smoothstep(0.0, 0.15, NdotL) * oceanMask;
       vec3 glintColor = vec3(1.0, 0.98, 0.92) * clamp(specTerm * 0.75, 0.0, 0.85);
 
-      // 6. NASA Black Marble Night Lights (Strictly on dark hemisphere)
+      // 6. NASA Black Marble Night Lights (Strictly on dark hemisphere, modulated by human footprint)
       float nightFactor = smoothstep(0.02, -0.15, NdotL);
-      vec3 litNight = nightLights * nightFactor * 1.5;
+      float effectiveCityLights = clamp(uCityLightsFactor, 0.0, 5.0) * (1.0 - extraIceCoverage * 0.9);
+      vec3 litNight = nightLights * nightFactor * 1.5 * effectiveCityLights;
 
       // 7. Ultra-thin Atmospheric Rayleigh Limb Scattering strictly on SUNLIT side (at most 2% radius, zero dark halo)
       float rim = 1.0 - clamp(dot(N, V), 0.0, 1.0);
@@ -132,6 +179,7 @@ const EarthCloudsShader = {
     uniform sampler2D uCloudsMap;
     uniform vec3 uSunPosition;
     uniform float uCloudAlpha;
+    uniform float uCloudCover;
 
     void main() {
       #include <logdepthbuf_fragment>
@@ -147,7 +195,7 @@ const EarthCloudsShader = {
 
       // Lit clouds on daylight side, dark translucent clouds on night side
       vec3 cloudColor = vec3(1.0, 1.0, 1.0) * (dayFactor * 0.95 + 0.05);
-      float alpha = cloudTex.r * (dayFactor * 0.75 + 0.15) * uCloudAlpha;
+      float alpha = cloudTex.r * (dayFactor * 0.75 + 0.15) * uCloudAlpha * uCloudCover;
 
       gl_FragColor = vec4(cloudColor, alpha * 0.90);
     }
@@ -156,6 +204,7 @@ const EarthCloudsShader = {
 
 import { EarthSurfaceTileEngine } from './EarthSurfaceTileEngine';
 import { useEarthSurfaceStore } from '../../state/useEarthSurfaceStore';
+import { useEarthClimateStore } from '../../state/useEarthClimateStore';
 
 export function CinematicEarth({
   position = [0, 0, 0],
@@ -189,10 +238,15 @@ export function CinematicEarth({
 
   useFrame((state, delta) => {
     const elapsed = state.clock.getElapsedTime();
+    const climate = useEarthClimateStore.getState();
 
     if (surfaceShaderRef.current) {
       surfaceShaderRef.current.uniforms.uTime.value = elapsed;
       surfaceShaderRef.current.uniforms.uSunPosition.value.copy(sunPosVec);
+      surfaceShaderRef.current.uniforms.uTempAnomaly.value = climate.tempAnomaly;
+      surfaceShaderRef.current.uniforms.uSeaLevelDelta.value = climate.seaLevelDelta;
+      surfaceShaderRef.current.uniforms.uCityLightsFactor.value = climate.cityLightsFactor;
+      surfaceShaderRef.current.uniforms.uCloudCover.value = climate.cloudCover;
     }
     if (cloudsRef.current) {
       cloudsRef.current.visible = !isSurfaceMode || altitudeKm > 35.0;
@@ -205,6 +259,7 @@ export function CinematicEarth({
         cloudAlpha = THREE.MathUtils.clamp((altitudeKm - 35.0) / 400.0, 0.0, 1.0);
       }
       cloudsShaderRef.current.uniforms.uCloudAlpha.value = cloudAlpha;
+      cloudsShaderRef.current.uniforms.uCloudCover.value = climate.cloudCover;
     }
 
     if (typeof window !== 'undefined' && earthBodyRef.current) {
@@ -257,7 +312,11 @@ export function CinematicEarth({
               uNightLights: { value: nightlightsMap },
               uCloudsMap: { value: cloudsMap },
               uSunPosition: { value: sunPosVec },
-              uTime: { value: 0 }
+              uTime: { value: 0 },
+              uTempAnomaly: { value: 0.0 },
+              uSeaLevelDelta: { value: 0.0 },
+              uCityLightsFactor: { value: 1.0 },
+              uCloudCover: { value: 1.0 }
             }}
           />
           {/* Real Satellite & 3D Tile Surface Engine (Disabled behind flag for Stage 6 MapLibre transition) */}
@@ -278,7 +337,8 @@ export function CinematicEarth({
             uniforms={{
               uCloudsMap: { value: cloudsMap },
               uSunPosition: { value: sunPosVec },
-              uCloudAlpha: { value: 1.0 }
+              uCloudAlpha: { value: 1.0 },
+              uCloudCover: { value: 1.0 }
             }}
             transparent={true}
             blending={THREE.NormalBlending}
