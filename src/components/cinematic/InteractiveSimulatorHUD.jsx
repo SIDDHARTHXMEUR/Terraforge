@@ -469,6 +469,8 @@ export function InteractiveSimulatorHUD({
                       step="1"
                       value={tempAnomaly}
                       onChange={(e) => setTempAnomaly(parseFloat(e.target.value))}
+                      onInput={(e) => setTempAnomaly(parseFloat(e.target.value))}
+                      onPointerDown={(e) => e.stopPropagation()}
                       className="w-full h-1 bg-white/15 rounded-lg appearance-none cursor-pointer accent-teal-400"
                     />
                     <div className="flex justify-between text-[9px] font-mono text-white/40">
@@ -492,6 +494,8 @@ export function InteractiveSimulatorHUD({
                       step="2"
                       value={seaLevelDelta}
                       onChange={(e) => setSeaLevelDelta(parseFloat(e.target.value))}
+                      onInput={(e) => setSeaLevelDelta(parseFloat(e.target.value))}
+                      onPointerDown={(e) => e.stopPropagation()}
                       className="w-full h-1 bg-white/15 rounded-lg appearance-none cursor-pointer accent-teal-400"
                     />
                     <div className="flex justify-between text-[9px] font-mono text-white/40">
@@ -515,6 +519,8 @@ export function InteractiveSimulatorHUD({
                       step="0.1"
                       value={cityLightsFactor}
                       onChange={(e) => setCityLightsFactor(parseFloat(e.target.value))}
+                      onInput={(e) => setCityLightsFactor(parseFloat(e.target.value))}
+                      onPointerDown={(e) => e.stopPropagation()}
                       className="w-full h-1 bg-white/15 rounded-lg appearance-none cursor-pointer accent-teal-400"
                     />
                     <div className="flex justify-between text-[9px] font-mono text-white/40">
