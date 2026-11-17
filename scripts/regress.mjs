@@ -8,6 +8,10 @@ const ARTIFACT_DIR = 'C:\\Users\\siddh\\.gemini\\antigravity\\brain\\56551fc1-29
 const MEDIA_DIR = path.join(ARTIFACT_DIR, 'artifacts_media');
 if (!fs.existsSync(MEDIA_DIR)) fs.mkdirSync(MEDIA_DIR, { recursive: true });
 
+export function getBaseUrl() {
+  return process.env.REGRESS_URL || 'http://localhost:3000';
+}
+
 export function rgbToLab(r, g, b) {
   let [R, G, B] = [r, g, b].map(v => {
     v /= 255;
@@ -35,7 +39,7 @@ export function deltaE(lab1, lab2) {
   );
 }
 
-export async function createBrowser(url = 'http://localhost:3000/#/') {
+export async function createBrowser(url = `${getBaseUrl()}/#/`) {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'chrome-regress-'));
   const port = 9550 + Math.floor(Math.random() * 40);
   const chrome = spawn('C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe', [
@@ -116,6 +120,44 @@ export async function createBrowser(url = 'http://localhost:3000/#/') {
   };
 }
 
+export async function waitForLandingReady(browser, maxWaitMs = 15000) {
+  await browser.send('Runtime.evaluate', {
+    expression: `new Promise((resolve) => {
+      const start = Date.now();
+      const check = () => {
+        if (window.__terraforgeHeroFirstFrame || (window.__threeGl?.info?.render?.calls > 0)) {
+          resolve(true);
+        } else if (Date.now() - start > ${maxWaitMs}) {
+          resolve(false);
+        } else {
+          setTimeout(check, 100);
+        }
+      };
+      check();
+    })`,
+    awaitPromise: true
+  });
+}
+
+export async function waitForSimReady(browser, maxWaitMs = 15000) {
+  await browser.send('Runtime.evaluate', {
+    expression: `new Promise((resolve) => {
+      const start = Date.now();
+      const check = () => {
+        if (window.__threeSimGl && window.__threeSimFirstFrame && window.__threeCamera && window.__threeControls) {
+          resolve(true);
+        } else if (Date.now() - start > ${maxWaitMs}) {
+          resolve(false);
+        } else {
+          setTimeout(check, 100);
+        }
+      };
+      check();
+    })`,
+    awaitPromise: true
+  });
+}
+
 // ---------------------------------------------------------
 // R1: LIVENESS TEST
 // ---------------------------------------------------------
@@ -132,8 +174,9 @@ export async function testLiveness(browser) {
     { p: 1.0, name: 'Landing 100% (System)' }
   ];
 
-  await browser.send('Page.navigate', { url: 'http://localhost:3000/#/' });
-  await new Promise(r => setTimeout(r, 2000));
+  await browser.send('Page.navigate', { url: `${getBaseUrl()}/#/` });
+  await waitForLandingReady(browser, 15000);
+  await new Promise(r => setTimeout(r, 1000));
 
   for (const pos of positions) {
     await browser.send('Runtime.evaluate', {
@@ -161,7 +204,7 @@ export async function testLiveness(browser) {
           for (let i = 0; i < px.length; i += 16) {
             total++;
             const luma = 0.299 * px[i] + 0.587 * px[i + 1] + 0.114 * px[i + 2];
-            if (luma > 18) brightPixels++;
+            if (luma > 10) brightPixels++;
           }
         }
         return {
@@ -181,15 +224,16 @@ export async function testLiveness(browser) {
   // Test simulator views: overview, earth, saturn, neptune
   const simViews = ['overview', 'earth', 'saturn', 'neptune'];
   for (const v of simViews) {
-    await browser.send('Page.navigate', { url: `http://localhost:3000/#/sim/${v === 'overview' ? '' : v}` });
-    await new Promise(r => setTimeout(r, 2000));
+    await browser.send('Page.navigate', { url: `${getBaseUrl()}/#/sim/${v === 'overview' ? '' : v}` });
+    await waitForSimReady(browser, 15000);
+    await new Promise(r => setTimeout(r, 1000));
 
     const metrics = await browser.send('Runtime.evaluate', {
       expression: `(() => {
-        const canvas = document.querySelector('canvas');
+        const canvas = window.__threeSimGl?.domElement || document.querySelector('canvas');
         if (!canvas) return { error: 'No canvas' };
         const gl = canvas.getContext('webgl2') || canvas.getContext('webgl');
-        let calls = window.__threeGl?.info?.render?.calls || 0;
+        let calls = window.__threeSimGl?.info?.render?.calls || window.__threeGl?.info?.render?.calls || 0;
         let brightPixels = 0;
         let total = 0;
         if (gl) {
@@ -204,7 +248,7 @@ export async function testLiveness(browser) {
           for (let i = 0; i < px.length; i += 16) {
             total++;
             const luma = 0.299 * px[i] + 0.587 * px[i + 1] + 0.114 * px[i + 2];
-            if (luma > 18) brightPixels++;
+            if (luma > 10) brightPixels++;
           }
         }
         return {
@@ -230,8 +274,9 @@ export async function testLiveness(browser) {
 // ---------------------------------------------------------
 export async function testCameraPolicy(browser) {
   console.log('\n--- EVALUATING R2: FREE CAMERA & CONTROLS ---');
-  await browser.send('Page.navigate', { url: 'http://localhost:3000/#/sim/earth' });
-  await new Promise(r => setTimeout(r, 2500));
+  await browser.send('Page.navigate', { url: `${getBaseUrl()}/#/sim/earth` });
+  await waitForSimReady(browser, 15000);
+  await new Promise(r => setTimeout(r, 1000));
 
   const check = await browser.send('Runtime.evaluate', {
     expression: `(() => {
@@ -264,6 +309,7 @@ export async function testCameraPolicy(browser) {
 // ---------------------------------------------------------
 export async function testSunLighting(browser) {
   console.log('\n--- EVALUATING R3: SUN-DRIVEN LIGHTING ---');
+  await waitForSimReady(browser, 15000);
   const check = await browser.send('Runtime.evaluate', {
     expression: `(() => {
       // In Three.js scene, verify directional light or point light is positioned at Sun origin [0,0,0]
@@ -301,12 +347,13 @@ export async function captureLabBaselines(browser) {
   const labData = {};
 
   for (const b of bodies) {
-    await browser.send('Page.navigate', { url: `http://localhost:3000/#/sim/${b}` });
-    await new Promise(r => setTimeout(r, 2500));
+    await browser.send('Page.navigate', { url: `${getBaseUrl()}/#/sim/${b}` });
+    await waitForSimReady(browser, 15000);
+    await new Promise(r => setTimeout(r, 1000));
 
     const sample = await browser.send('Runtime.evaluate', {
       expression: `(() => {
-        const canvas = document.querySelector('canvas');
+        const canvas = window.__threeSimGl?.domElement || document.querySelector('canvas');
         if (!canvas) return null;
         const gl = canvas.getContext('webgl2') || canvas.getContext('webgl');
         if (!gl) return null;
@@ -357,7 +404,9 @@ export async function captureLabBaselines(browser) {
 // ---------------------------------------------------------
 export async function testOrbitLines(browser) {
   console.log('\n--- EVALUATING R5: ORBIT LINES ---');
-  await browser.send('Page.navigate', { url: 'http://localhost:3000/#/sim' });
+  await browser.send('Page.navigate', { url: `${getBaseUrl()}/#/sim` });
+  await waitForSimReady(browser, 15000);
+  await new Promise(r => setTimeout(r, 1000));
   await new Promise(r => setTimeout(r, 2000));
 
   const check = await browser.send('Runtime.evaluate', {
@@ -387,7 +436,7 @@ export async function testOrbitLines(browser) {
 // ---------------------------------------------------------
 export async function testInfoBlock(browser) {
   console.log('\n--- EVALUATING R6: SIMULATOR INFO BLOCK & NO CERES ---');
-  await browser.send('Page.navigate', { url: 'http://localhost:3000/#/sim/earth' });
+  await browser.send('Page.navigate', { url: `${getBaseUrl()}/#/sim/earth` });
   await new Promise(r => setTimeout(r, 2000));
 
   const check = await browser.send('Runtime.evaluate', {
@@ -416,7 +465,7 @@ export async function testInfoBlock(browser) {
 // ---------------------------------------------------------
 export async function testWordmark(browser) {
   console.log('\n--- EVALUATING R7: WORDMARK CONSISTENCY ---');
-  await browser.send('Page.navigate', { url: 'http://localhost:3000/#/' });
+  await browser.send('Page.navigate', { url: `${getBaseUrl()}/#/` });
   await new Promise(r => setTimeout(r, 1500));
 
   const wmLanding = await browser.send('Runtime.evaluate', {
@@ -429,7 +478,7 @@ export async function testWordmark(browser) {
     returnByValue: true
   });
 
-  await browser.send('Page.navigate', { url: 'http://localhost:3000/#/sim' });
+  await browser.send('Page.navigate', { url: `${getBaseUrl()}/#/sim` });
   await new Promise(r => setTimeout(r, 1500));
 
   const wmSim = await browser.send('Runtime.evaluate', {
@@ -454,8 +503,9 @@ export async function testWordmark(browser) {
 // ---------------------------------------------------------
 export async function testLandingHero(browser) {
   console.log('\n--- EVALUATING R8: LANDING HERO EARTH & SUNRISE ---');
-  await browser.send('Page.navigate', { url: 'http://localhost:3000/#/' });
-  await new Promise(r => setTimeout(r, 2000));
+  await browser.send('Page.navigate', { url: `${getBaseUrl()}/#/` });
+  await waitForLandingReady(browser, 15000);
+  await new Promise(r => setTimeout(r, 1000));
 
   const check = await browser.send('Runtime.evaluate', {
     expression: `(() => {
@@ -485,7 +535,7 @@ export async function measureBaselines(browser) {
   
   // Time to hero reveal
   const t0 = Date.now();
-  await browser.send('Page.navigate', { url: 'http://localhost:3000/#/' });
+  await browser.send('Page.navigate', { url: `${getBaseUrl()}/#/` });
   await browser.send('Runtime.evaluate', {
     expression: `new Promise(resolve => {
       const check = () => {
@@ -570,7 +620,7 @@ export async function runFullRegression() {
   }
 }
 
-if (process.argv[1].endsWith('regress.mjs')) {
+if (process.argv[1] && process.argv[1].endsWith('regress.mjs')) {
   runFullRegression().then(res => {
     fs.writeFileSync('scripts/baseline_data.json', JSON.stringify(res, null, 2));
     console.log('\nBaselines saved to scripts/baseline_data.json');

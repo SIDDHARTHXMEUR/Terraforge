@@ -140,6 +140,25 @@ Open [http://localhost:3000/](http://localhost:3000/) in your browser.
 
 ---
 
+## ☁️ Deploying to Vercel
+
+Terraforge is optimized for seamless zero-configuration deployment to **Vercel**:
+
+### 1. Build & Output Settings
+- **Framework Preset**: `Vite`
+- **Build Command**: `npm run build`
+- **Output Directory**: `dist`
+- **Install Command**: `npm install`
+
+### 2. Vercel Configuration (`vercel.json`)
+The repository includes a production-ready `vercel.json` configured with:
+- **Long-term Immutable Caching**: Static textures and pre-compiled shader bundles in `/assets/(.*)` and `/textures/(.*)` are served with `Cache-Control: public, max-age=31536000, immutable`.
+- **Zero-Cache HTML Entrypoint**: `/index.html` is served with `Cache-Control: no-cache, max-age=0, must-revalidate` ensuring clients immediately receive fresh updates.
+- **Security Headers**: Includes `X-Content-Type-Options: nosniff` and `X-Frame-Options: DENY`.
+- **Payload Compliance**: All assets and bundles strictly adhere to Vercel's serverless file limits (no single asset exceeds 25 MB; entry bundle is compressed under 1.2 MB).
+
+---
+
 ## 🛰️ Credits & Planetary Telemetry Sources
 
 - **Sun**: NASA / SDO AIA 304 Å Telemetry ([https://sdo.gsfc.nasa.gov/](https://sdo.gsfc.nasa.gov/))

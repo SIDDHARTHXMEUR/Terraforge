@@ -109,7 +109,7 @@ export default function App() {
   const simSceneRef = useRef(null);
   const isReadyRef = useRef(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
-  const [isSimReady, setIsSimReady] = useState(false);
+  const [isSimReady, setIsSimReady] = useState(() => parseHashRoute().mode === 'sim');
 
   const handleEnterSim = () => {
     handleCompletePrologue();
@@ -161,6 +161,7 @@ export default function App() {
       const r = parseHashRoute();
       setRoute(r);
       if (r.mode === 'sim') {
+        setIsSimReady(true);
         setSelectedBody(r.planet || 'overview');
         if (r.planet && r.planet !== 'overview') {
           setIsPrologueActive(false);
