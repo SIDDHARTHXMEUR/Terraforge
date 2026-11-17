@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import { CinematicSun } from './CinematicSun';
 import { CinematicMercury } from './CinematicMercury';
@@ -36,8 +36,29 @@ export function SolarSystemEngine({
   const { gl, scene, camera } = threeState;
   const hasWarmedUpRef = useRef(false);
 
+  // Time-sliced simulator construction: build one body, orbit line or label per frame (<= 4ms per frame)
+  const [buildStep, setBuildStep] = useState(0);
+  const TOTAL_BUILD_STEPS = 10;
+
+  useEffect(() => {
+    let animId;
+    let step = 0;
+    const nextStep = () => {
+      step++;
+      setBuildStep(step);
+      if (typeof window !== 'undefined') {
+        window.__terraforgeWarmupProgress = Math.min(1.0, step / TOTAL_BUILD_STEPS);
+      }
+      if (step < TOTAL_BUILD_STEPS) {
+        animId = requestAnimationFrame(nextStep);
+      }
+    };
+    animId = requestAnimationFrame(nextStep);
+    return () => cancelAnimationFrame(animId);
+  }, []);
+
   // Progressive shader compilation and texture uploads during idle time
-  // Strictly runs once, then completely stops; skips execution during flights or cinematic prologue
+  // Progressive body-by-body idle texture upload and shader compilation (one body per callback)
   useEffect(() => {
     if (typeof window !== 'undefined') {
       window.__threeScene = scene;
@@ -45,26 +66,24 @@ export function SolarSystemEngine({
       window.__threeSimGl = gl;
       window.__threeCamera = camera;
       window.__threeState = threeState;
-    }
-
-    if (hasWarmedUpRef.current) return;
-
-    const warmUpIdle = () => {
-      if (hasWarmedUpRef.current) return;
-
-      // Nothing loads or compiles during a flight or prologue
-      if (window.__isTransitioning || isPrologueActive) {
-        if ('requestIdleCallback' in window) {
-          window.requestIdleCallback(warmUpIdle, { timeout: 2000 });
-        } else {
-          setTimeout(warmUpIdle, 500);
+      window.__getThreeBodyGroup = (id) => {
+        switch (id) {
+          case 'mercury': return mercuryGroupRef.current;
+          case 'venus': return venusGroupRef.current;
+          case 'earth': return earthGroupRef.current;
+          case 'mars': return marsGroupRef.current;
+          case 'jupiter': return jupiterGroupRef.current;
+          case 'saturn': return saturnGroupRef.current;
+          case 'uranus': return uranusGroupRef.current;
+          case 'neptune': return neptuneGroupRef.current;
+          case 'asteroids': return ceresGroupRef.current;
+          default: return null;
         }
-        return;
-      }
+      };
 
-      if (gl && scene && camera) {
-        // Upload textures progressively to GPU memory
-        scene.traverse((obj) => {
+      window.__warmBodyTexturesAndShaders = (targetGroup) => {
+        if (!targetGroup || targetGroup.__shadersReady || !gl || !camera) return Promise.resolve();
+        targetGroup.traverse((obj) => {
           if (obj.isMesh && obj.material) {
             const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
             for (const mat of mats) {
@@ -81,25 +100,78 @@ export function SolarSystemEngine({
           }
         });
 
-        // Progressively pre-compile all scene shaders asynchronously
-        hasWarmedUpRef.current = true;
         if (gl.compileAsync) {
-          gl.compileAsync(scene, camera).catch(() => {});
+          return gl.compileAsync(targetGroup, camera).then(() => {
+            targetGroup.__shadersReady = true;
+          }).catch(() => {
+            targetGroup.__shadersReady = true;
+          });
         } else {
-          try { gl.compile(scene, camera); } catch (_) {}
+          try { gl.compile(targetGroup, camera); } catch (_) {}
+          targetGroup.__shadersReady = true;
+          return Promise.resolve();
         }
+      };
+    }
+
+    if (hasWarmedUpRef.current) return;
+
+    const bodyRefs = [
+      mercuryGroupRef,
+      venusGroupRef,
+      earthGroupRef,
+      marsGroupRef,
+      jupiterGroupRef,
+      saturnGroupRef,
+      uranusGroupRef,
+      neptuneGroupRef,
+      ceresGroupRef
+    ];
+
+    let bodyIndex = 0;
+
+    const processNextBodyInIdle = (deadline) => {
+      if (window.__isTransitioning || isPrologueActive) {
+        if ('requestIdleCallback' in window) {
+          window.requestIdleCallback(processNextBodyInIdle, { timeout: 2000 });
+        } else {
+          setTimeout(processNextBodyInIdle, 200);
+        }
+        return;
+      }
+
+      if (bodyIndex >= bodyRefs.length) {
+        hasWarmedUpRef.current = true;
+        if (typeof window !== 'undefined') {
+          window.__threeAllBodiesCompiled = true;
+        }
+        return;
+      }
+
+      const targetGroup = bodyRefs[bodyIndex]?.current;
+      bodyIndex++;
+
+      if (targetGroup && window.__warmBodyTexturesAndShaders) {
+        window.__warmBodyTexturesAndShaders(targetGroup);
+      }
+
+      // Schedule next body in idle callback
+      if ('requestIdleCallback' in window) {
+        window.requestIdleCallback(processNextBodyInIdle, { timeout: 1500 });
+      } else {
+        setTimeout(() => processNextBodyInIdle({ timeRemaining: () => 4, didTimeout: false }), 40);
       }
     };
 
-    if ('requestIdleCallback' in window) {
-      const id = window.requestIdleCallback(warmUpIdle, { timeout: 2500 });
-      return () => {
-        if ('cancelIdleCallback' in window) window.cancelIdleCallback(id);
-      };
-    } else {
-      const timer = setTimeout(warmUpIdle, 600);
-      return () => clearTimeout(timer);
-    }
+    const startTimer = setTimeout(() => {
+      if ('requestIdleCallback' in window) {
+        window.requestIdleCallback(processNextBodyInIdle, { timeout: 1500 });
+      } else {
+        setTimeout(() => processNextBodyInIdle({ timeRemaining: () => 4, didTimeout: false }), 60);
+      }
+    }, 400);
+
+    return () => clearTimeout(startTimer);
   }, [gl, scene, camera, isPrologueActive]);
 
   // Real-time planetary orbital angles
@@ -140,22 +212,15 @@ export function SolarSystemEngine({
   const uranusGroupRef = useRef();
   const neptuneGroupRef = useRef();
 
+  const firstFrameDispatchedRef = useRef(false);
+
   // Orbital revolution frame loop - priority 1: simulation update runs FIRST in frame
   useFrame((state, delta) => {
-    // Signal simulator frame rendered
-    if (typeof window !== 'undefined') {
+    // Signal simulator frame rendered as soon as canvas draws real 3D
+    if (typeof window !== 'undefined' && !firstFrameDispatchedRef.current && gl.info.render.calls > 0) {
+      firstFrameDispatchedRef.current = true;
       window.__threeSimFirstFrame = true;
       window.dispatchEvent(new CustomEvent('terraforge-sim-rendered'));
-      if (gl.compile && !window.__threeSimCompiled) {
-        window.__threeSimCompiled = true;
-        try {
-          scene.traverse((obj) => {
-            if (obj.isMesh && obj.material) {
-              gl.compile(obj, camera);
-            }
-          });
-        } catch (_) {}
-      }
     }
 
     if (isPaused) return;
@@ -260,20 +325,24 @@ export function SolarSystemEngine({
       )}
 
       {/* 3. Subtle Orbital Guides */}
-      <OrbitGuides
-        radii={DISPLAY_ORBIT_RADII}
-        visible={showOrbits}
-        selectedBody={selectedBody}
-        bodyPositions={positionsRef.current}
-      />
+      {buildStep >= 1 && (
+        <OrbitGuides
+          radii={DISPLAY_ORBIT_RADII}
+          visible={showOrbits}
+          selectedBody={selectedBody}
+          bodyPositions={positionsRef.current}
+        />
+      )}
 
       {/* 4. Planetary Billboard Text Labels */}
-      <CelestialLabels
-        bodyPositions={positionsRef.current}
-        selectedBody={selectedBody}
-        visible={showLabels}
-        onSelectBody={onSelectBody}
-      />
+      {buildStep >= 2 && (
+        <CelestialLabels
+          bodyPositions={positionsRef.current}
+          selectedBody={selectedBody}
+          visible={showLabels}
+          onSelectBody={onSelectBody}
+        />
+      )}
 
       {/* 5. The Central Thermonuclear Sun */}
       <CinematicSun
@@ -296,128 +365,144 @@ export function SolarSystemEngine({
         return (
           <group visible={selectedBody !== 'sun'}>
             {/* 6. Mercury */}
-            <group ref={mercuryGroupRef} position={positionsRef.current.mercury} scale={terrestrialScale}>
-              <CinematicMercury
-                position={[0, 0, 0]}
-                sunPosition={[0, 0, 0]}
-                radius={DISPLAY_RADII.mercury}
-                isPlaying={!isPaused}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (onSelectBody) onSelectBody('mercury');
-                }}
-              />
-            </group>
+            {buildStep >= 3 && (
+              <group ref={mercuryGroupRef} position={positionsRef.current.mercury} scale={terrestrialScale}>
+                <CinematicMercury
+                  position={[0, 0, 0]}
+                  sunPosition={[0, 0, 0]}
+                  radius={DISPLAY_RADII.mercury}
+                  isPlaying={!isPaused}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (onSelectBody) onSelectBody('mercury');
+                  }}
+                />
+              </group>
+            )}
 
             {/* 7. Venus */}
-            <group ref={venusGroupRef} position={positionsRef.current.venus} scale={terrestrialScale}>
-              <CinematicVenus
-                position={[0, 0, 0]}
-                sunPosition={[0, 0, 0]}
-                radius={DISPLAY_RADII.venus}
-                isPlaying={!isPaused}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (onSelectBody) onSelectBody('venus');
-                }}
-              />
-            </group>
+            {buildStep >= 4 && (
+              <group ref={venusGroupRef} position={positionsRef.current.venus} scale={terrestrialScale}>
+                <CinematicVenus
+                  position={[0, 0, 0]}
+                  sunPosition={[0, 0, 0]}
+                  radius={DISPLAY_RADII.venus}
+                  isPlaying={!isPaused}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (onSelectBody) onSelectBody('venus');
+                  }}
+                />
+              </group>
+            )}
 
             {/* 8. Earth & The Moon */}
-            <group ref={earthGroupRef} position={positionsRef.current.earth} scale={terrestrialScale}>
-              <CinematicEarth
-                position={[0, 0, 0]}
-                sunPosition={[0, 0, 0]}
-                radius={DISPLAY_RADII.earth}
-                isPlaying={!isPaused}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (onSelectBody) onSelectBody('earth');
-                }}
-              />
-            </group>
+            {buildStep >= 5 && (
+              <group ref={earthGroupRef} position={positionsRef.current.earth} scale={terrestrialScale}>
+                <CinematicEarth
+                  position={[0, 0, 0]}
+                  sunPosition={[0, 0, 0]}
+                  radius={DISPLAY_RADII.earth}
+                  isPlaying={!isPaused}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (onSelectBody) onSelectBody('earth');
+                  }}
+                />
+              </group>
+            )}
 
             {/* 9. Mars */}
-            <group ref={marsGroupRef} position={positionsRef.current.mars} scale={terrestrialScale}>
-              <CinematicMars
-                position={[0, 0, 0]}
-                sunPosition={[0, 0, 0]}
-                radius={DISPLAY_RADII.mars}
-                isPlaying={!isPaused}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (onSelectBody) onSelectBody('mars');
-                }}
-              />
-            </group>
+            {buildStep >= 6 && (
+              <group ref={marsGroupRef} position={positionsRef.current.mars} scale={terrestrialScale}>
+                <CinematicMars
+                  position={[0, 0, 0]}
+                  sunPosition={[0, 0, 0]}
+                  radius={DISPLAY_RADII.mars}
+                  isPlaying={!isPaused}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (onSelectBody) onSelectBody('mars');
+                  }}
+                />
+              </group>
+            )}
 
             {/* 10. Asteroid Belt & Ceres */}
-            <AsteroidBelt
-              innerRadius={DISPLAY_ORBIT_RADII.asteroidsInner}
-              outerRadius={DISPLAY_ORBIT_RADII.asteroidsOuter}
-              count={950}
-              isPlaying={!isPaused}
-              onClick={(e) => {
-                e.stopPropagation();
-                if (onSelectBody) onSelectBody('asteroids');
-              }}
-            />
+            {buildStep >= 7 && (
+              <AsteroidBelt
+                innerRadius={DISPLAY_ORBIT_RADII.asteroidsInner}
+                outerRadius={DISPLAY_ORBIT_RADII.asteroidsOuter}
+                count={950}
+                isPlaying={!isPaused}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (onSelectBody) onSelectBody('asteroids');
+                }}
+              />
+            )}
 
             {/* 11. Jupiter & Galilean Moons (Io & Europa) */}
-            <group ref={jupiterGroupRef} position={positionsRef.current.jupiter} scale={giantScale}>
-              <CinematicJupiter
-                position={[0, 0, 0]}
-                sunPosition={[0, 0, 0]}
-                radius={DISPLAY_RADII.jupiter}
-                isPlaying={!isPaused}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (onSelectBody) onSelectBody('jupiter');
-                }}
-              />
-            </group>
+            {buildStep >= 8 && (
+              <group ref={jupiterGroupRef} position={positionsRef.current.jupiter} scale={giantScale}>
+                <CinematicJupiter
+                  position={[0, 0, 0]}
+                  sunPosition={[0, 0, 0]}
+                  radius={DISPLAY_RADII.jupiter}
+                  isPlaying={!isPaused}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (onSelectBody) onSelectBody('jupiter');
+                  }}
+                />
+              </group>
+            )}
 
             {/* 12. Saturn & Cassini Division Rings */}
-            <group ref={saturnGroupRef} position={positionsRef.current.saturn}>
-              <CinematicSaturn
-                position={[0, 0, 0]}
-                sunPosition={[0, 0, 0]}
-                radius={DISPLAY_RADII.saturn}
-                isPlaying={!isPaused}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (onSelectBody) onSelectBody('saturn');
-                }}
-              />
-            </group>
+            {buildStep >= 9 && (
+              <group ref={saturnGroupRef} position={positionsRef.current.saturn}>
+                <CinematicSaturn
+                  position={[0, 0, 0]}
+                  sunPosition={[0, 0, 0]}
+                  radius={DISPLAY_RADII.saturn}
+                  isPlaying={!isPaused}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (onSelectBody) onSelectBody('saturn');
+                  }}
+                />
+              </group>
+            )}
 
-            {/* 13. Uranus & Ring System */}
-            <group ref={uranusGroupRef} position={positionsRef.current.uranus} scale={giantScale}>
-              <CinematicUranus
-                position={[0, 0, 0]}
-                sunPosition={[0, 0, 0]}
-                radius={DISPLAY_RADII.uranus}
-                isPlaying={!isPaused}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (onSelectBody) onSelectBody('uranus');
-                }}
-              />
-            </group>
-
-            {/* 14. Neptune */}
-            <group ref={neptuneGroupRef} position={positionsRef.current.neptune} scale={giantScale}>
-              <CinematicNeptune
-                position={[0, 0, 0]}
-                sunPosition={[0, 0, 0]}
-                radius={DISPLAY_RADII.neptune}
-                isPlaying={!isPaused}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (onSelectBody) onSelectBody('neptune');
-                }}
-              />
-            </group>
+            {/* 13. Uranus & Ring System & 14. Neptune */}
+            {buildStep >= 10 && (
+              <>
+                <group ref={uranusGroupRef} position={positionsRef.current.uranus} scale={giantScale}>
+                  <CinematicUranus
+                    position={[0, 0, 0]}
+                    sunPosition={[0, 0, 0]}
+                    radius={DISPLAY_RADII.uranus}
+                    isPlaying={!isPaused}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (onSelectBody) onSelectBody('uranus');
+                    }}
+                  />
+                </group>
+                <group ref={neptuneGroupRef} position={positionsRef.current.neptune} scale={giantScale}>
+                  <CinematicNeptune
+                    position={[0, 0, 0]}
+                    sunPosition={[0, 0, 0]}
+                    radius={DISPLAY_RADII.neptune}
+                    isPlaying={!isPaused}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (onSelectBody) onSelectBody('neptune');
+                    }}
+                  />
+                </group>
+              </>
+            )}
           </group>
         );
       })()}

@@ -8,6 +8,7 @@ import { NonWebGLFallback } from './NonWebGLFallback';
 import { Wordmark } from '../common/Wordmark';
 import { BrandedPreloader } from '../common/BrandedPreloader';
 import { prefetchSimulatorBitmaps } from '../../utils/textureCache';
+import { startLandingIdlePrefetch } from '../../utils/simPrefetcher';
 
 function checkWebGLSupport() {
   if (typeof window === 'undefined') return true;
@@ -109,6 +110,7 @@ export function LandingPage({
   // PROGRESSIVE IDLE PREFETCH: after hero reveal, decode simulator textures in idle callbacks into memory cache
   useEffect(() => {
     if (!heroRevealed) return;
+    startLandingIdlePrefetch();
     prefetchSimulatorBitmaps((p) => {
       setWarmupProgress(p);
     });
@@ -568,20 +570,8 @@ export function LandingPage({
               }}
               className="relative inline-flex items-center space-x-3 px-8 py-4 border border-cream-30 hover:border-cream text-cream font-sans text-xs uppercase tracking-[0.25em] transition-all hover:bg-white/10 shadow-lg cursor-pointer focus:outline-none focus:ring-2 focus:ring-white overflow-hidden group"
             >
-              {warmupProgress < 1.0 ? (
-                <>
-                  <div
-                    className="absolute bottom-0 left-0 h-[2px] bg-cyan-400 transition-all duration-300"
-                    style={{ width: `${Math.round(warmupProgress * 100)}%` }}
-                  />
-                  <span>PREPARING {Math.round(warmupProgress * 100)}%</span>
-                </>
-              ) : (
-                <>
-                  <span>ENTER THE SIMULATOR</span>
-                  <span className="text-sm font-mono">&gt;</span>
-                </>
-              )}
+              <span>ENTER THE SIMULATOR</span>
+              <span className="text-sm font-mono">&gt;</span>
             </button>
           </div>
 

@@ -439,25 +439,44 @@ export function InteractiveSolarCamera({
       lastViewModeRef.current = viewMode;
       lastEnabledRef.current = enabled;
 
-      cameraStateRef.current = 'FLYING';
-      isTransitioningRef.current = true;
-      flightTargetRef.current = selectedBody;
-      transitionStartTimeRef.current = performance.now();
-      transitionDurationRef.current = 1100; // 900-1200ms motion token
+      const initiateFlight = () => {
+        cameraStateRef.current = 'FLYING';
+        isTransitioningRef.current = true;
+        flightTargetRef.current = selectedBody;
+        transitionStartTimeRef.current = performance.now();
+        transitionDurationRef.current = 1100; // 900-1200ms motion token
 
-      if (inSurfaceMode) {
-        setInSurfaceMode(false);
-        setIsSurfaceMode(false);
+        if (inSurfaceMode) {
+          setInSurfaceMode(false);
+          setIsSurfaceMode(false);
+        }
+
+        if (controlsRef.current) {
+          transitionStartTargetRef.current.copy(controlsRef.current.target);
+          controlsRef.current.enabled = false;
+        }
+        transitionStartCamPosRef.current.copy(camera.position);
+
+        const curBodyPos = bodyPositionsRef.current[selectedBody] || [0, 0, 0];
+        lastPlanetPosRef.current.set(...curBodyPos);
+      };
+
+      const targetGroup = typeof window !== 'undefined'
+        ? (window.__getThreeBodyGroup ? window.__getThreeBodyGroup(selectedBody) : window.__threeBodyGroups?.[selectedBody])
+        : null;
+
+      if (targetGroup && !targetGroup.__shadersReady && typeof window !== 'undefined' && window.__warmBodyTexturesAndShaders) {
+        Promise.race([
+          window.__warmBodyTexturesAndShaders(targetGroup),
+          new Promise((resolve) => setTimeout(resolve, 300))
+        ]).then(() => {
+          initiateFlight();
+        }).catch(() => {
+          initiateFlight();
+        });
+      } else {
+        initiateFlight();
       }
-
-      if (controlsRef.current) {
-        transitionStartTargetRef.current.copy(controlsRef.current.target);
-        controlsRef.current.enabled = false;
-      }
-      transitionStartCamPosRef.current.copy(camera.position);
-
-      const curBodyPos = bodyPositionsRef.current[selectedBody] || [0, 0, 0];
-      lastPlanetPosRef.current.set(...curBodyPos);
     }
   }, [selectedBody, viewMode, enabled, setIsSurfaceMode, inSurfaceMode, camera]);
 

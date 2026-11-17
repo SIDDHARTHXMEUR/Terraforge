@@ -2,6 +2,7 @@ import React, { Suspense, useState, useEffect, useRef } from 'react';
 import { Canvas } from '@react-three/fiber';
 import * as THREE from 'three';
 import { LoadingScreen } from './components/LoadingScreen';
+import { BrandedPreloader } from './components/common/BrandedPreloader';
 import { EarthBaselineComparator } from './components/test/EarthBaselineComparator';
 import { DeepSpaceSkybox } from './components/cinematic/DeepSpaceSkybox';
 import { OrbitControls } from '@react-three/drei';
@@ -110,6 +111,16 @@ export default function App() {
   const isReadyRef = useRef(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [isSimReady, setIsSimReady] = useState(() => parseHashRoute().mode === 'sim');
+  const [warmupProgress, setWarmupProgress] = useState(0);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (typeof window !== 'undefined' && window.__terraforgeWarmupProgress !== undefined) {
+        setWarmupProgress((prev) => Math.max(prev, window.__terraforgeWarmupProgress));
+      }
+    }, 40);
+    return () => clearInterval(interval);
+  }, []);
 
   const handleEnterSim = () => {
     handleCompletePrologue();
@@ -136,10 +147,10 @@ export default function App() {
 
     window.addEventListener('terraforge-sim-rendered', onSimRendered, { once: true });
 
-    // Timeout 1s failsafe: reveal anyway
+    // Timeout 6s failsafe: reveal anyway
     setTimeout(() => {
       onSimRendered();
-    }, 1000);
+    }, 6000);
   };
 
   const handleGoHome = () => {
@@ -312,6 +323,13 @@ export default function App() {
         </div>
       )}
 
+      {/* Universal Branded Preloader for smooth crossfade transitions */}
+      <BrandedPreloader
+        progress={warmupProgress * 100}
+        isVisible={isTransitioning && !isSimReady}
+        statusText="INITIALIZING 3D UNIVERSE"
+      />
+
       {/* Simulator Layer: mounted when route is sim or during transition */}
       {(route.mode === 'sim' || isTransitioning) && (
         <div
@@ -362,13 +380,15 @@ export default function App() {
         </Canvas>
       </SceneErrorBoundary>
 
-      {/* 2. Fullscreen MapLibre 3D Vector Map & Mapillary Street View */}
-      <Suspense fallback={null}>
-        <EarthMapLibreViewer
-          isActive={isMapLibreActive}
-          onClose={() => setIsMapLibreActive(false)}
-        />
-      </Suspense>
+      {/* 2. Fullscreen MapLibre 3D Vector Map & Mapillary Street View (lazy mounted only on surface activation) */}
+      {isMapLibreActive && (
+        <Suspense fallback={null}>
+          <EarthMapLibreViewer
+            isActive={isMapLibreActive}
+            onClose={() => setIsMapLibreActive(false)}
+          />
+        </Suspense>
+      )}
 
       {/* 3. Directed Christopher Nolan Prologue Overlay */}
       <Suspense fallback={null}>
